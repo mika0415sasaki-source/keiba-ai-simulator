@@ -1,0 +1,1877 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Safari v42</title>
+<meta name="theme-color" content="#161b22">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KEIBA AI">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
+</style></head><body>
+<header><h1>ð KEIBA AI Simulator v42</h1><div class="sub">iPhone Webã¢ããªç â ç´æ¥HTMLå®å®ç / æ¨ªä¸ç·ã¹ã¿ã¼ã</div></header>
+<div class="top"><div class="flow"><button id="navImport">â  åºé¦¬è¡¨åè¾¼</button><button id="navAnalyze" class="secondary">â¡ AIåæ</button><button id="navPlay" class="secondary">â¢ èµ°ããã</button><button id="navBatch" class="secondary">â£ 1,000å</button></div></div>
+<div class="wrap"><aside>
+<div class="g"><label>é¦¬ãã¼ã¿å­¦ç¿ã¡ã¢ãª</label>
+<div class="card small" style="margin-top:0">
+ä¿å­é¦¬æ°: <b id="memoryCount">0</b>é ­<br>
+<span id="memoryStatus">åãé¦¬ãæ¬¡ååºèµ°ãããéå»ãã¼ã¿ãèªåçµ±åãJRAç¢ºå®çµæãã­ã¹ããè²¼ãã ãã§çé å­¦ç¿ã§ãã¾ãã</span>
+<div class="grid2" style="margin-top:6px">
+<button id="saveMemory" type="button">ð¾ ç¾å¨ã®é¦¬ãä¿å­</button>
+<button id="clearMemory" type="button" class="secondary">ð ã¡ã¢ãªåæå</button>
+<button id="cleanMemory" type="button" class="secondary" style="grid-column:1/-1">ð§¹ éè¤ã»ä¸è¦ãã¼ã¿ãæ´ç</button>
+<button id="purgeBadMemory" type="button" class="secondary" style="grid-column:1/-1">ð¡ï¸ èª¤åè¾¼ãã¼ã¿ãåé¤</button>
+</div>
+</div></div>
+<div class="g"><label>åºé¦¬è¡¨ / è¿èµ°ãã¼ã¿åè¾¼</label>
+<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRAåºé¦¬è¡¨URLããèªååè¾¼</b><br><input id="jraEntryUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="resetJraRoute" type="button" class="secondary" style="margin-bottom:6px">ð åå¾çµè·¯ããªã»ãã</button>
+<button id="showJraDiag" type="button" class="secondary" style="margin-bottom:6px">ð©º è¨ºæ­ãã¼ã¿ãè¡¨ç¤º</button>
+<button id="fetchJraEntry" type="button" style="margin-top:5px">ð JRAåºé¦¬è¡¨ãåå¾</button><div id="jraEntryStatus" class="small" style="margin-top:5px">iPhoneã§ã¯Safariã®æ¨©éå¶éã§ã¯ãªãããã¼ããèªåèª­åã§ããªãå ´åãããã¾ãããã®å ´åã¯URLæ¬ã¸1åã ãè²¼ãä»ãã¦ãã ããã</div></div>
+<div class="small" style="margin-bottom:5px">æ¡å¼µCSV: æ ,é¦¬çª,é¦¬å,èè³ª,é¨æ,æ¤é,é¦¬ä½é,ãªããº,è¿èµ°â¦ãã¾ãã¯JRAåºé¦¬è¡¨ã®æå­åãè²¼ãä»ã</div>
+<textarea id="bulk" placeholder="ä¾:
+3,5,ãµã³ãã«ãã¼ã¹,å·®ã,ââé¨æ,57.0,486,8.4,2,34.1,1800,è¯,...
+
+JRAãã¼ã¸ã®åºé¦¬è¡¨ãã­ã¹ãè²¼ãä»ãã«ãå¯¾å¿"></textarea><div class="grid2"><button id="sample" class="secondary">æ¡å¼µãµã³ãã«</button><button id="apply">åºé¦¬è¡¨ãè§£æã»åæ </button></div><div id="importStatus" class="small">æå¤§18é ­ã¾ã§å¯¾å¿ããµã³ãã«å¥å â åºé¦¬è¡¨ãåæ  ã§ç¢ºèªã§ãã¾ãã</div></div>
+<div class="grid2"><div class="g"><label>ç«¶é¦¬å ´</label><select id="course"></select></div><div class="g"><label>è / ãã¼ã</label><select id="surface"><option>è</option><option>ãã¼ã</option></select></div></div>
+<div class="grid2"><div class="g"><label>ã³ã¼ã¹åºå</label><select id="variant"></select></div><div class="g"><label>è·é¢</label><select id="distance"></select></div></div>
+<div class="grid2"><div class="g"><label>é¦¬å ´</label><select id="going"><option>è¯</option><option>ç¨é</option><option>é</option><option>ä¸è¯</option></select></div><div class="g"><label>ãã¼ã¹</label><select id="pace"><option value="auto">AIèªå</option><option value="slow">ã¹ã­ã¼</option><option value="avg">å¹³å</option><option value="fast">ãã¤</option></select><div id="paceAutoStatus" class="small" style="margin-top:5px"></div></div></div>
+<div class="grid2"><div class="g"><label>åçéåº¦</label><select id="speed"><option value="1">1åé</option><option value="2">2åé</option><option value="3">3åé</option></select></div><div class="g"><label>ä¸æ¬åæ°</label><select id="count"><option value="100">100å</option><option value="1000" selected>1,000å</option><option value="10000">10,000å</option></select></div></div>
+<button id="play">â¶ ã·ãã¥ã¬ã¼ã·ã§ã³éå§</button><button id="batch" class="secondary" style="margin-top:6px">ð ä¸æ¬ã·ãã¥ã¬ã¼ã·ã§ã³</button><button id="reset" class="secondary" style="margin-top:6px">âº ãªã»ãã</button>
+<div class="g" style="margin-top:10px"><label>ã¬ã¼ã¹çµæãå­¦ç¿</label>
+<input id="resultLearn" placeholder="ä¾ 1:3,2:1,3:5,4:2">
+<button id="learnResult" class="secondary" style="margin-top:5px">ð§  çµæãå­¦ç¿</button>
+<div id="learnStatus" class="small"></div></div>
+<div class="g" style="margin-top:10px"><label>JRAç¢ºå®çµæããèªåå­¦ç¿</label>
+<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRAç¢ºå®çµæURLããèªåå­¦ç¿</b><br><input id="jraResultUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">ð ç¢ºå®çµæãåå¾ãã¦å­¦ç¿</button><div id="jraResultStatus" class="small" style="margin-top:5px">ç¢ºå®çµæã®ãªã³ã¯ãã³ãã¼ãã¦ããã®ãã¿ã³ãæ¼ãã ãã§ãèªåå­¦ç¿ã§ãã¾ãã</div></div>
+<textarea id="resultText" placeholder="JRAã®ã¬ã¼ã¹çµæãã¼ã¸ãã³ãã¼ãã¦ãããã«è²¼ãä»ã"></textarea>
+<div class="grid2">
+<button id="previewResult" class="secondary">ð çµæãè§£æ</button>
+<button id="autoLearnResult">ð§  èªåå­¦ç¿</button>
+</div>
+<div id="autoLearnStatus" class="small">ç¢ºå®çé ãèªåã§èª­ã¿åããé¦¬åã»é¦¬çªã§ç§åãã¾ãã</div></div>
+<div class="g" style="margin-top:12px"><label>åºèµ°é¦¬ç·¨é</label>
+<div class="runner small" style="margin-bottom:5px"><span>æ </span><span>é¦¬çª</span><span>é¦¬å</span><span>èè³ª</span><span>é¨æ</span><span>æ¤é</span><span>é¦¬ä½é</span><span>é</span><span>æ</span><span>å</span></div>
+<div id="runners"></div></div>
+</aside>
+<main><div style="margin:8px 0;padding:10px;border:1px solid #30363d;border-radius:10px;background:#161b22;font-size:12px;line-height:1.6">
+<b>Safariåä½ç</b> â ã­ã°ã¤ã³ä¸è¦ãå­¦ç¿ãã¼ã¿ã¯ãã®iPhoneã®Safariåã«ä¿å­ããã¾ããJRAã®URLããç´æ¥åè¾¼ãè©¦ããåå¾ã§ããªãå ´åã ãè²¼ãä»ãæ¹å¼ã¸åãæ¿ãã¾ãã
+</div>
+<div class="tabs"><button id="tab2d" class="active">2D</button><button id="tab3d" class="secondary">3D</button></div>
+<div class="small">æ è²: <span class="pill" style="background:#fff;color:#111">1ç½</span><span class="pill" style="background:#222;color:#fff">2é»</span><span class="pill" style="background:#e53935;color:#fff">3èµ¤</span><span class="pill" style="background:#1976d2;color:#fff">4é</span><span class="pill" style="background:#fdd835;color:#111">5é»</span><span class="pill" style="background:#2e7d32;color:#fff">6ç·</span><span class="pill" style="background:#ef6c00;color:#fff">7æ©</span><span class="pill" style="background:#ec407a;color:#fff">8æ¡</span></div>
+<div class="stage"><div id="badge" class="badge"></div><div id="runstatus" class="status">åæ­¢ä¸­</div><canvas id="canvas"></canvas></div>
+<div class="card small"><b>ã¬ã¼ã¹å±é¢:</b> <span id="phase">ã¹ã¿ã¼ãå</span><br><span id="finish">åçããã¨çé ã©ããã«ã´ã¼ã«ãã¾ãã</span></div>
+<div class="bottom"><div class="card"><b>ã·ãã¥ã¬ã¼ã·ã§ã³çµæ</b><table><thead><tr><th>å°</th><th>é¦¬</th><th>1ç</th><th>é£å¯¾</th><th>3çå</th></tr></thead><tbody id="ranking"></tbody></table></div><div class="card"><b>å±éåæ</b><div id="analysis" class="small" style="line-height:1.7;margin-top:6px"></div></div></div>
+<div class="bottom"><div class="card"><b>AIæçµè©ä¾¡</b><div id="aiSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div><div class="card"><b>å¦å³å¤å®</b><div id="valueSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div></div></main></div>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+const E={course:$('course'),surface:$('surface'),variant:$('variant'),distance:$('distance'),going:$('going'),pace:$('pace'),speed:$('speed'),count:$('count'),bulk:$('bulk'),sample:$('sample'),apply:$('apply'),importStatus:$('importStatus'),play:$('play'),batch:$('batch'),reset:$('reset'),resultLearn:$('resultLearn'),learnResult:$('learnResult'),learnStatus:$('learnStatus'),resultText:$('resultText'),previewResult:$('previewResult'),autoLearnResult:$('autoLearnResult'),autoLearnStatus:$('autoLearnStatus'),runners:$('runners'),tab2d:$('tab2d'),tab3d:$('tab3d'),canvas:$('canvas'),badge:$('badge'),runstatus:$('runstatus'),phase:$('phase'),finish:$('finish'),ranking:$('ranking'),analysis:$('analysis'),paceAutoStatus:$('paceAutoStatus'),aiSummary:$('aiSummary'),valueSummary:$('valueSummary'),memoryCount:$('memoryCount'),memoryStatus:$('memoryStatus'),saveMemory:$('saveMemory'),clearMemory:$('clearMemory'),cleanMemory:$('cleanMemory'),purgeBadMemory:$('purgeBadMemory'),navImport:$('navImport'),navAnalyze:$('navAnalyze'),navPlay:$('navPlay'),navBatch:$('navBatch')};
+const C={
+'æ°æ½ç«¶é¦¬å ´':{dir:'å·¦',rx:.43,ry:118,variants:{è:{ç´ç·:[1000],ååã:[1200,1400,2000,2200,2400],å¤åã:[1400,1600,1800,2000,3000,3200]},ãã¼ã:{éå¸¸:[1200,1800,2500]}}},
+'ä¸­äº¬ç«¶é¦¬å ´':{dir:'å·¦',rx:.39,ry:130,variants:{è:{éå¸¸:[1200,1400,1600,2000,2200]},ãã¼ã:{éå¸¸:[1200,1400,1800,1900,2500]}}},
+'æ­å¹ç«¶é¦¬å ´':{dir:'å³',rx:.34,ry:145,variants:{è:{éå¸¸:[1200,1500,1800,2000,2600]},ãã¼ã:{éå¸¸:[1000,1700,2400]}}},
+'å½é¤¨ç«¶é¦¬å ´':{dir:'å³',rx:.35,ry:142,variants:{è:{éå¸¸:[1200,1800,2000,2600]},ãã¼ã:{éå¸¸:[1000,1700,2400]}}},
+'æ±äº¬ç«¶é¦¬å ´':{dir:'å·¦',rx:.44,ry:132,variants:{è:{éå¸¸:[1400,1600,1800,2000,2300,2400,2500,3400]},ãã¼ã:{éå¸¸:[1300,1400,1600,2100,2400]}}},
+'éªç¥ç«¶é¦¬å ´':{dir:'å³',rx:.40,ry:132,variants:{è:{ååã:[1200,1400,2000,2200,3000],å¤åã:[1400,1600,1800,2400,2600]},ãã¼ã:{éå¸¸:[1200,1400,1800,2000,2400]}}},
+'ä¸­å±±ç«¶é¦¬å ´':{dir:'å³',rx:.36,ry:142,variants:{è:{ååã:[1800,2000,2500,3600],å¤åã:[1200,1600,2200]},ãã¼ã:{éå¸¸:[1200,1800,2400,2500]}}},
+'ç¦å³¶ç«¶é¦¬å ´':{dir:'å³',rx:.34,ry:138,variants:{è:{éå¸¸:[1200,1800,2000,2600]},ãã¼ã:{éå¸¸:[1150,1700,2400]}}},
+'äº¬é½ç«¶é¦¬å ´':{dir:'å³',rx:.40,ry:134,variants:{è:{ååã:[1200,1400,1600,2000],å¤åã:[1400,1600,1800,2000,2200,2400,3000,3200]},ãã¼ã:{éå¸¸:[1200,1400,1800,1900]}}},
+'å°åç«¶é¦¬å ´':{dir:'å³',rx:.34,ry:138,variants:{è:{éå¸¸:[1200,1800,2000,2600]},ãã¼ã:{éå¸¸:[1000,1700,2400]}}}
+};
+const FC={1:['#fff','#111'],2:['#222','#fff'],3:['#e53935','#fff'],4:['#1976d2','#fff'],5:['#fdd835','#111'],6:['#2e7d32','#fff'],7:['#ef6c00','#fff'],8:['#ec407a','#fff']};
+let horses=[],mode='2d',running=false,progress=0,lastTs=0,raf=0,finishTimes=[],raceOrder=[],startReaction=[],lastStats=null;
+const ctx=E.canvas.getContext('2d');
+
+const MEMKEY='keiba_ai_memory_v19';
+function normName(v){return String(v||'').replace(/\s+/g,'').trim()}
+function loadMem(){try{return JSON.parse(localStorage.getItem(MEMKEY)||'{}')}catch(e){return {}}}
+function saveMemObject(m){localStorage.setItem(MEMKEY,JSON.stringify(m));updateMemoryCount()}
+function updateMemoryCount(){
+ const mem=loadMem();
+ const real=Object.values(mem).filter(m=>m&&m.name&&!isSampleOrPlaceholderName(m.name)).length;
+ if(E.memoryCount)E.memoryCount.textContent=real;
+}
+function mergeRuns(oldRuns,newRuns){
+ const all=[...(oldRuns||[]),...(newRuns||[])],seen=new Set(),out=[];
+ all.forEach(r=>{const k=[r.pos,r.last3,r.dist,r.going].join('|');if(!seen.has(k)){seen.add(k);out.push(r)}});
+ return out.slice(-30);
+}
+function distBucket(d){d=Number(d||0);if(d<=1400)return 'ç­è·é¢';if(d<=1800)return 'ãã¤ã«ä¸­è·é¢';if(d<=2200)return 'ä¸­è·é¢';return 'é·è·é¢'}
+function ensureProfile(m){if(!m.profile)m.profile={course:{},going:{},distance:{}};return m.profile}
+function addProfile(bucket,key,pos){
+ if(!bucket[key])bucket[key]={n:0,sum:0,top3:0,wins:0};
+ const x=bucket[key];x.n++;x.sum+=pos;if(pos<=3)x.top3++;if(pos===1)x.wins++;
+}
+function profileBonus(st){
+ if(!st||!st.n)return 0;
+ const avg=st.sum/st.n,top3=st.top3/st.n;
+ let b=0;if(avg<=3)b+=2.5;else if(avg>=8)b-=1.5;if(top3>=.5)b+=1.5;
+ return b;
+}
+function memoryBonus(h){
+ const m=loadMem()[normName(h.name)];if(!m)return 0;
+ const p=ensureProfile(m);
+ let b=0;
+ b+=profileBonus(p.course[E.course.value+'|'+E.surface.value]);
+ b+=profileBonus(p.going[E.going.value]);
+ b+=profileBonus(p.distance[distBucket(E.distance.value)]);
+ return Math.max(-4,Math.min(8,b));
+}
+function applyMemoryHorse(h){
+ const m=loadMem()[normName(h.name)];if(!m)return h;
+ h.runs=mergeRuns(m.runs||[],h.runs||[]);
+ h.sp=Math.round((Number(h.sp||80)*.65)+(Number(m.sp||h.sp||80)*.35));
+ h.st=Math.round((Number(h.st||80)*.65)+(Number(m.st||h.st||80)*.35));
+ h.pw=Math.round((Number(h.pw||80)*.65)+(Number(m.pw||h.pw||80)*.35));
+ if(!h.jockey&&m.jockey)h.jockey=m.jockey;
+ if(!h.body&&m.body)h.body=m.body;
+ return h;
+}
+
+function isSampleOrPlaceholderName(name){
+ const n=normName(name);
+ if(!n)return true;
+ if(/^ãµã³ãã«[A-Zï¼¡-ï¼º0-9ï¼-ï¼]*$/i.test(n))return true;
+ if(/^é¦¬\d{1,2}$/.test(n))return true;
+ if(/^Horse\d{1,2}$/i.test(n))return true;
+ if(/^(ãã­ã¢ã¼ã·ã§ã³|JRA|JRAFUNCLUB|FUNCLUB|Hello|SpecialTimes)$/i.test(n))return true;
+ return false;
+}
+function rememberHorse(h){
+ const k=normName(h.name);if(!k||isSampleOrPlaceholderName(h.name))return;
+ const mem=loadMem(),old=mem[k]||{};
+ const freshRuns=mergeRuns([],h.runs||[]);
+ mem[k]={
+   ...old,name:h.name,sp:h.sp,st:h.st,pw:h.pw,jockey:h.jockey||old.jockey||'',
+   body:h.body||old.body||0,carried:h.carried||old.carried||55,
+   runs:mergeRuns(old.runs||[],freshRuns),profile:old.profile||{course:{},going:{},distance:{}},
+   updated:new Date().toISOString()
+ };
+ localStorage.setItem(MEMKEY,JSON.stringify(mem));
+}
+
+
+function purgeInvalidImportedMemory(){
+ const mem=loadMem(),out={};
+ Object.entries(mem).forEach(([k,m])=>{
+   const n=String(m&&m.name||'').trim();
+   if(!n)return;
+   if(isSampleOrPlaceholderName(n))return;
+   if(/^(æ \d|è\d|ãã¼ã\d|\d{3,4}è|\d{3,4}ãã¼ã|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(n))return;
+   if(/^æ [1-8](ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?$/.test(n))return;
+   out[normName(n)]=m;
+ });
+ saveMemObject(out);
+ return {before:Object.keys(mem).length,after:Object.keys(out).length};
+}
+
+function cleanupMemory(){
+ purgeInvalidImportedMemory();
+ const mem=loadMem(),before=Object.keys(mem).length,out={};
+ Object.values(mem).forEach(m=>{
+   if(!m||!m.name)return;
+   const name=String(m.name).trim();
+   if(!name||isSampleOrPlaceholderName(name))return;
+   const k=normName(name);
+   if(!out[k])out[k]=m;
+   else{
+     const a=out[k],b=m;
+     a.runs=mergeRuns(a.runs||[],b.runs||[]);
+     a.sp=Math.round(Math.max(Number(a.sp||0),Number(b.sp||0))||80);
+     a.st=Math.round(Math.max(Number(a.st||0),Number(b.st||0))||80);
+     a.pw=Math.round(Math.max(Number(a.pw||0),Number(b.pw||0))||80);
+     if(!a.jockey&&b.jockey)a.jockey=b.jockey;
+     if(!a.body&&b.body)a.body=b.body;
+   }
+ });
+ saveMemObject(out);
+ const after=Object.keys(out).length;
+ if(E.memoryStatus)E.memoryStatus.innerHTML='<span class="ok">å­¦ç¿ã¡ã¢ãªãæ´çãã¾ããã '+before+'é ­ â '+after+'é ­</span>';
+}
+
+function rememberAll(){
+ horses.forEach(rememberHorse);updateMemoryCount();
+ if(E.memoryStatus)E.memoryStatus.innerHTML='<span class="ok">ç¾å¨ã®é¦¬ãã¼ã¿ãä¿å­ãã¾ããã</span>'
+}
+function learnResultText(text){
+ const result={};
+ String(text||'').split(',').forEach(p=>{const a=p.split(':');if(a.length===2&&+a[1])result[String(a[0]).trim()]=+a[1]});
+ horses.forEach(h=>{if(result[String(h.no)])rememberHorse(h)});
+ const mem=loadMem();let n=0;
+ horses.forEach(h=>{
+   const pos=result[String(h.no)];if(!pos)return;
+   const k=normName(h.name),m=mem[k];if(!m)return;
+   const p=ensureProfile(m);
+   addProfile(p.course,E.course.value+'|'+E.surface.value,pos);
+   addProfile(p.going,E.going.value,pos);
+   addProfile(p.distance,distBucket(E.distance.value),pos);
+   m.lastFinish=pos;m.updated=new Date().toISOString();n++;
+ });
+ saveMemObject(mem);return n;
+}
+
+function parseJraResultText(txt){
+ const text=String(txt||'').replace(/\r/g,'');
+ const lines=text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ const rows=[];
+ // Fast path: lines that begin with finish position then frame/horse no/name.
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   let m=line.match(/^(\d{1,2})\s+(?:æ )?([1-8])?(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?\s*(\d{1,2})\s+([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»ã¼]+)/);
+   if(!m){
+     m=line.match(/^(\d{1,2})\s+(\d{1,2})\s+([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»ã¼]+)/);
+     if(m){
+       rows.push({pos:+m[1],frame:null,no:String(m[2]),name:m[3]});
+       continue;
+     }
+   }
+   if(m){
+     rows.push({pos:+m[1],frame:m[2]?+m[2]:null,no:String(m[3]),name:m[4]});
+     continue;
+   }
+ }
+ // Fallback: search text blocks for "çé , æ , é¦¬çª, é¦¬å" patterns.
+ if(!rows.length){
+   const rg=/(\d{1,2})\s*(?:ç)?\s*(?:æ \s*)?([1-8])?(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?\s*(\d{1,2})\s+([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»ã¼]{2,30})/g;
+   let m;
+   while((m=rg.exec(text))){
+     const pos=+m[1],no=+m[3];
+     if(pos>=1&&pos<=18&&no>=1&&no<=18)rows.push({pos,frame:m[2]?+m[2]:null,no:String(no),name:m[4]});
+   }
+ }
+ const seen=new Set(),out=[];
+ rows.sort((a,b)=>a.pos-b.pos).forEach(r=>{
+   const k=r.pos+'|'+r.no;
+   if(!seen.has(k)){seen.add(k);out.push(r)}
+ });
+ return out.slice(0,18);
+}
+function matchResultToHorses(rows){
+ const matches=[],unmatched=[];
+ rows.forEach(r=>{
+   let h=horses.find(x=>String(x.no)===String(r.no));
+   if(!h && r.name)h=horses.find(x=>normName(x.name)===normName(r.name));
+   if(h)matches.push({h,row:r}); else unmatched.push(r);
+ });
+ return {matches,unmatched};
+}
+function learnParsedResult(rows){
+ const matched=matchResultToHorses(rows);
+ const mem=loadMem();
+ let learned=0;
+ matched.matches.forEach(({h,row})=>{
+   rememberHorse(h);
+ });
+ const mem2=loadMem();
+ matched.matches.forEach(({h,row})=>{
+   const k=normName(h.name),m=mem2[k];if(!m)return;
+   const p=ensureProfile(m);
+   addProfile(p.course,E.course.value+'|'+E.surface.value,row.pos);
+   addProfile(p.going,E.going.value,row.pos);
+   addProfile(p.distance,distBucket(E.distance.value),row.pos);
+   m.lastFinish=row.pos;
+   m.lastCourse=E.course.value;
+   m.lastSurface=E.surface.value;
+   m.lastDistance=Number(E.distance.value);
+   m.lastGoing=E.going.value;
+   m.lastRaceLearnedAt=new Date().toISOString();
+   m.updated=new Date().toISOString();
+   learned++;
+ });
+ saveMemObject(mem2);
+ return {learned,matched:matched.matches.length,unmatched:matched.unmatched};
+}
+function sampleText(){return [
+'1,1,ãµã³ãã«A,éã,é¨æA,56.0,470,4.8,1,34.2,1800,è¯,3,34.8,1800,ç¨é',
+'1,2,ãµã³ãã«B,åè¡,é¨æB,56.0,482,6.1,2,34.5,1600,è¯,1,34.7,1800,è¯',
+'2,3,ãµã³ãã«C,å·®ã,é¨æC,57.0,458,8.6,5,33.8,1800,è¯,2,34.1,2000,è¯',
+'2,4,ãµã³ãã«D,è¿½è¾¼,é¨æD,57.0,496,12.4,7,33.5,1600,è¯,4,33.9,1800,è¯',
+'3,5,ãµã³ãã«E,åè¡,é¨æE,56.0,504,5.5,3,34.6,2000,è¯,5,35.0,2200,ç¨é',
+'3,6,ãµã³ãã«F,å·®ã,é¨æF,55.0,472,10.2,4,34.0,1800,ç¨é,6,34.1,1600,è¯',
+'4,7,ãµã³ãã«G,éã,é¨æG,57.0,510,7.9,2,35.0,2000,é,1,34.8,1800,ç¨é',
+'4,8,ãµã³ãã«H,è¿½è¾¼,é¨æH,55.0,450,14.8,6,33.7,1800,è¯,3,33.9,1600,è¯',
+'5,9,ãµã³ãã«I,åè¡,é¨æI,56.0,488,18.2,4,34.7,1800,è¯,2,34.6,1800,è¯',
+'5,10,ãµã³ãã«J,å·®ã,é¨æJ,57.0,476,9.7,3,34.1,2000,è¯,5,34.4,1800,ç¨é',
+'6,11,ãµã³ãã«K,åè¡,é¨æK,55.0,462,22.0,8,35.0,1800,ç¨é,3,34.7,1600,è¯',
+'6,12,ãµã³ãã«L,è¿½è¾¼,é¨æL,57.0,494,16.3,5,33.9,2000,è¯,4,34.0,1800,è¯',
+'7,13,ãµã³ãã«M,éã,é¨æM,56.0,500,20.5,6,35.2,1800,é,1,34.9,1600,ç¨é',
+'7,14,ãµã³ãã«N,åè¡,é¨æN,57.0,486,11.1,2,34.8,2200,è¯,6,35.1,2000,è¯',
+'7,15,ãµã³ãã«O,å·®ã,é¨æO,55.0,456,25.4,7,34.2,1800,è¯,3,34.1,2000,è¯',
+'8,16,ãµã³ãã«P,è¿½è¾¼,é¨æP,57.0,480,13.9,4,33.8,1600,è¯,8,34.0,1800,è¯',
+'8,17,ãµã³ãã«Q,å·®ã,é¨æQ,56.0,468,32.1,9,34.5,2000,ç¨é,2,34.2,1800,è¯',
+'8,18,ãµã³ãã«R,åè¡,é¨æR,55.0,492,27.6,5,35.0,1800,é,3,34.8,2000,ç¨é'
+].join('\n')}
+function autoFrames(n){
+  n=Math.max(1,Math.min(18,n));
+  const sizes=new Array(8).fill(0);
+  for(let i=0;i<Math.min(n,8);i++)sizes[i]=1;
+  let extra=n-8;
+  // 2é ­ç®ã¯8æ â1æ ã¸ã3é ­ç®ã8æ â1æ ã¸è¿½å ã
+  for(let pass=0;pass<2 && extra>0;pass++){
+    for(let f=7;f>=0 && extra>0;f--){
+      sizes[f]++;extra--;
+    }
+  }
+  const frames=[];
+  sizes.forEach((cnt,f)=>{for(let k=0;k<cnt;k++)frames.push(f+1)});
+  return frames.slice(0,n);
+}
+
+function inferStyleFromText(t){
+ if(/éã/.test(t))return 'éã';
+ if(/è¿½è¾¼|è¿½ãè¾¼ã¿/.test(t))return 'è¿½è¾¼';
+ if(/å·®ã/.test(t))return 'å·®ã';
+ return 'åè¡';
+}
+
+function cleanCellText(v){return String(v||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/\n+/g,'\n').trim()}
+
+function detectRaceMetaFromJra(text){
+  const t=String(text||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ');
+  const meta={};
+
+  // Prefer the race header / page title neighborhood instead of the whole page.
+  const lines=t.split('\n').map(x=>x.trim()).filter(Boolean);
+  let header='';
+  const raceIdx=lines.findIndex(x=>/\d{1,2}R|ç¬¬\d+å|ç«¶èµ°|çºèµ°|è|ãã¼ã/.test(x));
+  if(raceIdx>=0)header=lines.slice(Math.max(0,raceIdx-8),Math.min(lines.length,raceIdx+12)).join(' ');
+  if(!header)header=lines.slice(0,80).join(' ');
+
+  const courses=['æ­å¹','å½é¤¨','ç¦å³¶','æ°æ½','æ±äº¬','ä¸­å±±','ä¸­äº¬','äº¬é½','éªç¥','å°å'];
+  // Look for explicit meeting/race expressions first.
+  for(const c of courses){
+    const re1=new RegExp('(?:ç¬¬\\d+å\\s*)?'+c+'(?:ç«¶é¦¬|ç«¶é¦¬å ´|\\s*\\d+æ¥)');
+    if(re1.test(header)){meta.course=c+'ç«¶é¦¬å ´';break}
+  }
+  // Fallback: choose the course nearest to an R/race token in header.
+  if(!meta.course){
+    let best=null;
+    for(const c of courses){
+      const i=header.indexOf(c);
+      if(i>=0){
+        const d=Math.min(...[...header.matchAll(/\d{1,2}R/g)].map(mm=>Math.abs(i-mm.index)).concat([99999]));
+        if(!best||d<best.d)best={c,d};
+      }
+    }
+    if(best)meta.course=best.c+'ç«¶é¦¬å ´';
+  }
+
+  let mm=header.match(/(è|ãã¼ã)\s*([12]\d{3}|3\d{3})\s*m?/i);
+  if(!mm)mm=header.match(/([12]\d{3}|3\d{3})\s*m?\s*(è|ãã¼ã)/i);
+  if(mm){
+    if(mm[1]==='è'||mm[1]==='ãã¼ã'){meta.surface=mm[1];meta.distance=+mm[2]}
+    else {meta.distance=+mm[1];meta.surface=mm[2]}
+  }
+  if(/ç¨é/.test(header))meta.going='ç¨é';
+  else if(/ä¸è¯/.test(header))meta.going='ä¸è¯';
+  else if(/é¦¬å ´ç¶æ\s*é|éé¦¬å ´/.test(header))meta.going='é';
+  else if(/é¦¬å ´ç¶æ\s*è¯|è¯é¦¬å ´/.test(header))meta.going='è¯';
+  return meta;
+}
+function applyRaceMeta(meta){
+  if(!meta)return;
+  if(meta.course && [...E.course.options].some(o=>o.value===meta.course)){
+    E.course.value=meta.course;
+    E.course.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  if(meta.surface && [...E.surface.options].some(o=>o.value===meta.surface)){
+    E.surface.value=meta.surface;
+    E.surface.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  if(meta.distance){
+    const setDist=()=>{
+      const v=String(meta.distance);
+      if([...E.distance.options].some(o=>o.value===v))E.distance.value=v;
+    };
+    setDist(); setTimeout(setDist,0);
+  }
+  if(meta.going && [...E.going.options].some(o=>o.value===meta.going))E.going.value=meta.going;
+}
+function compactHorseCsv(list){
+  return list.map(h=>[
+    h.frame,h.no,h.name,h.style||'åè¡',h.jockey||'',h.carried||55,h.body||'',h.odds||'',
+    h.sp||80,h.st||80,h.pw||80
+  ].join(',')).join('\n');
+}
+
+
+
+function parseJraMarkdownV39(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ const marker=/^(?:!\[Image\s+\d+\s*:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)\]\([^)]+\)|Image:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡))/gm;
+ const marks=[...raw.matchAll(marker)];
+ const out=[];
+
+ const clean=s=>String(s||'')
+   .replace(/\*\*/g,'')
+   .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+   .replace(/!\[Image[^\]]*\]\([^)]+\)/g,' ')
+   .replace(/\u00a0/g,' ')
+   .replace(/[ \t]+/g,' ')
+   .trim();
+
+ for(let i=0;i<marks.length;i++){
+   const frame=+(marks[i][1]||marks[i][2]);
+   const begin=marks[i].index+marks[i][0].length;
+   const end=i+1<marks.length?marks[i+1].index:raw.length;
+   const block=raw.slice(begin,end);
+   const lines=block.split('\n').map(clean).filter(Boolean);
+
+   // A genuine current-runner block contains a current odds/popularity marker.
+   let oddsLine=-1, oddsM=null;
+   for(let j=0;j<Math.min(lines.length,35);j++){
+     const m=lines[j].match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*(\d{1,2})\s*çªäººæ°\s*[ï¼)]/);
+     if(m){oddsLine=j;oddsM=m;break}
+   }
+   if(!oddsM)continue;
+
+   // Horse number is a standalone 1..18 before the odds line.
+   let no=0,noLine=-1;
+   for(let j=0;j<=oddsLine;j++){
+     const m=lines[j].match(/^(\d{1,2})$/);
+     if(m && +m[1]>=1 && +m[1]<=18){no=+m[1];noLine=j;break}
+   }
+   // Some markdown renderers attach the number to the first token.
+   if(!no){
+     for(let j=0;j<=oddsLine;j++){
+       const m=lines[j].match(/^(\d{1,2})\s+(.+)/);
+       if(m && +m[1]>=1 && +m[1]<=18){no=+m[1];noLine=j;lines[j]=m[2];break}
+     }
+   }
+   if(!no)continue;
+
+   // Name: first plausible Japanese/Latin token after horse number and before odds.
+   let name='';
+   for(let j=Math.max(0,noLine);j<=oddsLine;j++){
+     let x=lines[j]
+       .replace(/^(\d{1,2})\s*/,'')
+       .replace(/^(?:ãã«ã¬ã¤|ãã«å¤|ããªã³ã«ã¼çç¨|ããªã³ã«ã¼)\s*/,'')
+       .trim();
+     if(!x)continue;
+     if(x.includes(oddsM[0]))x=x.slice(0,x.indexOf(oddsM[0])).trim();
+     // remove leading image alt leftovers
+     x=x.replace(/^Image:\s*\S+\s*/,'').trim();
+     const cand=x.match(/([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40})/);
+     if(cand && !/^(çªäººæ°|kg|æ |ç¡|ç|ãã)$/.test(cand[1])){
+       name=cand[1];break;
+     }
+   }
+   if(!name)continue;
+
+   const joined=lines.slice(0,Math.min(lines.length,45)).join(' | ');
+   const bodyM=joined.match(/(\d{3})\s*kg/i);
+   let carried=55,jockey='';
+   const riderM=joined.match(/(?:ç¡|ç|ãã)\d+(?:\/[^\|]{0,12})?\s*\|\s*(\d{2}(?:\.\d)?)\s*kg\s*\|\s*([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ .â³â²âââ]{2,30})/);
+   if(riderM){
+     carried=+riderM[1];
+     jockey=riderM[2].replace(/^[â³â²âââ]\s*/,'').trim();
+   }else{
+     const wm=joined.match(/(\d{2}(?:\.\d)?)\s*kg/);
+     if(wm)carried=+wm[1];
+   }
+
+   out.push(applyMemoryHorse({
+     frame,no:String(no),name,
+     style:inferStyleFromText(block),
+     jockey,carried,
+     body:bodyM?+bodyM[1]:0,
+     odds:+oddsM[1],
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+
+ const uniq=[],seen=new Set();
+ out.sort((a,b)=>+a.no-+b.no).forEach(h=>{
+   if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}
+ });
+ return uniq.slice(0,18);
+}
+
+function expectedMarkdownRunnersV39(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ // Count only frame markers whose following block contains a CURRENT odds marker.
+ const marker=/^(?:!\[Image\s+\d+\s*:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)\]\([^)]+\)|Image:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡))/gm;
+ const ms=[...raw.matchAll(marker)];
+ let n=0;
+ for(let i=0;i<ms.length;i++){
+   const b=ms[i].index+ms[i][0].length;
+   const e=i+1<ms.length?ms[i+1].index:Math.min(raw.length,b+5000);
+   const block=raw.slice(b,e);
+   if(/\d+(?:\.\d+)?\s*[ï¼(]\s*\d{1,2}\s*çªäººæ°\s*[ï¼)]/.test(block.slice(0,2500)))n++;
+ }
+ return n;
+}
+
+function exactRaceMetaV39(url,txt){
+ const meta={};
+ const courseMap={
+  '01':'æ­å¹ç«¶é¦¬å ´','02':'å½é¤¨ç«¶é¦¬å ´','03':'ç¦å³¶ç«¶é¦¬å ´','04':'æ°æ½ç«¶é¦¬å ´','05':'æ±äº¬ç«¶é¦¬å ´',
+  '06':'ä¸­å±±ç«¶é¦¬å ´','07':'ä¸­äº¬ç«¶é¦¬å ´','08':'äº¬é½ç«¶é¦¬å ´','09':'éªç¥ç«¶é¦¬å ´','10':'å°åç«¶é¦¬å ´'
+ };
+ let u='';
+ try{u=decodeURIComponent(String(url||''))}catch(e){u=String(url||'')}
+ // Actual captured URL: ...dde01072026020807... => 07 is course code.
+ const cm=u.match(/CNAME=(?:pw|sw)01dde01(\d{2})/i);
+ if(cm)meta.course=courseMap[cm[1]]||'';
+
+ const raw=String(txt||'').replace(/\u00a0/g,' ');
+ // Explicit race-header course wording only.
+ let m=raw.match(/ã³ã¼ã¹\s*[:ï¼]\s*([0-9,]{4,5})\s*ã¡ã¼ãã«\s*[ï¼(]\s*(è|ãã¼ã)/);
+ if(!m)m=raw.match(/ã³ã¼ã¹\s*[:ï¼]\s*(è|ãã¼ã)\s*([0-9,]{4,5})\s*(?:m|ã¡ã¼ãã«)/i);
+ if(m){
+   if(/^\d/.test(m[1])){meta.distance=+m[1].replace(/,/g,'');meta.surface=m[2]}
+   else{meta.surface=m[1];meta.distance=+m[2].replace(/,/g,'')}
+ }
+ const head=raw.slice(0,12000);
+ if(/é¦¬å ´ç¶æ[:ï¼]?\s*ç¨é|è\s*ç¨é|ãã¼ã\s*ç¨é/.test(head))meta.going='ç¨é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*ä¸è¯|è\s*ä¸è¯|ãã¼ã\s*ä¸è¯/.test(head))meta.going='ä¸è¯';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*é(?:\s|$)/m.test(head))meta.going='é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*è¯(?:\s|$)/m.test(head))meta.going='è¯';
+ return meta;
+}
+
+function parseJraCurrentTableV38(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ const startRe=/^Image:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)\s*\|\s*(\d{1,2})(?:Image:[^|]*)?\s*\|\s*/gm;
+ const starts=[...raw.matchAll(startRe)];
+ const out=[];
+
+ function cleanHorseName(v){
+   let x=String(v||'')
+     .replace(/Image:\s*(?:ãã«ã¬ã¤|ãã«å¤|ãã«ã|ããªã³ã«ã¼çç¨|ããªã³ã«ã¼|ãã¼ã¯ãã¼ã·ã¼ãºçç¨|ã¡ã³ã³çç¨)/g,'')
+     .replace(/Image:\s*/g,'')
+     .trim();
+   return x;
+ }
+
+ for(let i=0;i<starts.length;i++){
+   const m=starts[i];
+   const frame=+m[1], no=+m[2];
+   if(no<1||no>18)continue;
+
+   const begin=m.index+m[0].length;
+   const end=i+1<starts.length?starts[i+1].index:raw.length;
+   const block=raw.slice(begin,end);
+
+   // First physical line contains horse name, odds, body weight and connections.
+   const firstLine=block.split('\n')[0]||'';
+   const oddsM=firstLine.match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*(\d{1,2})\s*çªäººæ°\s*[ï¼)]/);
+   if(!oddsM)continue;
+
+   let beforeOdds=firstLine.slice(0,oddsM.index).trim();
+   beforeOdds=cleanHorseName(beforeOdds);
+
+   // Horse name is everything before odds after removing JRA image labels.
+   // Strip trailing whitespace only; owner/breeder appear AFTER body weight, not before odds.
+   let name=beforeOdds.trim();
+   if(!name || name.length<2 || name.length>40)continue;
+   if(/^(æ \d|è\d|ãã¼ã\d|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(name))continue;
+
+   const bodyM=firstLine.match(/(\d{3})\s*kg/i);
+   const odds=+oddsM[1];
+
+   // Sex/age, carried weight and jockey appear in the 4th table cell, starting with "|".
+   let carried=55,jockey='';
+   const riderM=block.match(/\|\s*(?:ç¡|ç|ãã)\d+\/[^\n|]*?\s+(\d{2}(?:\.\d)?)\s*kg\s+([^|\n]+?)\s*\|/);
+   if(riderM){
+     carried=+riderM[1];
+     jockey=riderM[2]
+       .replace(/^[â³â²âââ]\s*/,'')
+       .replace(/\s+/g,' ')
+       .trim();
+   }
+
+   out.push(applyMemoryHorse({
+     frame,no:String(no),name,
+     style:inferStyleFromText(block),
+     jockey,carried,
+     body:bodyM?+bodyM[1]:0,
+     odds,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+
+ const uniq=[],seen=new Set();
+ out.sort((a,b)=>+a.no-+b.no).forEach(h=>{
+   if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}
+ });
+ return uniq.slice(0,18);
+}
+
+function exactRaceMetaV38(url,txt){
+ const meta={};
+ const courseMap={
+  '01':'æ­å¹ç«¶é¦¬å ´','02':'å½é¤¨ç«¶é¦¬å ´','03':'ç¦å³¶ç«¶é¦¬å ´','04':'æ°æ½ç«¶é¦¬å ´','05':'æ±äº¬ç«¶é¦¬å ´',
+  '06':'ä¸­å±±ç«¶é¦¬å ´','07':'ä¸­äº¬ç«¶é¦¬å ´','08':'äº¬é½ç«¶é¦¬å ´','09':'éªç¥ç«¶é¦¬å ´','10':'å°åç«¶é¦¬å ´'
+ };
+ let u='';
+ try{u=decodeURIComponent(String(url||''))}catch(e){u=String(url||'')}
+ const cm=u.match(/CNAME=(?:pw|sw)01dde01(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})/i);
+ if(cm){
+   meta.course=courseMap[cm[1]]||'';
+   meta.race=+cm[5];
+   meta.date=cm[6];
+ }
+
+ const raw=String(txt||'').replace(/\u00a0/g,' ');
+ // Only explicit JRA race-header wording is accepted.
+ const courseM=raw.match(/ã³ã¼ã¹\s*[:ï¼]\s*([0-9,]{4,5})\s*ã¡ã¼ãã«\s*[ï¼(]\s*(è|ãã¼ã)/);
+ if(courseM){
+   meta.distance=+courseM[1].replace(/,/g,'');
+   meta.surface=courseM[2];
+ }
+
+ // Weather/going is near the race header, before the table header.
+ const headEnd=raw.indexOf('æ   | é¦¬çª');
+ const head=headEnd>0?raw.slice(0,headEnd):raw.slice(0,12000);
+ if(/è\s*ç¨é|ãã¼ã\s*ç¨é|é¦¬å ´ç¶æ[:ï¼]?\s*ç¨é/.test(head))meta.going='ç¨é';
+ else if(/è\s*ä¸è¯|ãã¼ã\s*ä¸è¯|é¦¬å ´ç¶æ[:ï¼]?\s*ä¸è¯/.test(head))meta.going='ä¸è¯';
+ else if(/è\s*é(?:\s|$)|ãã¼ã\s*é(?:\s|$)|é¦¬å ´ç¶æ[:ï¼]?\s*é(?:\s|$)/m.test(head))meta.going='é';
+ else if(/è\s*è¯|ãã¼ã\s*è¯|é¦¬å ´ç¶æ[:ï¼]?\s*è¯/.test(head))meta.going='è¯';
+
+ return meta;
+}
+
+function expectedCurrentRunnersV38(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ const ms=[...raw.matchAll(/^Image:\s*æ [1-8](?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)\s*\|\s*(\d{1,2})(?:Image:[^|]*)?\s*\|/gm)];
+ const nums=new Set(ms.map(m=>+m[1]).filter(n=>n>=1&&n<=18));
+ return nums.size;
+}
+
+function parseJraHtmlV36(html){
+ const doc=new DOMParser().parseFromString(String(html||''),'text/html');
+ const out=[];
+ const rows=[...doc.querySelectorAll('tr')];
+
+ function ct(el){return String(el&&((el.innerText||el.textContent)||'')||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()}
+ function horseNameFromCell(td){
+   // JRA horse links use accessU / horse-related URLs.
+   const links=[...td.querySelectorAll('a')];
+   for(const a of links){
+     const href=String(a.getAttribute('href')||'');
+     const tx=ct(a).replace(/^Image:\s*/i,'').trim();
+     if(/accessU|dud|horse/i.test(href) && /^[ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40}$/.test(tx))return tx;
+   }
+   // The third cell begins with horse name (possibly after an attribute image), then odds.
+   let tx=ct(td).replace(/^Image:\s*(?:ãã«ã¬ã¤|ãã«å¤|ããªã³ã«ã¼çç¨|ããªã³ã«ã¼)?\s*/i,'');
+   const om=tx.match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*\d+\s*çªäººæ°/);
+   if(om){
+     const pre=tx.slice(0,om.index).trim();
+     const ms=[...pre.matchAll(/([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40})/g)];
+     if(ms.length)return ms[ms.length-1][1];
+   }
+   return '';
+ }
+
+ for(const tr of rows){
+   const cells=[...tr.children].filter(x=>/^(TD|TH)$/.test(x.tagName));
+   if(cells.length<4)continue;
+
+   // Current JRA desktop table is exactly: frame | horse no | horse details | sex/weight/jockey | past runs...
+   const frameCell=cells[0], noCell=cells[1], horseCell=cells[2], riderCell=cells[3];
+   const noText=ct(noCell);
+   if(!/^\d{1,2}$/.test(noText))continue;
+   const no=+noText;if(no<1||no>18)continue;
+
+   const htxt=ct(horseCell);
+   if(!/çªäººæ°/.test(htxt))continue; // excludes headers / non-runner rows
+   const name=horseNameFromCell(horseCell);
+   if(!name || /^(æ \d|è\d|ãã¼ã\d|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(name))continue;
+
+   let frame=0;
+   const img=frameCell.querySelector('img');
+   const alt=String(img&&img.getAttribute('alt')||ct(frameCell));
+   let fm=alt.match(/æ \s*([1-8])/);
+   if(!fm){
+     const src=String(img&&img.getAttribute('src')||'');
+     fm=src.match(/\/waku\/([1-8])\.png/i);
+   }
+   frame=fm?+fm[1]:0;
+
+   const om=htxt.match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*\d+\s*çªäººæ°/);
+   const bm=htxt.match(/(\d{3})\s*kg/i);
+   const rtxt=ct(riderCell);
+   const wm=rtxt.match(/(\d{2}(?:\.\d)?)\s*kg/i);
+
+   let jockey='';
+   for(const a of [...riderCell.querySelectorAll('a')]){
+     const href=String(a.getAttribute('href')||'');
+     const tx=ct(a);
+     if(/accessK|jockey|kishu|dkl/i.test(href)&&tx){jockey=tx;break}
+   }
+   if(!jockey && wm){
+     const after=rtxt.slice(wm.index+wm[0].length).trim();
+     const jm=after.match(/^([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ .â³â²ââ]{2,28})/);
+     if(jm)jockey=jm[1].trim();
+   }
+
+   out.push(applyMemoryHorse({
+     frame:frame||1,no:String(no),name,
+     style:inferStyleFromText(ct(tr)),
+     jockey,carried:wm?+wm[1]:55,
+     body:bm?+bm[1]:0,odds:om?+om[1]:0,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+
+ const uniq=[],seen=new Set();
+ out.sort((a,b)=>+a.no-+b.no).forEach(h=>{if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}});
+ return uniq.slice(0,18);
+}
+
+function parseJraPipeTableV36(txt){
+ const lines=String(txt||'').replace(/\r/g,'').split('\n');
+ const out=[];
+ for(const line of lines){
+   if(!line.includes('|')||!line.includes('çªäººæ°'))continue;
+   const c=line.split('|').map(x=>x.replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim());
+   while(c.length&&c[0]==='')c.shift();while(c.length&&c[c.length-1]==='')c.pop();
+   if(c.length<4)continue;
+   const fm=(c[0]||'').match(/æ \s*([1-8])/);
+   const nm=(c[1]||'').match(/^(\d{1,2})$/);
+   if(!nm)continue;
+   const no=+nm[1];if(no<1||no>18)continue;
+   const horse=c[2]||'', rider=c[3]||'';
+   const om=horse.match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*\d+\s*çªäººæ°/);
+   if(!om)continue;
+   let pre=horse.slice(0,om.index).replace(/^Image:\s*/i,'').replace(/^(?:ãã«ã¬ã¤|ãã«å¤)\s*/,'').trim();
+   const names=[...pre.matchAll(/([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40})/g)];
+   if(!names.length)continue;
+   const name=names[names.length-1][1];
+   const bm=horse.match(/(\d{3})\s*kg/i);
+   const wm=rider.match(/(\d{2}(?:\.\d)?)\s*kg/i);
+   let jockey='';
+   if(wm){
+     const jm=rider.slice(wm.index+wm[0].length).trim().match(/^([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ .â³â²ââ]{2,28})/);
+     if(jm)jockey=jm[1].trim();
+   }
+   out.push(applyMemoryHorse({frame:fm?+fm[1]:1,no:String(no),name,style:inferStyleFromText(line),jockey,carried:wm?+wm[1]:55,body:bm?+bm[1]:0,odds:+om[1],sp:80,st:80,pw:80,runs:[]}));
+ }
+ const uniq=[],seen=new Set();out.sort((a,b)=>+a.no-+b.no).forEach(h=>{if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}});
+ return uniq.slice(0,18);
+}
+
+function expectedRunnerCountV36(html,txt){
+ if(html){
+   const doc=new DOMParser().parseFromString(String(html),'text/html');
+   let n=0;
+   [...doc.querySelectorAll('tr')].forEach(tr=>{
+     const cs=[...tr.children].filter(x=>/^(TD|TH)$/.test(x.tagName));
+     if(cs.length>=4 && /^\d{1,2}$/.test(String(cs[1].textContent||'').trim()) && /çªäººæ°/.test(String(cs[2].textContent||'')))n++;
+   });
+   if(n)return n;
+ }
+ const rows=String(txt||'').split('\n').filter(x=>x.includes('|')&&/çªäººæ°/.test(x)&&/æ [1-8]/.test(x));
+ return rows.length||0;
+}
+
+function parseJraHtml(html){
+ const doc=new DOMParser().parseFromString(String(html||''),'text/html');
+ const rows=[...doc.querySelectorAll('tr')];
+ const out=[];
+ const horseNameRe=/^[ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40}$/;
+
+ rows.forEach(tr=>{
+   const cells=[...tr.querySelectorAll('th,td')];
+   if(cells.length<3)return;
+   const texts=cells.map(c=>cleanCellText(c.innerText||c.textContent||''));
+
+   // Horse number: prefer dedicated short cell 1..18.
+   let noIdx=-1,no=0;
+   for(let i=0;i<Math.min(texts.length,6);i++){
+     const mm=texts[i].match(/^(\d{1,2})$/);
+     if(mm&&+mm[1]>=1&&+mm[1]<=18){noIdx=i;no=+mm[1];break}
+   }
+   if(noIdx<0)return;
+
+   // Horse name: prefer anchor that looks like a horse link / valid Japanese horse name.
+   let name='', horseIdx=-1;
+   for(let i=noIdx+1;i<cells.length;i++){
+     const links=[...cells[i].querySelectorAll('a')];
+     for(const a of links){
+       const tx=cleanCellText(a.innerText||a.textContent||'');
+       const href=String(a.getAttribute('href')||'');
+       if(tx && horseNameRe.test(tx) &&
+          !/^(ãªããº|äººæ°|è©³ç´°|é¨æ|èª¿æå¸«|é¦¬ä¸»|è¡çµ±|JRA|åºé¦¬è¡¨)$/.test(tx) &&
+          (/horse|uma|accessU|accessS|JRADB/i.test(href) || tx.length>=3)){
+         name=tx;horseIdx=i;break;
+       }
+     }
+     if(name)break;
+   }
+
+   // Fallback: inspect each cell for a clean standalone horse-like token.
+   if(!name){
+     for(let i=noIdx+1;i<texts.length;i++){
+       const toks=texts[i].split('\n').map(x=>x.trim()).filter(Boolean);
+       for(const tx of toks){
+         if(horseNameRe.test(tx) &&
+            !/^(ç¡|ç|ãã)\d|^(è|ãã¼ã)\d+|^æ \d|^\d+kg$|^(è¯|ç¨é|é|ä¸è¯)$/.test(tx) &&
+            !/^(æ æ±|ç¾æµ¦|é¹¿æ¯|é»é¹¿æ¯|éé¹¿æ¯|è¦æ¯|é¨æ|èª¿æå¸«|é¦¬ä¸»|çç£è)$/.test(tx)){
+           name=tx;horseIdx=i;break;
+         }
+       }
+       if(name)break;
+     }
+   }
+   if(!name)return;
+
+   const rowText=texts.join(' ');
+   let odds=0,body=0,carried=55,jockey='',frame=0;
+
+   // Odds
+   const om=rowText.match(/(?:åå\s*)?(\d+(?:\.\d+)?)\s*(?:\(|ï¼)\s*\d+çªäººæ°\s*(?:\)|ï¼)/);
+   if(om)odds=+om[1];
+
+   // Body weight
+   const bm=rowText.match(/(?:é¦¬ä½é[:ï¼]?\s*)?(\d{3})\s*kg/i);
+   if(bm)body=+bm[1];
+
+   // Frame
+   const rowHtml=tr.outerHTML||'';
+   const fm=rowHtml.match(/æ (?:çª)?[^1-8]*([1-8])|waku[_-]?([1-8])/i);
+   if(fm)frame=+(fm[1]||fm[2]);
+
+   // Carried weight + jockey: prefer cell after horse cell, but scan the row.
+   for(let i=0;i<texts.length;i++){
+     const tx=texts[i];
+     const wm=tx.match(/(?:æ¤é[:ï¼]?\s*)?(\d{2}(?:\.\d)?)\s*(?:kg)?/);
+     if(wm&&+wm[1]>=45&&+wm[1]<=65)carried=+wm[1];
+
+     const links=[...cells[i].querySelectorAll('a')];
+     for(const a of links){
+       const nm=cleanCellText(a.innerText||a.textContent||'');
+       const href=String(a.getAttribute('href')||'');
+       if(nm && nm!==name && /^[ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ ]{2,20}$/.test(nm) &&
+          (/jockey|kishu|accessK/i.test(href) || /é¨æ/.test(tx))){
+         jockey=nm.replace(/\s+/g,' ').trim();
+       }
+     }
+   }
+
+   out.push(applyMemoryHorse({
+     frame:frame||1,no:String(no),name,
+     style:inferStyleFromText(rowText),jockey,carried,body,odds,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ });
+
+ const uniq=[],seen=new Set();
+ out.sort((a,b)=>Number(a.no)-Number(b.no)).forEach(h=>{
+   const k=normName(h.name);
+   if(k&&!seen.has(k)){seen.add(k);uniq.push(h)}
+ });
+ if(uniq.length){
+   const auto=autoFrames(uniq.length);
+   uniq.forEach((h,i)=>{if(!(h.frame>=1&&h.frame<=8))h.frame=auto[i]||1});
+ }
+ return uniq.slice(0,18);
+}
+
+
+function parseJraLooseText(txt){
+ const raw=String(txt||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
+ const lines=raw.split('\n').map(x=>x.replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim()).filter(Boolean);
+ const out=[];
+ const bad=/^(JRA|æ¥æ¬ä¸­å¤®ç«¶é¦¬ä¼|ãã­ã¢ã¼ã·ã§ã³|ã¡ãã¥ã¼|æ¬æã¸|ã¬ã¼ã¹çµæ|ãªããº|åºé¦¬è¡¨|é¦¬å|é¨æ|èª¿æå¸«|é¦¬ä¸»|çç£è|è¡çµ±|JRA FUN CLUB)$/i;
+
+ // Detect horse names from the characteristic JRA "odds (Nçªäººæ°)" neighborhood.
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   const pop=line.match(/(\d+(?:\.\d+)?)\s*(?:\(|ï¼)\s*(\d{1,2})\s*çªäººæ°\s*(?:\)|ï¼)/);
+   if(!pop)continue;
+
+   let name='', no=0, frame=0, body=0, carried=55, jockey='';
+   // Search backwards for a plausible horse name and number.
+   for(let j=i;j>=Math.max(0,i-8);j--){
+     const x=lines[j].replace(/^[#>*\-\s]+/,'').trim();
+     if(!no){
+       const nm=x.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+       if(nm && +nm[1]>=1 && +nm[1]<=18)no=+nm[1];
+     }
+     if(!frame){
+       const fm=x.match(/æ \s*([1-8])|([1-8])\s*æ /);
+       if(fm)frame=+(fm[1]||fm[2]);
+     }
+     if(!name){
+       const candidates=x.split(/\s{2,}|\t|[|]/).map(v=>v.trim()).filter(Boolean);
+       for(const c0 of candidates){
+         const c=c0.replace(/\d+(?:\.\d+)?\s*(?:\(|ï¼)\s*\d+çªäººæ°.*$/,'').trim();
+         if(c.length>=2&&c.length<=30&&!bad.test(c)&&!/^(æ \d|\d{3,4}(?:è|ãã¼ã)|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(c)&&
+            /^[ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]+$/.test(c)&&
+            !/^(ç¡|ç|ãã)\d|^\d+(?:\.\d+)?$|kg$/i.test(c)){
+           name=c; break;
+         }
+       }
+     }
+   }
+   // Often horse name and odds are on the same line.
+   if(!name){
+     const before=line.slice(0,pop.index).trim();
+     const mm=before.match(/([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,30})\s*$/);
+     if(mm&&!bad.test(mm[1]))name=mm[1];
+   }
+   if(!name)continue;
+
+   // Search nearby for body weight, carried weight and jockey.
+   for(let j=Math.max(0,i-5);j<=Math.min(lines.length-1,i+8);j++){
+     const x=lines[j];
+     if(!body){
+       const bm=x.match(/(?:é¦¬ä½é[:ï¼]?\s*)?(\d{3})\s*kg/i);
+       if(bm)body=+bm[1];
+     }
+     const wm=x.match(/(?:æ¤é[:ï¼]?\s*)?(\d{2}(?:\.\d)?)\s*(?:kg)?/);
+     if(wm&&+wm[1]>=45&&+wm[1]<=65)carried=+wm[1];
+     const jm=x.match(/(?:é¨æ[:ï¼]?\s*)?([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ ]{2,20})$/);
+     if(jm&&!/(èª¿æå¸«|é¦¬ä¸»|çç£è|ç¾æµ¦|æ æ±|ç¡|ç|ãã)/.test(x))jockey=jm[1].trim();
+   }
+
+   out.push(applyMemoryHorse({
+     frame:frame||1,no:String(no||out.length+1),name,
+     style:inferStyleFromText(lines.slice(Math.max(0,i-8),Math.min(lines.length,i+9)).join(' ')),
+     jockey,carried,body,odds:+pop[1],sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+ const uniq=[],seen=new Set();
+ out.forEach(h=>{
+   const k=normName(h.name);
+   if(k&&!seen.has(k)&&!isSampleOrPlaceholderName(h.name)){seen.add(k);uniq.push(h)}
+ });
+ uniq.sort((a,b)=>Number(a.no)-Number(b.no));
+ if(uniq.length){
+   const auto=autoFrames(uniq.length);
+   uniq.forEach((h,i)=>{if(!(h.frame>=1&&h.frame<=8))h.frame=auto[i]||1});
+ }
+ return uniq.slice(0,18);
+}
+
+
+function parseJraMarkdownBlocksV35(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ const out=[];
+
+ // Frame image positions. The current frame applies until the next frame image.
+ const frames=[...raw.matchAll(/!\[Image\s*\d*:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?\]\([^)]+\/waku\/[1-8]\.png\)/g)]
+   .map(m=>({i:m.index,end:m.index+m[0].length,frame:+m[1]}));
+
+ // Actual JRA reader format observed:
+ // ...waku/1.png)1**48.9**(12 çªäººæ°) ...
+ // Within the same frame block there can be multiple horses, so detect EVERY such head.
+ const heads=[...raw.matchAll(/(?:^|[\n\s)])(\d{1,2})\s*\*{0,2}(\d+(?:\.\d+)?)\*{0,2}\s*(?:\(|ï¼)\s*(\d{1,2})\s*çªäººæ°\s*(?:\)|ï¼)/g)]
+   .map(m=>({i:m.index,end:m.index+m[0].length,no:+m[1],odds:+m[2],pop:+m[3]}))
+   .filter(x=>x.no>=1&&x.no<=18);
+
+ const badExact=/^(JRA|åºé¦¬è¡¨|ãªããº|äººæ°|é¨æ|èª¿æå¸«|é¦¬ä¸»|çç£è|è¡çµ±|ã¬ã¼ã¹çµæ|æ±äº¬|ä¸­å±±|ä¸­äº¬|äº¬é½|éªç¥|æ°æ½|ç¦å³¶|æ­å¹|å½é¤¨|å°å|ãã¼ã¶ã³ãã¡ã¼ã |ç¤¾å°ãã¡ã¼ã |è°·å·ç§å ´|ä¸æ²³è¾ºç§å ´|è¿½åãã¡ã¼ã |ç½èãã¡ã¼ã )$/;
+ const badWords=/(ç§å ´|ãã¡ã¼ã |ç«¶é¦¬å ´|ãã¬ã¼ãã³ã°|ã¬ã¼ã·ã³ã°|ãã¼ã«ãã£ã³ã°|ã¯ã©ã|é¦¬ä¸»|çç£|èª¿æå¸«)/;
+
+ function currentFrame(pos){
+   let f=1;
+   for(const x of frames){if(x.i<=pos)f=x.frame;else break}
+   return f;
+ }
+ function cleanLinkText(v){
+   return String(v||'').replace(/\*\*/g,'').replace(/^Image:\s*/i,'').trim();
+ }
+ function isHorseName(tx){
+   if(!tx||tx.length<2||tx.length>30)return false;
+   if(badExact.test(tx)||badWords.test(tx))return false;
+   if(/^(ç¡|ç|ãã)\d|^\d|kg$|çªäººæ°|æ \d|^(è¯|ç¨é|é|ä¸è¯)$/.test(tx))return false;
+   // Japanese racehorse names are typically katakana/kanji/Latin; avoid spaces and punctuation-heavy labels.
+   return /^[ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]+$/.test(tx);
+ }
+
+ for(let i=0;i<heads.length;i++){
+   const h0=heads[i];
+   const nextHead=i+1<heads.length?heads[i+1].i:raw.length;
+   const nextFrame=frames.find(f=>f.i>h0.i);
+   const end=Math.min(nextHead,nextFrame?nextFrame.i:raw.length,h0.end+3000);
+   const block=raw.slice(h0.end,end);
+   const frame=currentFrame(h0.i);
+
+   // Horse name: first plausible linked label in the front part of this exact horse segment.
+   let name='',jockey='';
+   const links=[...block.matchAll(/\[([^\]]{1,60})\]\(([^)]+)\)/g)];
+   for(const lm of links){
+     const tx=cleanLinkText(lm[1]),href=String(lm[2]||'');
+     if(!name && isHorseName(tx)){
+       // Horse links tend to appear before jockey/trainer/owner/breeder links.
+       // Explicit horse-ish URL is strongest, but first plausible link is accepted.
+       if(/horse|uma|accessU|pw01dud/i.test(href) || lm.index<700){
+         name=tx;
+         break;
+       }
+     }
+   }
+
+   // Plain-text fallback: inspect only first ~700 chars before trainer/breeder info.
+   if(!name){
+     const near=block.slice(0,700)
+       .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+       .replace(/\*\*/g,'')
+       .split('\n')
+       .map(x=>x.trim()).filter(Boolean);
+     outer:
+     for(const line of near){
+       for(const tx0 of line.split(/\s{2,}|[|]/)){
+         const tx=tx0.trim();
+         if(isHorseName(tx)){name=tx;break outer}
+       }
+     }
+   }
+   if(!name)continue;
+
+   const bodyM=block.match(/(\d{3})\s*kg/i);
+   const wtM=block.match(/(?:ç¡|ç|ãã)\d+\s*(\d{2}(?:\.\d)?)\s*kg/i) ||
+             block.match(/æ¤é[:ï¼]?\s*(\d{2}(?:\.\d)?)\s*kg/i);
+
+   // Jockey: explicit jockey-ish href if present.
+   for(const lm of links){
+     const tx=cleanLinkText(lm[1]),href=String(lm[2]||'');
+     if(tx!==name && /jockey|kishu|accessK|pw01dkl/i.test(href) &&
+        /^[ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ ]{2,24}$/.test(tx)){
+       jockey=tx.replace(/\s+/g,' ').trim();break;
+     }
+   }
+
+   out.push(applyMemoryHorse({
+     frame,no:String(h0.no),name,
+     style:inferStyleFromText(block),jockey,
+     carried:wtM?+wtM[1]:55,
+     body:bodyM?+bodyM[1]:0,
+     odds:h0.odds,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+
+ // One horse per horse number, sorted 1..18.
+ const uniq=[],seenNo=new Set(),seenName=new Set();
+ out.sort((a,b)=>+a.no-+b.no).forEach(h=>{
+   const nk=normName(h.name);
+   if(!seenNo.has(h.no)&&!seenName.has(nk)){
+     seenNo.add(h.no);seenName.add(nk);uniq.push(h);
+   }
+ });
+ return uniq.slice(0,18);
+}
+
+function parseJraOfficialText(txt){
+ const raw=String(txt||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
+ const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
+ const out=[];
+
+ function stripMd(v){
+   return String(v||'')
+    .replace(/\*\*/g,'')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/\s+/g,' ')
+    .trim();
+ }
+ function cleanHorseCell(v){
+   let x=stripMd(v).replace(/^Image:\s*/i,'');
+   x=x.replace(/^(?:ãã«ã¬ã¤|ãã«å¤|ããªã³ã«ã¼çç¨|ããªã³ã«ã¼|ãã¼ã¯ãã¼ã·ã¼ãºçç¨|ã¡ã³ã³çç¨)\s*/,'');
+   x=x.replace(/^Image:\s*/i,'');
+   return x.trim();
+ }
+
+ for(const line of lines){
+   if(!line.includes('|'))continue;
+   const cells=line.split('|').map(stripMd);
+
+   // Preserve column positions; trim only empty edge cells.
+   while(cells.length && cells[0]==='')cells.shift();
+   while(cells.length && cells[cells.length-1]==='')cells.pop();
+   if(cells.length<4)continue;
+
+   // A real JRA runner row must start with a frame cell, then a dedicated horse-number cell.
+   const frameCell=cells[0]||'';
+   const noCell=cells[1]||'';
+   const horseCell=cells[2]||'';
+   const riderCell=cells[3]||'';
+
+   // Accept frame formats like "1", "æ 1", "Image: æ 1 ç½".
+   const fm=frameCell.match(/(?:æ \s*)?([1-8])(?:\s*(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡))?$/) ||
+            frameCell.match(/æ \s*([1-8])/);
+   if(!fm)continue;
+   const frame=+(fm[1]||1);
+
+   // Horse number cell must contain ONLY the horse number (optionally markdown/image noise).
+   const cleanNo=noCell
+      .replace(/Image:[^0-9]*/gi,'')
+      .replace(/[^\d]/g,'')
+      .trim();
+   if(!/^\d{1,2}$/.test(cleanNo))continue;
+   const no=+cleanNo;
+   if(no<1||no>18)continue;
+
+   // Horse cell must contain both odds and "çªäººæ°"; this prevents past-run rows from matching.
+   let hc=cleanHorseCell(horseCell);
+   const oddsM=hc.match(/(\d+(?:\.\d+)?)\s*(?:\(|ï¼)\s*(\d{1,2})\s*çªäººæ°\s*(?:\)|ï¼)/);
+   if(!oddsM)continue;
+
+   let beforeOdds=hc.slice(0,oddsM.index).trim();
+   beforeOdds=beforeOdds
+      .replace(/^Image:\s*/i,'')
+      .replace(/^(?:ãã«ã¬ã¤|ãã«å¤|ããªã³ã«ã¼çç¨|ããªã³ã«ã¼|ãã¼ã¯ãã¼ã·ã¼ãºçç¨|ã¡ã³ã³çç¨)\s*/,'')
+      .trim();
+
+   // Horse name = last horse-like token immediately before odds.
+   let name='';
+   const nameMatches=[...beforeOdds.matchAll(/([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40})/g)];
+   if(nameMatches.length)name=nameMatches[nameMatches.length-1][1].trim();
+   if(!name)continue;
+   if(/^(æ \d|è\d|ãã¼ã\d|\d{3,4}(?:è|ãã¼ã)|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(name))continue;
+
+   const bodyM=hc.match(/(\d{3})\s*kg/i);
+   const body=bodyM?+bodyM[1]:0;
+   const odds=+oddsM[1];
+
+   let carried=55,jockey='';
+   const wtM=riderCell.match(/(\d{2}(?:\.\d)?)\s*kg/i);
+   if(wtM && +wtM[1]>=45 && +wtM[1]<=65)carried=+wtM[1];
+
+   if(wtM){
+     const after=riderCell.slice(wtM.index+wtM[0].length).trim();
+     const jm=after.match(/^([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ \.]{2,24}?)(?=\s{2,}|$)/);
+     if(jm)jockey=jm[1].replace(/\s+/g,' ').trim();
+   }
+
+   const all=cells.join(' ');
+   out.push(applyMemoryHorse({
+     frame,no:String(no),name,
+     style:inferStyleFromText(all),
+     jockey,carried,body,odds,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+
+ // Deduplicate by BOTH horse number and normalized name.
+ const uniq=[],seenNo=new Set(),seenName=new Set();
+ out.sort((a,b)=>Number(a.no)-Number(b.no)).forEach(h=>{
+   const nk=normName(h.name);
+   if(seenNo.has(h.no)||seenName.has(nk))return;
+   seenNo.add(h.no);seenName.add(nk);uniq.push(h);
+ });
+ return uniq.slice(0,18);
+}
+
+
+function metaFromJraUrlV37(url,txt){
+ const meta={};
+ const courseMap={
+  '01':'æ­å¹ç«¶é¦¬å ´','02':'å½é¤¨ç«¶é¦¬å ´','03':'ç¦å³¶ç«¶é¦¬å ´','04':'æ°æ½ç«¶é¦¬å ´','05':'æ±äº¬ç«¶é¦¬å ´',
+  '06':'ä¸­å±±ç«¶é¦¬å ´','07':'ä¸­äº¬ç«¶é¦¬å ´','08':'äº¬é½ç«¶é¦¬å ´','09':'éªç¥ç«¶é¦¬å ´','10':'å°åç«¶é¦¬å ´'
+ };
+ let u='';
+ try{u=decodeURIComponent(String(url||''))}catch(e){u=String(url||'')}
+ const cm=u.match(/CNAME=(?:pw|sw)01dde01(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})/i);
+ if(cm){
+   meta.course=courseMap[cm[1]]||'';
+   meta.year=+cm[2];meta.meeting=+cm[3];meta.day=+cm[4];meta.race=+cm[5];meta.date=cm[6];
+ }
+
+ const t=String(txt||'').replace(/\u00a0/g,' ');
+ // Search only the race-header area. Stop before runner table / popularity content.
+ let header=t.slice(0,12000);
+ const cuts=['åå','è¤å','æ é£','é¦¬å','é¦¬çª','çªäººæ°','åºé¦¬è¡¨'];
+ let cut=header.length;
+ for(const k of cuts){
+   const i=header.indexOf(k);
+   if(i>300 && i<cut)cut=i;
+ }
+ header=header.slice(0,cut);
+
+ // Require "ã³ã¼ã¹" label to avoid picking distances from navigation / other races.
+ let m=header.match(/ã³ã¼ã¹\s*[:ï¼]?\s*([0-9,]{4,5})\s*(?:ã¡ã¼ãã«|m)\s*[ï¼(]?\s*(è|ãã¼ã)/i);
+ if(!m)m=header.match(/(è|ãã¼ã)\s*([0-9,]{4,5})\s*(?:ã¡ã¼ãã«|m)/i);
+ if(m){
+   if(/^\d/.test(m[1])){meta.distance=+m[1].replace(/,/g,'');meta.surface=m[2]}
+   else {meta.surface=m[1];meta.distance=+m[2].replace(/,/g,'')}
+ }
+
+ if(/é¦¬å ´ç¶æ[:ï¼]?\s*ç¨é/.test(header))meta.going='ç¨é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*ä¸è¯/.test(header))meta.going='ä¸è¯';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*é(?:\s|$)/m.test(header))meta.going='é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*è¯(?:\s|$)/m.test(header))meta.going='è¯';
+ return meta;
+}
+
+function detectOfficialRaceMeta(txt){
+ const t=String(txt||'').replace(/\u00a0/g,' ').replace(/\r/g,'');
+ const meta={};
+
+ // Explicit official meeting header, e.g. "2åä¸­äº¬2æ¥ çºèµ°æå»..."
+ const hm=t.match(/(?:^|\n).*?\d+å(æ­å¹|å½é¤¨|ç¦å³¶|æ°æ½|æ±äº¬|ä¸­å±±|ä¸­äº¬|äº¬é½|éªç¥|å°å)\d+æ¥.*?çºèµ°æå»[:ï¼]/m);
+ if(hm)meta.course=hm[1]+'ç«¶é¦¬å ´';
+
+ // Explicit course line, e.g. "ã³ã¼ã¹ï¼1,400ã¡ã¼ãã«ï¼èã»å·¦ï¼"
+ const cm=t.match(/ã³ã¼ã¹[:ï¼]\s*([0-9,]+)\s*ã¡ã¼ãã«\s*[ï¼(]\s*(è|ãã¼ã)/);
+ if(cm){
+   meta.distance=+cm[1].replace(/,/g,'');
+   meta.surface=cm[2];
+ }
+
+ // Going only from explicit track condition wording.
+ if(/é¦¬å ´ç¶æ[:ï¼]?\s*ç¨é/.test(t))meta.going='ç¨é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*ä¸è¯/.test(t))meta.going='ä¸è¯';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*é(?:\s|$)/m.test(t))meta.going='é';
+ else if(/é¦¬å ´ç¶æ[:ï¼]?\s*è¯(?:\s|$)/m.test(t))meta.going='è¯';
+
+ return meta;
+}
+
+function validateImportedJra(parsed,meta){
+ const errors=[];
+ if(!Array.isArray(parsed)||parsed.length<2)errors.push('åºèµ°é¦¬æ°ãå¤å®ã§ãã¾ãã');
+
+ const badNames=(parsed||[]).filter(h=>
+   !h.name ||
+   h.name.length<2 ||
+   /^(æ \d|è\d|ãã¼ã\d|\d{3,4}(?:è|ãã¼ã)|è¯|ç¨é|é|ä¸è¯|kg)$/i.test(h.name)
+ );
+ if(badNames.length)errors.push('é¦¬åã«ç°å¸¸å¤ãããã¾ã');
+
+ const seenNo=new Set(),seenName=new Set();
+ let dupNo=false,dupName=false;
+ (parsed||[]).forEach(h=>{
+   if(seenNo.has(h.no))dupNo=true;
+   seenNo.add(h.no);
+   const nk=normName(h.name);
+   if(seenName.has(nk))dupName=true;
+   seenName.add(nk);
+ });
+ if(dupNo)errors.push('é¦¬çªãéè¤ãã¦ãã¾ã');
+ if(dupName)errors.push('é¦¬åãéè¤ãã¦ãã¾ã');
+
+ const nums=(parsed||[]).map(h=>+h.no).filter(Number.isFinite);
+ if(nums.some(n=>n<1||n>18))errors.push('é¦¬çªãç¯å²å¤ã§ã');
+
+ if(meta.course && !/^(æ­å¹|å½é¤¨|ç¦å³¶|æ°æ½|æ±äº¬|ä¸­å±±|ä¸­äº¬|äº¬é½|éªç¥|å°å)ç«¶é¦¬å ´$/.test(meta.course))errors.push('ç«¶é¦¬å ´å¤å®ãç°å¸¸ã§ã');
+ if(meta.distance && !(meta.distance>=1000&&meta.distance<=3600))errors.push('è·é¢å¤å®ãç°å¸¸ã§ã');
+ return {ok:errors.length===0,errors};
+}
+
+function parseJraReaderText(txt){
+ const t=String(txt||'').replace(/\r/g,'');
+ const lines=t.split('\n').map(x=>x.trim()).filter(Boolean);
+ const out=[];
+ for(const line of lines){
+   if(!line.includes('|'))continue;
+   const c=line.split('|').map(x=>x.replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim()).filter(Boolean);
+   if(c.length<4)continue;
+
+   let noIdx=-1,no=0;
+   for(let i=0;i<Math.min(4,c.length);i++){
+     const mm=c[i].match(/^(?:Image:\s*æ [1-8][^0-9]*)?(\d{1,2})$/);
+     if(mm&&+mm[1]>=1&&+mm[1]<=18){noIdx=i;no=+mm[1];break}
+   }
+   if(noIdx<0)continue;
+
+   const horseCell=c[noIdx+1]||'';
+   let nm=horseCell.match(/^([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»ã¼]{2,40}?)(?=\d+(?:\.\d+)?\s*\(\d+çªäººæ°\))/);
+   if(!nm)nm=horseCell.match(/^([ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»ã¼]{2,40})/);
+   if(!nm)continue;
+   const name=nm[1];
+
+   let odds=0,body=0,carried=55,jockey='';
+   const om=horseCell.match(/(\d+(?:\.\d+)?)\s*\(\d+çªäººæ°\)/);
+   if(om)odds=+om[1];
+   const bm=horseCell.match(/(\d{3})kg/i);
+   if(bm)body=+bm[1];
+
+   const next=c[noIdx+2]||'';
+   const wm=next.match(/(?:^|\s)(\d{2}(?:\.\d)?)(?:\s|$)/);
+   if(wm&&+wm[1]>=45&&+wm[1]<=65)carried=+wm[1];
+   const jm=next.match(/([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ ]{2,20})$/);
+   if(jm)jockey=jm[1].trim();
+
+   let frame=1;
+   const fm=line.match(/æ ([1-8])/);
+   if(fm)frame=+fm[1];
+
+   out.push(applyMemoryHorse({
+     frame,no:String(no),name,style:inferStyleFromText(line),
+     jockey,carried,body,odds,sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+ const uniq=[],seen=new Set();
+ out.sort((a,b)=>Number(a.no)-Number(b.no)).forEach(h=>{
+   if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}
+ });
+ if(uniq.length){
+   const auto=autoFrames(uniq.length);
+   uniq.forEach((h,i)=>{if(!(h.frame>=1&&h.frame<=8))h.frame=auto[i]||1});
+ }
+ return uniq.slice(0,18);
+}
+function parseJraText(txt){
+ const lines=String(txt||'').replace(/\\n/g,'\n').split(/\r?\n+/).map(x=>x.trim()).filter(Boolean);
+ const out=[];
+ let frame=null;
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   const fm=line.match(/(?:^|\s)([1-8])\s*æ |æ \s*([1-8])/);
+   if(fm) frame=Number(fm[1]||fm[2]);
+
+   // Horse lines often start with horse number followed by name.
+   const hm=line.match(/^\s*(\d{1,2})\s+([^\s\d][^\s]{1,30})/);
+   if(!hm) continue;
+   const no=Number(hm[1]);
+   if(no<1||no>18) continue;
+
+   // Collect until next horse-number-like line, max 12 lines.
+   const block=[line];
+   for(let j=i+1;j<Math.min(lines.length,i+12);j++){
+     if(/^\s*\d{1,2}\s+[^\s\d][^\s]{1,30}/.test(lines[j])) break;
+     block.push(lines[j]);
+   }
+   const text=block.join(' ');
+   const bodyM=text.match(/(?:é¦¬ä½é\s*)?(\d{3})\s*kg/i);
+   const carriedM=text.match(/(?:è² æéé|æ¤é)?\s*(\d{2}(?:\.\d)?)\s*(?:kg)?/i);
+   const oddsM=text.match(/(?:åå|ãªããº)?\s*(\d+(?:\.\d+)?)\s*(?:å)?/);
+   const jockeyM=text.match(/(?:é¨æ\s*)?([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼]{2,12})(?:\s*é¨æ)?/);
+   out.push(applyMemoryHorse({
+     frame:frame||1,no:String(no),name:hm[2],
+     style:inferStyleFromText(text),
+     jockey:jockeyM?jockeyM[1]:'',
+     carried:carriedM?Number(carriedM[1]):55,
+     body:bodyM?Number(bodyM[1]):0,
+     odds:oddsM?Number(oddsM[1]):0,
+     sp:80,st:80,pw:80,runs:[]
+   }));
+ }
+ const uniq=[],seen=new Set();
+ out.forEach(h=>{if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}});
+ return uniq.slice(0,18);
+}
+function parseCsvText(text){
+ const out=[];
+ const rows=String(text||'').replace(/\\n/g,'\n').split(/\r?\n+/).map(x=>x.trim()).filter(Boolean);
+ rows.forEach((line,i)=>{
+   const a=line.split(',').map(x=>x.trim());
+   if(a.length<3)return;
+   let frame=null,no,name,style,jockey='',carried=55,body=0,odds=0,startRun=3;
+   const extended=a.length>=8 && /^[1-8]$/.test(a[0]) && /^\d{1,2}$/.test(a[1]);
+   if(extended){
+     frame=Number(a[0]);no=a[1];name=a[2];style=a[3];
+     jockey=a[4]||'';carried=Number(a[5])||55;body=Number(a[6])||0;odds=Number(a[7])||0;startRun=8;
+   }else{
+     no=a[0];name=a[1];style=a[2];
+   }
+   if(!no||!name)return;
+   const runs=[];
+   for(let j=startRun;j+3<a.length;j+=4){
+     const pos=Number(a[j]),last3=Number(a[j+1]),dist=Number(a[j+2]),going=a[j+3]||'è¯';
+     if(Number.isFinite(pos)&&Number.isFinite(last3)&&Number.isFinite(dist)&&pos>0&&dist>0){
+       runs.push({pos,last3,dist,going});
+     }
+   }
+   let sp=80,st=80,pw=80;
+   if(runs.length){
+     const ap=runs.reduce((z,r)=>z+r.pos,0)/runs.length;
+     const a3=runs.reduce((z,r)=>z+r.last3,0)/runs.length;
+     const ad=runs.reduce((z,r)=>z+r.dist,0)/runs.length;
+     sp=Math.max(55,Math.min(98,Math.round(96-ap*2.8-(a3-33.5)*4)));
+     st=Math.max(55,Math.min(98,Math.round(72+(ad-1200)/45-ap)));
+     pw=Math.max(55,Math.min(98,Math.round(82-ap*.8+runs.filter(r=>r.going!=='è¯').length*3)));
+   }
+   out.push({
+     frame,no:String(no),name,
+     style:['éã','åè¡','å·®ã','è¿½è¾¼'].includes(style)?style:'åè¡',
+     jockey,carried,body,odds,sp,st,pw
+   });
+ });
+ const limited=out.slice(0,18), auto=autoFrames(limited.length);
+ limited.forEach((h,i)=>{if(!(h.frame>=1&&h.frame<=8))h.frame=auto[i]||1});
+ return limited;
+}
+function parse(txt){
+ const text=String(txt||'').replace(/\\n/g,'\n').trim();
+ if(!text)return [];
+ // If there is a comma anywhere, always treat as CSV first.
+ if(text.includes(',')){
+   const csv=parseCsvText(text);
+   if(csv.length)return csv;
+ }
+ const jra=parseJraText(text);
+ return jra.slice(0,18);
+}
+function initHorses(){horses=parse(sampleText());renderRunners()}
+function renderRunners(){
+ E.runners.innerHTML='';
+ horses.forEach((h,i)=>{
+   const d=document.createElement('div');d.className='runner';
+   d.innerHTML=
+   '<select data-k="frame" data-i="'+i+'">'+[1,2,3,4,5,6,7,8].map(f=>'<option value="'+f+'">'+f+'æ </option>').join('')+'</select>'+
+   '<input data-k="no" data-i="'+i+'" value="'+h.no+'">'+
+   '<input data-k="name" data-i="'+i+'" value="'+h.name+'">'+
+   '<select data-k="style" data-i="'+i+'"><option>éã</option><option>åè¡</option><option>å·®ã</option><option>è¿½è¾¼</option></select>'+
+   '<input data-k="jockey" data-i="'+i+'" value="'+(h.jockey||'')+'" placeholder="é¨æ">'+
+   '<input data-k="carried" data-i="'+i+'" type="number" step="0.5" value="'+(h.carried||55)+'">'+
+   '<input data-k="body" data-i="'+i+'" type="number" value="'+(h.body||0)+'">'+
+   '<input data-k="sp" data-i="'+i+'" type="number" min="50" max="100" value="'+h.sp+'">'+
+   '<input data-k="st" data-i="'+i+'" type="number" min="50" max="100" value="'+h.st+'">'+
+   '<input data-k="pw" data-i="'+i+'" type="number" min="50" max="100" value="'+h.pw+'">';
+   E.runners.appendChild(d);
+   const col=FC[h.frame]||FC[1];d.style.borderLeft='5px solid '+col[0];d.style.paddingLeft='4px';
+   const sels=d.querySelectorAll('select');sels[0].value=String(h.frame);sels[1].value=h.style;
+ });
+ E.runners.querySelectorAll('input,select').forEach(x=>x.addEventListener('change',()=>{
+   const h=horses[+x.dataset.i],k=x.dataset.k;
+   h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;
+   lastStats=null;renderStats();draw();
+ }));
+}function fillCourse(){E.course.innerHTML=Object.keys(C).map(k=>'<option>'+k+'</option>').join('');E.course.value='ä¸­äº¬ç«¶é¦¬å ´';updateVariants()}
+function updateVariants(){const vs=Object.keys(C[E.course.value].variants[E.surface.value]);E.variant.innerHTML=vs.map(v=>'<option>'+v+'</option>').join('');updateDistances()}
+function updateDistances(){const a=C[E.course.value].variants[E.surface.value][E.variant.value];E.distance.innerHTML=a.map(d=>'<option value="'+d+'">'+d+'m</option>').join('');if(a.includes(1800))E.distance.value='1800';lastStats=null;renderStats();draw()}
+
+function autoPaceDetail(){
+ const n=horses.length||0;
+ const count={éã:0,åè¡:0,å·®ã:0,è¿½è¾¼:0};
+ horses.forEach(h=>{if(count[h.style]!==undefined)count[h.style]++});
+ let score=0;
+ score += count['éã']*3.2;
+ score += count['åè¡']*1.15;
+ score -= count['è¿½è¾¼']*0.15;
+ if(n>=15)score+=1.0;
+ else if(n<=8)score-=1.0;
+
+ // Multiple front-runners are the strongest high-pace signal.
+ if(count['éã']>=4)score+=3.0;
+ else if(count['éã']===3)score+=1.8;
+ else if(count['éã']===0)score-=2.5;
+
+ // A large concentration of forward horses increases pressure.
+ const forward=count['éã']+count['åè¡'];
+ if(n && forward/n>=0.55)score+=1.6;
+ if(n && forward/n<=0.25)score-=1.0;
+
+ let pace='å¹³å',reason='';
+ if(score>=9.0)pace='ãã¤';
+ else if(score<=3.3)pace='ã¹ã­ã¼';
+
+ if(pace==='ãã¤'){
+   reason='éã'+count['éã']+'é ­ã»åè¡'+count['åè¡']+'é ­ã§åã®ç«¶ãåããå¼·ããªãããã';
+ }else if(pace==='ã¹ã­ã¼'){
+   reason='éã'+count['éã']+'é ­ã»åè¡'+count['åè¡']+'é ­ã§ååã®ç«¶ãåããå°ãªã';
+ }else{
+   reason='éã'+count['éã']+'é ­ã»åè¡'+count['åè¡']+'é ­ã§æ¥µç«¯ãªæµãã«ãªãã«ãã';
+ }
+ return {pace,score,count,reason};
+}
+function paceName(){
+ const v=E.pace.value;
+ if(v&&v!=='AIèªå')return v;
+ return autoPaceDetail().pace;
+}
+
+function distanceFit(h){
+  const d=Number(E.distance.value||1800);
+  let z=0;
+  if(d<=1400){if(h.style==='éã'||h.style==='åè¡')z+=1.5;z+=(h.sp-80)*.06}
+  else if(d<=1800){z+=(h.sp-80)*.04+(h.pw-80)*.03}
+  else if(d<=2200){z+=(h.st-80)*.05+(h.pw-80)*.03}
+  else{z+=(h.st-80)*.08;if(h.style==='è¿½è¾¼'||h.style==='å·®ã')z+=.8}
+  return z;
+}
+function frameFit(h){
+  const f=Number(h.frame||1),d=Number(E.distance.value||1800);
+  let z=0;
+  if(d<=1600 && f<=3 && (h.style==='éã'||h.style==='åè¡'))z+=1.2;
+  if(C[E.course.value].dir==='å·¦' && f>=7 && (h.style==='å·®ã'||h.style==='è¿½è¾¼'))z+=.4;
+  return z;
+}
+function weightFit(h){
+  return -(Number(h.carried||55)-55)*.45;
+}
+function bodyFit(h){
+  const b=Number(h.body||0); if(!b)return 0;
+  let z=0;
+  if(E.going.value!=='è¯'&&b>=500)z+=.5;
+  if(b<430)z-=.4;
+  return z;
+}
+function oddsValue(h,modelWin){
+  const o=Number(h.odds||0);
+  if(!o||o<=0)return null;
+  return modelWin/100*o;
+}
+function currentModel(){
+  const n=5000;
+  const r=batch(n);
+  return r.map(q=>({...q,h:horses[q.i],ev:oddsValue(horses[q.i],q.win)}));
+}
+function renderAISummary(){
+  if(!horses.length)return;
+  const r=currentModel();
+  const top=r.slice(0,5),marks=['â','â','â²','â','â³'];
+  E.aiSummary.innerHTML=top.map((q,i)=>`${marks[i]} ${q.h.no} ${q.h.name}ãåç${q.win.toFixed(1)}% / 3çå${q.show.toFixed(1)}%`).join('<br>');
+  const value=r.filter(q=>q.ev!=null).sort((a,b)=>b.ev-a.ev);
+  const hole=value.find(q=>q.ev>=1.15 && q.win<18);
+  const danger=value.slice().sort((a,b)=>a.ev-b.ev).find(q=>q.h.odds>0 && q.win>=12);
+  let txt='';
+  if(hole)txt+=`ç©´é¦¬åè£: ${hole.h.no} ${hole.h.name}ãæå¾å¤ ${hole.ev.toFixed(2)}<br>`;
+  else txt+='ç©´é¦¬åè£: è©²å½ãªã<br>';
+  if(danger)txt+=`å±éºäººæ°é¦¬åè£: ${danger.h.no} ${danger.h.name}ãæå¾å¤ ${danger.ev.toFixed(2)}<br>`;
+  else txt+='å±éºäººæ°é¦¬åè£: è©²å½ãªã<br>';
+  const best=value[0]; if(best)txt+=`æé«æå¾å¤: ${best.h.no} ${best.h.name}ã${best.ev.toFixed(2)}`;
+  E.valueSummary.innerHTML=txt;
+}
+function score(h){let z=h.sp*.4+h.st*.34+h.pw*.26,p=paceName();if(p==='ãã¤'){if(h.style==='å·®ã')z+=5;if(h.style==='è¿½è¾¼')z+=6;if(h.style==='éã')z-=4}if(p==='ã¹ã­ã¼'){if(h.style==='éã')z+=5;if(h.style==='åè¡')z+=3;if(h.style==='è¿½è¾¼')z-=3}if(E.going.value!=='è¯')z+=(h.st-80)*.1+(h.pw-80)*.1;z+=distanceFit(h)+frameFit(h)+weightFit(h)+bodyFit(h)+memoryBonus(h);return z}
+function batch(n){const s=horses.map(()=>({w:0,p2:0,p3:0}));for(let r=0;r<n;r++){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()+Math.random()+Math.random()-1.5)*5})).sort((a,b)=>b.s-a.s);if(!o.length)continue;s[o[0].i].w++;if(o[1]){s[o[0].i].p2++;s[o[1].i].p2++}for(let k=0;k<Math.min(3,o.length);k++)s[o[k].i].p3++}return s.map((x,i)=>({i,win:100*x.w/n,quin:100*x.p2/n,show:100*x.p3/n})).sort((a,b)=>b.show-a.show||b.win-a.win)}
+
+function renderPaceAutoStatus(){
+ if(!E.paceAutoStatus)return;
+ if(E.pace.value==='AIèªå'){
+   const p=autoPaceDetail();
+   E.paceAutoStatus.innerHTML='AIå¤å®: <b>'+p.pace+'</b>ã'+p.reason;
+ }else{
+   E.paceAutoStatus.textContent='æåè¨­å®: '+E.pace.value;
+ }
+}
+
+function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['â','â','â²','â'][i]||'â³')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'ã»'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='æ³å®ãã¼ã¹: '+paceName()+(E.pace.value==='AIèªå'?'<br>AIå¤å®çç±: '+pd.reason:'')+'<br>éã '+horses.filter(h=>h.style==='éã').length+'é ­ / åè¡ '+horses.filter(h=>h.style==='åè¡').length+'é ­ / å·®ã '+horses.filter(h=>h.style==='å·®ã').length+'é ­ / è¿½è¾¼ '+horses.filter(h=>h.style==='è¿½è¾¼').length+'é ­<br>æ ã»æ¤éã»é¦¬ä½éã»è·é¢ã»é¦¬å ´ã»èè³ªã»ãã¼ã¹ãè©ä¾¡ããå¨é¦¬ã»ã¼æ¨ªä¸ç·ã§ã¹ã¿ã¼ãããçºé¦¬å·®ããããã«åç¾ããå¾ã100ã300mã§èè³ªã«å¿ãã¦éåãä½ãã¾ããå¾åã¯å·®ãã»è¿½è¾¼ãé²åºãã¾ãããªããºãããã°æå¾å¤ãè¨ç®ãã¾ããéå»ã«ä¿å­ããåä¸é¦¬ã®ç«¶é¦¬å ´ã»è·é¢ã»é¦¬å ´é©æ§ãè©ä¾¡ã¸åæ ãã¾ãã';renderAISummary()}
+function geom(){const w=E.canvas.clientWidth,h=E.canvas.clientHeight,c=C[E.course.value];return{cx:w/2,cy:h/2+8,rx:Math.max(145,w*c.rx),ry:Math.min(c.ry,h*.33)}}
+function straight(){return E.course.value==='æ°æ½ç«¶é¦¬å ´'&&E.surface.value==='è'&&E.variant.value==='ç´ç·'}
+function startAngle(){const lap=E.variant.value==='å¤åã'?1800:E.variant.value==='ååã'?1500:1600,d=+E.distance.value,dir=C[E.course.value].dir==='å·¦'?-1:1,rem=d%lap||lap;return-dir*2*Math.PI*(rem/lap)}
+function laps(){const lap=E.variant.value==='å¤åã'?1800:E.variant.value==='ååã'?1500:1600;return Math.max(1,+E.distance.value/lap)}
+function point(th,lane){const g=geom();return{x:g.cx+(g.rx-lane)*Math.cos(th),y:g.cy+(g.ry-lane*.5)*Math.sin(th)}}
+function drawTrack(){const g=geom(),w=E.canvas.clientWidth,h=E.canvas.clientHeight;ctx.fillStyle='#0a4d22';ctx.fillRect(0,0,w,h);if(straight()){ctx.fillStyle='#5f8f44';ctx.fillRect(28,g.cy-52,w-56,104);ctx.strokeStyle='#fff';ctx.strokeRect(28,g.cy-52,w-56,104);ctx.beginPath();ctx.moveTo(w-55,g.cy-52);ctx.lineTo(w-55,g.cy+52);ctx.stroke();return}ctx.strokeStyle='#ddd';ctx.lineWidth=48;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=E.surface.value==='è'?'#5f8f44':'#b99063';ctx.lineWidth=39;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx-20,g.ry-10,0,0,Math.PI*2);ctx.stroke()}
+function frame(h,i){const f=Number(h.frame);return (f>=1&&f<=8)?f:1}
+function marker(p,h,i,scale=1){if(horses.length>=15)scale*=.88;const c=FC[frame(h,i)];ctx.save();ctx.translate(p.x,p.y);ctx.scale(scale,scale);ctx.fillStyle=c[0];ctx.strokeStyle='#111';ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle=c[1];ctx.font='bold 9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.no,0,.5);ctx.restore()}
+function prepare(){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()-.5)*4})).sort((a,b)=>b.s-a.s);raceOrder=o.map(x=>x.i);finishTimes=new Array(horses.length).fill(1);startReaction=horses.map(()=>((Math.random()+Math.random()+Math.random())/3-.5)*.012);const best=o[0]?.s||1;o.forEach((x,r)=>finishTimes[x.i]=1+r*.045+Math.max(0,best-x.s)*.0025+Math.random()*.015)}
+function visual(i){const ft=finishTimes[i]||1;if(progress>=ft)return 1;const h=horses[i],raw=Math.max(0,progress/ft);let p=raw;const gate=Math.min(1,raw/.035),form=Math.max(0,Math.min(1,(raw-.035)/.18));p+=(startReaction[i]||0)*gate;if(h.style==='éã')p+=.065*form;else if(h.style==='åè¡')p+=.035*form;else if(h.style==='å·®ã')p-=.008*form;else if(h.style==='è¿½è¾¼')p-=.035*form;if(raw>.65){const q=(raw-.65)/.35;if(h.style==='å·®ã')p+=.025*q;if(h.style==='è¿½è¾¼')p+=.045*q;if(paceName()==='ãã¤'&&(h.style==='éã'||h.style==='åè¡'))p-=.025*q}return Math.max(0,Math.min(.995,p))}
+function draw2d(){drawTrack();const g=geom(),dir=C[E.course.value].dir==='å·¦'?-1:1,sa=startAngle(),lp=laps();horses.forEach((h,i)=>{const v=visual(i);let p;if(straight())p={x:32+v*(E.canvas.clientWidth-90),y:g.cy-45+i*13};else p=point(sa+dir*v*2*Math.PI*lp,5+i*(horses.length>12?2.35:3.5));marker(p,h,i)})}
+function draw3d(){drawTrack();ctx.fillStyle='rgba(10,17,25,.28)';ctx.fillRect(0,0,E.canvas.clientWidth,E.canvas.clientHeight);const g=geom(),dir=C[E.course.value].dir==='å·¦'?-1:1,sa=startAngle(),lp=laps();horses.map((h,i)=>{const v=visual(i);let p;if(straight())p={x:32+v*(E.canvas.clientWidth-90),y:g.cy-45+i*13};else p=point(sa+dir*v*2*Math.PI*lp,5+i*(horses.length>12?2.35:3.5));return{h,i,p,sc:.7+(p.y/E.canvas.clientHeight)*.55}}).sort((a,b)=>a.p.y-b.p.y).forEach(o=>marker(o.p,o.h,o.i,o.sc))}
+function draw(){mode==='2d'?draw2d():draw3d()}
+function phase(){const leader=horses.length?Math.max(...horses.map((h,i)=>visual(i))):0;E.phase.textContent=leader<.08?'ã¹ã¿ã¼ã':leader<.3?'åºç¤ã»ãã¸ã·ã§ã³äºã':leader<.65?'éä¸­':leader<.8?'3ã4è§':'æå¾ã®ç´ç·'}
+function updateFinish(){if(!raceOrder.length){E.finish.textContent='åçããã¨çé ã©ããã«ã´ã¼ã«ãã¾ãã';return}const done=raceOrder.filter(i=>visual(i)>=1);if(done.length===horses.length){E.finish.textContent='ç¢ºå®: '+raceOrder.map((i,k)=>(k+1)+'ç '+horses[i].no+' '+horses[i].name).join(' / ');return}E.finish.textContent=(done.length?'ã´ã¼ã«æ¸ã¿: '+done.map((i,k)=>(k+1)+'ç '+horses[i].no).join(' / ')+'ã':'')+'èµ°è¡ä¸­'}
+function resize(){const dpr=Math.min(devicePixelRatio||1,2),w=E.canvas.clientWidth,h=E.canvas.clientHeight;E.canvas.width=Math.floor(w*dpr);E.canvas.height=Math.floor(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+function animate(ts){if(!running)return;if(!lastTs)lastTs=ts;let dt=(ts-lastTs)/1000;if(!Number.isFinite(dt)||dt<0||dt>.2)dt=.016;lastTs=ts;progress+=dt*.24*Number(E.speed.value||1);draw();phase();updateFinish();const max=finishTimes.length?Math.max(...finishTimes):1;if(progress>=max){progress=max;running=false;E.runstatus.textContent='å¨é¦¬ã´ã¼ã«';draw();updateFinish();return}raf=requestAnimationFrame(animate)}
+function play(){if(!horses.length)return;try{localStorage.setItem('keiba_ai_pending_race_v20',JSON.stringify({course:E.course.value,surface:E.surface.value,variant:E.variant.value,distance:+E.distance.value,going:E.going.value,pace:paceName(),horses:horses.map(h=>({no:h.no,name:h.name,frame:h.frame})) ,savedAt:new Date().toISOString()}))}catch(e){}if(raf)cancelAnimationFrame(raf);progress=0;lastTs=0;prepare();running=true;E.runstatus.textContent='åçä¸­';draw();raf=requestAnimationFrame(animate)}
+function reset(){if(raf)cancelAnimationFrame(raf);running=false;progress=0;lastTs=0;finishTimes=[];raceOrder=[];startReaction=[];E.runstatus.textContent='åæ­¢ä¸­';E.phase.textContent='ã¹ã¿ã¼ãå';updateFinish();draw()}
+E.sample.onclick=()=>{E.bulk.value=sampleText();const n=E.bulk.value.split(/\r?\n/).filter(Boolean).length;E.importStatus.innerHTML='<span class="ok">ãµã³ãã«ã'+n+'é ­åå¥åãã¾ããã</span>'};
+E.apply.onclick=()=>{const p=parse(E.bulk.value);if(!p.length){E.importStatus.innerHTML='<span class="warn">èª­ã¿è¾¼ãããã¼ã¿ãããã¾ããã</span>';return}horses=p.slice(0,18);horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();E.importStatus.innerHTML='<span class="ok">'+horses.length+'é ­ãåæ ãã¾ããã '+horses[0].no+' '+horses[0].name+' ã '+horses[horses.length-1].no+' '+horses[horses.length-1].name+'</span>'};
+E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;renderStats();draw()});E.play.onclick=play;E.batch.onclick=()=>{lastStats=batch(+E.count.value);renderStats()};E.reset.onclick=reset;E.tab2d.onclick=()=>{mode='2d';E.tab2d.classList.add('active');E.tab3d.classList.remove('active');draw()};E.tab3d.onclick=()=>{mode='3d';E.tab3d.classList.add('active');E.tab2d.classList.remove('active');draw()};E.navImport.onclick=()=>E.bulk.scrollIntoView({behavior:'smooth',block:'center'});E.navAnalyze.onclick=()=>{renderStats();E.ranking.scrollIntoView({behavior:'smooth',block:'center'})};E.navPlay.onclick=play;E.navBatch.onclick=()=>{lastStats=batch(1000);renderStats()};
+
+function htmlToText(html){
+ const doc=new DOMParser().parseFromString(String(html||''),'text/html');
+ return (doc.body&&doc.body.innerText?doc.body.innerText:String(html||'')).replace(/\u00a0/g,' ');
+}
+async function urlFromInputOrClipboard(el){
+ let u=String(el.value||'').trim();
+ if(!u&&navigator.clipboard&&navigator.clipboard.readText){
+  try{u=String(await navigator.clipboard.readText()||'').trim();if(u)el.value=u}catch(e){}
+ }
+ return u;
+}
+
+function getJraUrlV40(){
+ const el=document.getElementById('jraEntryUrl');
+ let u='';
+ if(el){
+   // Use the actual DOM value. Fall back to attribute only if needed.
+   u=String(el.value||el.getAttribute('value')||'').trim();
+ }
+ if(!u){
+   u=String(localStorage.getItem('keiba_last_jra_url_v40')||'').trim();
+   if(u&&el)el.value=u;
+ }
+ if(u){
+   localStorage.setItem('keiba_last_jra_url_v40',u);
+ }
+ return u;
+}
+
+function restoreJraUrlV40(){
+ const el=document.getElementById('jraEntryUrl');
+ if(!el)return;
+ const saved=String(localStorage.getItem('keiba_last_jra_url_v40')||'').trim();
+ if(saved && !String(el.value||'').trim())el.value=saved;
+ el.addEventListener('input',()=>{
+   const v=String(el.value||'').trim();
+   if(v)localStorage.setItem('keiba_last_jra_url_v40',v);
+ });
+ el.addEventListener('change',()=>{
+   const v=String(el.value||'').trim();
+   if(v)localStorage.setItem('keiba_last_jra_url_v40',v);
+ });
+}
+
+async function fetchJraPage(url){
+ const u=String(url||'').trim();
+ if(!u)throw new Error('JRA URLãå¥åãã¦ãã ãã');
+ let host='';
+ try{host=new URL(u).hostname}catch(e){throw new Error('URLå½¢å¼ãç¢ºèªãã¦ãã ãã')}
+ if(!(host==='jra.go.jp'||host.endsWith('.jra.go.jp')))throw new Error('JRAå¬å¼URLãæå®ãã¦ãã ãã');
+
+ const routes=[];
+ const oldPreferred=localStorage.getItem('keiba_jra_route_v26')||'';
+ const preferred=(oldPreferred==='jina'?'':oldPreferred);
+ if(preferred)routes.push(preferred);
+ ['allorigins','corsproxy','direct','jina'].forEach(x=>{if(!routes.includes(x))routes.push(x)});
+
+ const errors=[];
+ for(const route of routes){
+   try{
+     let html='',text='';
+     if(route==='direct'){
+       const r=await fetch(u,{cache:'no-store',mode:'cors'});
+       if(!r.ok)throw new Error('HTTP '+r.status);
+       const b=await r.arrayBuffer();
+       try{html=new TextDecoder('shift_jis').decode(b)}catch(e){html=new TextDecoder('utf-8').decode(b)}
+       text=htmlToText(html);
+     }else if(route==='allorigins'){
+       const p='https://api.allorigins.win/get?charset=Shift_JIS&url='+encodeURIComponent(u);
+       const r=await fetch(p,{cache:'no-store'});
+       if(!r.ok)throw new Error('HTTP '+r.status);
+       const j=await r.json();
+       html=String(j.contents||'');
+       text=htmlToText(html);
+     }else if(route==='jina'){
+       const p='https://r.jina.ai/'+u;
+       const r=await fetch(p,{cache:'no-store'});
+       if(!r.ok)throw new Error('HTTP '+r.status);
+       text=await r.text();
+       html='';
+     }else if(route==='corsproxy'){
+       const p='https://corsproxy.io/?url='+encodeURIComponent(u);
+       const r=await fetch(p,{cache:'no-store'});
+       if(!r.ok)throw new Error('HTTP '+r.status);
+       const b=await r.arrayBuffer();
+       try{html=new TextDecoder('shift_jis').decode(b)}catch(e){html=new TextDecoder('utf-8').decode(b)}
+       text=htmlToText(html);
+     }
+     if((html&&html.length>300)||(text&&text.length>300)){
+       localStorage.setItem('keiba_jra_route_v26',route);
+       return {ok:true,text:text||htmlToText(html),html,via:route};
+     }
+     throw new Error('æ¬æãç©ºã§ã');
+   }catch(e){
+     errors.push(route+':'+String(e.message||e));
+   }
+ }
+ throw new Error('JRAãã¼ã¸ãèªååå¾ã§ãã¾ããã§ãããåå¾çµè·¯ããã¹ã¦è©¦ãã¾ããã');
+}
+
+// v41: robust parser for JRA desktop/mobile/reader table text.
+function exactRaceMetaV41(url,txt){
+ const meta=exactRaceMetaV39(url,txt)||{};
+ const raw=String(txt||'').replace(/\u00a0/g,' ').replace(/,/g,'');
+ if(!meta.course){
+   const m=raw.match(/(?:\d+å)?(æ­å¹|å½é¤¨|ç¦å³¶|æ°æ½|æ±äº¬|ä¸­å±±|ä¸­äº¬|äº¬é½|éªç¥|å°å)(?:ç«¶é¦¬å ´|\d+æ¥|\s)/);
+   if(m)meta.course=m[1]+'ç«¶é¦¬å ´';
+ }
+ if(!meta.distance||!meta.surface){
+   let m=raw.match(/ã³ã¼ã¹\s*[:ï¼]?\s*(\d{3,4})\s*(?:m|ã¡ã¼ãã«)\s*[ï¼(]?\s*(è|ãã¼ã)/i);
+   if(!m)m=raw.match(/ã³ã¼ã¹\s*[:ï¼]?\s*(è|ãã¼ã)\s*(\d{3,4})\s*(?:m|ã¡ã¼ãã«)/i);
+   if(m){ if(/^\d/.test(m[1])){meta.distance=+m[1];meta.surface=m[2]}else{meta.surface=m[1];meta.distance=+m[2]} }
+ }
+ const head=raw.slice(0,16000);
+ if(!meta.going){
+   if(/(?:è|ãã¼ã)[:ï¼]?\s*ç¨é|é¦¬å ´ç¶æ[:ï¼]?\s*ç¨é/.test(head))meta.going='ç¨é';
+   else if(/(?:è|ãã¼ã)[:ï¼]?\s*ä¸è¯|é¦¬å ´ç¶æ[:ï¼]?\s*ä¸è¯/.test(head))meta.going='ä¸è¯';
+   else if(/(?:è|ãã¼ã)[:ï¼]?\s*é(?:\s|$)|é¦¬å ´ç¶æ[:ï¼]?\s*é(?:\s|$)/m.test(head))meta.going='é';
+   else if(/(?:è|ãã¼ã)[:ï¼]?\s*è¯|é¦¬å ´ç¶æ[:ï¼]?\s*è¯/.test(head))meta.going='è¯';
+ }
+ return meta;
+}
+function parseJraSimpleTableV41(txt){
+ const raw=String(txt||'').replace(/\r/g,''); const out=[];
+ const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
+ for(let i=0;i<lines.length;i++){
+   const line=lines[i];
+   let m=line.match(/(?:Image:\s*)?æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?\s*\|\s*(\d{1,2})(?:[^|]*)\|\s*([^|]+)/);
+   if(!m)continue;
+   const frame=+m[1],no=+m[2]; if(no<1||no>18)continue;
+   let cell=m[3].replace(/Image:\s*(?:ããªã³ã«ã¼çç¨|ããªã³ã«ã¼|ãã«ã¬ã¤|ãã«å¤)\s*/g,'').trim();
+   const om=cell.match(/(\d+(?:\.\d+)?)\s*[ï¼(]\s*(\d{1,2})\s*çªäººæ°\s*[ï¼)]/);
+   let name=(om?cell.slice(0,om.index):cell).trim();
+   name=(name.match(/^[ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{2,40}/)||[])[0]||'';
+   if(!name)continue;
+   const nearby=lines.slice(i,Math.min(lines.length,i+12)).join(' | ');
+   const bm=nearby.match(/(\d{3})\s*kg/i), wm=nearby.match(/(\d{2}(?:\.\d)?)\s*kg/i);
+   let jockey=''; if(wm){const a=nearby.slice(nearby.indexOf(wm[0])+wm[0].length);const jm=a.match(/\s*([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ .â³â²ââ]{2,24})/);if(jm)jockey=jm[1].replace(/^[â³â²ââ]\s*/,'').trim()}
+   out.push(applyMemoryHorse({frame,no:String(no),name,style:inferStyleFromText(nearby),jockey,carried:wm?+wm[1]:55,body:bm?+bm[1]:0,odds:om?+om[1]:0,sp:80,st:80,pw:80,runs:[]}));
+ }
+ const uniq=[],seen=new Set(); out.sort((a,b)=>+a.no-+b.no).forEach(h=>{if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}}); return uniq.slice(0,18);
+}
+function expectedSimpleRunnersV41(txt){
+ const nums=new Set(); String(txt||'').split(/\n/).forEach(x=>{const m=x.match(/(?:Image:\s*)?æ [1-8](?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)?\s*\|\s*(\d{1,2})/);if(m&&+m[1]>=1&&+m[1]<=18)nums.add(+m[1])}); return nums.size;
+}
+
+
+// v42: Jina reader fallback. Current runner markers often render as
+// ![Image ...: æ 1ç½](...waku/1.png)**12.3**(3 çªäººæ°) ...
+// rather than a conventional markdown table.
+function parseJraJinaBlocksV42(txt){
+ const raw=String(txt||'').replace(/\r/g,'');
+ const re=/!\[Image[^\]]*:\s*æ ([1-8])(?:ç½|é»|èµ¤|é|é»|ç·|æ©|æ¡)[^\]]*\]\([^)]+\/waku\/[1-8]\.png[^)]*\)/g;
+ const ms=[...raw.matchAll(re)], cand=[];
+ const clean=x=>String(x||'').replace(/\*\*/g,'').replace(/!\[[^\]]*\]\([^)]+\)/g,' ').replace(/\[([^\]]+)\]\(([^)]+)\)/g,'$1').replace(/\s+/g,' ').trim();
+ for(let i=0;i<ms.length;i++){
+   const start=ms[i].index, end=i+1<ms.length?ms[i+1].index:Math.min(raw.length,start+7000);
+   const block=raw.slice(start,end), front=block.slice(0,1800);
+   const om=front.match(/\*\*\s*(\d+(?:\.\d+)?)\s*\*\*\s*[ï¼(]?\s*(\d{1,2})\s*çªäººæ°\s*[ï¼)]?/);
+   if(!om)continue; // history rows do not have the current bold-odds signature
+   let name='';
+   const lm=front.match(/\[([^\]]{2,40})\]\([^)]*\/JRADB\/accessU\.html[^)]*\)/i);
+   if(lm)name=clean(lm[1]).replace(/^Image:\s*/,'').trim();
+   if(!name){
+     const after=clean(front.slice(om.index+om[0].length));
+     const nm=after.match(/(?:^|\s)([ã¡-ã¶ã¼ä¸-é¾ A-Za-z][ã¡-ã¶ã¼ä¸-é¾ A-Za-z0-9ã»'â\-]{1,39})(?=\s)/);
+     if(nm)name=nm[1];
+   }
+   // number: prefer a standalone number close to marker; otherwise defer to table order.
+   const plain=clean(front.slice(0,700));
+   let no=0; const nums=[...plain.matchAll(/(?:^|\s)(\d{1,2})(?=\s|$)/g)].map(x=>+x[1]).filter(n=>n>=1&&n<=18);
+   if(nums.length)no=nums[0];
+   const bodyM=clean(front).match(/(\d{3})\s*kg/i);
+   const wtM=clean(front).match(/(?:ç¡|ç|ãã)\d+[^0-9]{0,30}(\d{2}(?:\.\d)?)\s*kg/i);
+   let jockey=''; const jm=clean(front).match(/(\d{2}(?:\.\d)?)\s*kg\s+([ã-ãã¡-ã¶ä¸-é¾ A-Za-zã»ã¼ .â³â²âââ]{2,28})/); if(jm)jockey=jm[2].replace(/^[â³â²âââ]\s*/,'').trim();
+   cand.push({frame:+ms[i][1],no,name,style:inferStyleFromText(block),jockey,carried:wtM?+wtM[1]:55,body:bodyM?+bodyM[1]:0,odds:+om[1],sp:80,st:80,pw:80,runs:[]});
+ }
+ // Keep the longest prefix with nondecreasing frame numbers; current table is ordered by horse number.
+ let best=[];
+ for(let a=0;a<cand.length;a++){
+   let run=[cand[a]];
+   for(let b=a+1;b<cand.length;b++){
+     if(cand[b].frame<run[run.length-1].frame)break;
+     run.push(cand[b]); if(run.length>=18)break;
+   }
+   if(run.length>best.length)best=run;
+ }
+ if(best.length<5)return [];
+ best=best.slice(0,18);
+ const used=new Set();
+ best.forEach((h,i)=>{ if(!h.no||used.has(h.no))h.no=i+1; used.add(h.no); if(!h.name)h.name='é¦¬çª'+h.no; });
+ // Never accept placeholder names: safety gate will stop instead of importing bad data.
+ if(best.some(h=>/^é¦¬çª\d+$/.test(h.name)))return [];
+ return best.map(h=>applyMemoryHorse({...h,no:String(h.no)}));
+}
+function expectedJinaBlocksV42(txt){ return parseJraJinaBlocksV42(txt).length; }
+function exactRaceMetaV42(url,txt){
+ const m=exactRaceMetaV41(url,txt)||{}, raw=String(txt||'').replace(/\u00a0/g,' ').replace(/,/g,'');
+ if(!m.distance||!m.surface){
+   const head=raw.slice(0,18000);
+   let x=head.match(/(?:ã³ã¼ã¹\s*[:ï¼]?\s*)?(\d{3,4})\s*(?:ã¡ã¼ãã«|m)\s*[ï¼(]?\s*(è|ãã¼ã)/i);
+   if(!x)x=head.match(/(?:ã³ã¼ã¹\s*[:ï¼]?\s*)?(è|ãã¼ã)\s*[ã»:ï¼]?\s*(\d{3,4})\s*(?:ã¡ã¼ãã«|m)/i);
+   if(x){if(/^\d/.test(x[1])){m.distance=+x[1];m.surface=x[2]}else{m.surface=x[1];m.distance=+x[2]}}
+ }
+ return m;
+}
+
+const jraEntryUrl=$('jraEntryUrl'),fetchJraEntry=$('fetchJraEntry'),jraEntryStatus=$('jraEntryStatus');
+const jraResultUrl=$('jraResultUrl'),fetchJraResult=$('fetchJraResult'),jraResultStatus=$('jraResultStatus');
+fetchJraEntry.onclick=async()=>{
+ jraEntryStatus.textContent='åå¾ä¸­â¦';fetchJraEntry.disabled=true;
+ try{
+  const u=getJraUrlV40();
+  if(!u)throw new Error('JRA URLãå¥åãã¦ãã ãã');
+  localStorage.setItem('keiba_last_jra_url_v40',u);
+  const data=await fetchJraPage(u);
+  const textSource=data.text||htmlToText(data.html||'');
+  const meta=exactRaceMetaV42(u||jraEntryUrl.value,textSource);
+  let parsed=parseJraMarkdownV39(textSource);
+  if(!parsed.length)parsed=parseJraCurrentTableV38(textSource);
+  if(!parsed.length && data.html)parsed=parseJraHtmlV36(data.html||'');
+  if(!parsed.length)parsed=parseJraSimpleTableV41(textSource);
+  if(!parsed.length)parsed=parseJraJinaBlocksV42(textSource);
+  const expected=expectedMarkdownRunnersV39(textSource)||expectedCurrentRunnersV38(textSource)||expectedSimpleRunnersV41(textSource)||expectedJinaBlocksV42(textSource);
+  const valid=validateImportedJra(parsed,meta);
+
+  // Hard gate: current JRA table count must equal parsed count.
+  if(!expected){
+    valid.ok=false;
+    valid.errors.push('ç¾å¨ã®åºé¦¬è¡¨ã®é ­æ°ãç¢ºèªã§ãã¾ãã');
+  }else if(expected<5 || expected>18){
+    valid.ok=false;
+    valid.errors.push('åºèµ°é¦¬æ°ã®æ¤åºå¤ãç°å¸¸ã§ãï¼'+expected+'é ­ï¼');
+  }else if(parsed.length!==expected){
+    valid.ok=false;
+    valid.errors.push('åºèµ°é¦¬æ°ãä¸è´ãã¾ããï¼'+parsed.length+'é ­ / åºé¦¬è¡¨'+expected+'é ­ï¼');
+  }
+
+  // Hard gate: race conditions must be explicit and plausible.
+  if(!meta.course||!meta.surface||!meta.distance){
+    valid.ok=false;
+    valid.errors.push('ã¬ã¼ã¹æ¡ä»¶ãç¢ºå®ã§ãã¾ãã');
+  }
+  if(!valid.ok){
+    localStorage.setItem('keiba_jra_last_text_v27',String(textSource||'').slice(0,200000));
+    const candCount=textSource.split('\n').filter(x=>x.includes('|')||/çªäººæ°|é¦¬ä½é|æ¤é|é¨æ/.test(x)).length;
+    const box=document.getElementById('bulk');
+    const allLines=textSource.replace(/\r/g,'').split('\n');
+    const keep=new Set();
+    allLines.forEach((x,i)=>{
+      if(/çªäººæ°|\/waku\/[1-8]\.png|é¦¬ä½é|æ¤é|é¨æ|ã³ã¼ã¹[:ï¼]|\d+å(?:æ­å¹|å½é¤¨|ç¦å³¶|æ°æ½|æ±äº¬|ä¸­å±±|ä¸­äº¬|äº¬é½|éªç¥|å°å)\d+æ¥/.test(x)){
+        for(let j=Math.max(0,i-3);j<=Math.min(allLines.length-1,i+5);j++)keep.add(j);
+      }
+    });
+    const diagLines=[...keep].sort((a,b)=>a-b).map(i=>allLines[i]);
+    if(box){
+      box.value='ãè¨ºæ­ãåå¾ '+textSource.length+'æå­ / å¨è¾º '+diagLines.length+'è¡\n\n'+diagLines.slice(0,180).join('\n');
+    }
+    throw new Error('å®å¨ãã§ãã¯ã§åè¾¼ãä¸­æ­¢: '+valid.errors.join(' / ')+'ãèª¤ãã¼ã¿ã¯ä¿å­ãã¦ãã¾ãããï¼»åå¾ '+textSource.length+'æå­ / åè£ '+candCount+'è¡ï¼½');
+  }
+  if(meta.course&&meta.distance&&meta.surface){
+    applyRaceMeta(meta);
+  } else {
+    // Do not overwrite distance/surface with guesses from unrelated page text.
+    if(meta.course && E.course) E.course.value=meta.course;
+  }
+  E.bulk.value=compactHorseCsv(parsed);
+  horses=parsed.slice(0,18).filter(h=>h&&h.name&&!/^(ãã­ã¢ã¼ã·ã§ã³|JRA|FUN CLUB|Hello|Special Times)$/i.test(h.name));horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'é ­ãJRAããåãè¾¼ã¿ã¾ããã</span><br>å®å¨ãã§ãã¯OKï¼é¦¬åã»é¦¬çªã»æ¤éã»é¨æã»é¦¬ä½éã»ãªããºã»ã¬ã¼ã¹æ¡ä»¶ãèªååæ <br><b>å¤å®: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
+  if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRAèªååè¾¼ãã¼ã¿ãåæ ãã¾ããã</span>';
+ }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
+ finally{fetchJraEntry.disabled=false}
+};
+fetchJraResult.onclick=async()=>{
+ jraResultStatus.textContent='åå¾ä¸­â¦';fetchJraResult.disabled=true;
+ try{
+  const u=await urlFromInputOrClipboard(jraResultUrl);
+  const data=await fetchJraPage(u);
+  E.resultText.value=data.text||'';
+  const rows=parseJraResultText(E.resultText.value);
+  if(!rows.length)throw new Error('ãã¼ã¸ã¯åå¾ã§ãã¾ãããç¢ºå®çé ãè§£æã§ãã¾ããã§ãã');
+  const r=learnParsedResult(rows);lastStats=null;renderStats();updateMemoryCount();
+  jraResultStatus.innerHTML='<span class="ok">'+r.learned+'é ­ãJRAç¢ºå®çµæããèªåå­¦ç¿ãã¾ããã</span>'+(r.unmatched.length?'<br><span class="warn">æªç§å '+r.unmatched.length+'é ­</span>':'');
+ }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
+ finally{fetchJraResult.disabled=false}
+};
+E.previewResult.onclick=()=>{
+ const rows=parseJraResultText(E.resultText.value);
+ if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">çé ãè§£æã§ãã¾ããã§ããã</span>';return}
+ const m=matchResultToHorses(rows);
+ E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'é ­ã®çé ãè§£æã'+m.matches.length+'é ­ãåºèµ°é¦¬ã¨ç§åãã¾ããã</span><br>'+rows.slice(0,6).map(r=>r.pos+'ç '+r.no+' '+r.name).join(' / ')+(rows.length>6?' ...':'');
+};
+E.autoLearnResult.onclick=()=>{
+ const rows=parseJraResultText(E.resultText.value);
+ if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">ç¢ºå®çµæãè§£æã§ãã¾ããã§ããã</span>';return}
+ const r=learnParsedResult(rows);
+ lastStats=null;renderStats();updateMemoryCount();
+ E.autoLearnStatus.innerHTML='<span class="ok">'+r.learned+'é ­ãèªåå­¦ç¿ãã¾ããã</span>'+(r.unmatched.length?'<br><span class="warn">æªç§å '+r.unmatched.length+'é ­</span>':'');
+};
+E.saveMemory.onclick=rememberAll;
+
+E.purgeBadMemory.onclick=()=>{
+ const r=purgeInvalidImportedMemory();
+ updateMemoryCount();
+ E.memoryStatus.innerHTML='<span class="ok">èª¤åè¾¼ãã¼ã¿ãåé¤ãã¾ããã '+r.before+'é ­ â '+r.after+'é ­</span>';
+};
+
+E.cleanMemory.onclick=cleanupMemory;
+E.clearMemory.onclick=()=>{if(confirm('ä¿å­ãã¦ããé¦¬ãã¼ã¿ããã¹ã¦åé¤ãã¾ããï¼')){localStorage.removeItem(MEMKEY);updateMemoryCount();E.memoryStatus.innerHTML='<span class="warn">å­¦ç¿ã¡ã¢ãªãåæåãã¾ããã</span>'}};
+E.learnResult.onclick=()=>{const n=learnResultText(E.resultLearn.value);E.learnStatus.innerHTML=n?'<span class="ok">'+n+'é ­ã®çµæãå­¦ç¿ãã¾ããã</span>':'<span class="warn">çµæå½¢å¼ãç¢ºèªãã¦ãã ããã</span>';lastStats=null;renderStats()};
+window.onresize=resize;
+if(!localStorage.getItem('keiba_v36_route_reset')){
+ localStorage.removeItem('keiba_jra_route_v26');
+ localStorage.setItem('keiba_v36_route_reset','1');
+}
+restoreJraUrlV40();
+initHorses();fillCourse();updateMemoryCount();renderStats();setTimeout(resize,0);
+})();
+</script>
+
+</body></html>
