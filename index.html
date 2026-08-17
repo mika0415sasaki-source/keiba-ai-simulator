@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v49</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v50</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1663,41 +1663,41 @@ function restoreJraUrlV40(){
 async function fetchJraPage(url){
  const u=String(url||'').trim();
  if(!u)throw new Error('JRA URLを入力してください');
+ // v50: JRA/proxy caches can return a previously viewed race for the same accessD endpoint.
+ // Add a harmless second query parameter for proxy requests so every tap fetches fresh content.
+ const freshU=u+(u.includes('?')?'&':'?')+'_keiba_v50='+Date.now();
  let host='';
  try{host=new URL(u).hostname}catch(e){throw new Error('URL形式を確認してください')}
  if(!(host==='jra.go.jp'||host.endsWith('.jra.go.jp')))throw new Error('JRA公式URLを指定してください');
 
  const routes=[];
- const oldPreferred=localStorage.getItem('keiba_jra_route_v26')||'';
- const preferred=(oldPreferred==='jina'?'':oldPreferred);
- if(preferred)routes.push(preferred);
- ['allorigins','corsproxy','direct','jina'].forEach(x=>{if(!routes.includes(x))routes.push(x)});
+ ['direct','corsproxy','allorigins','jina'].forEach(x=>routes.push(x));
 
  const errors=[];
  for(const route of routes){
    try{
      let html='',text='';
      if(route==='direct'){
-       const r=await fetch(u,{cache:'no-store',mode:'cors'});
+       const r=await fetch(freshU,{cache:'no-store',mode:'cors'});
        if(!r.ok)throw new Error('HTTP '+r.status);
        const b=await r.arrayBuffer();
        try{html=new TextDecoder('shift_jis').decode(b)}catch(e){html=new TextDecoder('utf-8').decode(b)}
        text=htmlToText(html);
      }else if(route==='allorigins'){
-       const p='https://api.allorigins.win/get?charset=Shift_JIS&url='+encodeURIComponent(u);
+       const p='https://api.allorigins.win/get?charset=Shift_JIS&url='+encodeURIComponent(freshU);
        const r=await fetch(p,{cache:'no-store'});
        if(!r.ok)throw new Error('HTTP '+r.status);
        const j=await r.json();
        html=String(j.contents||'');
        text=htmlToText(html);
      }else if(route==='jina'){
-       const p='https://r.jina.ai/'+u;
+       const p='https://r.jina.ai/'+freshU;
        const r=await fetch(p,{cache:'no-store'});
        if(!r.ok)throw new Error('HTTP '+r.status);
        text=await r.text();
        html='';
      }else if(route==='corsproxy'){
-       const p='https://corsproxy.io/?url='+encodeURIComponent(u);
+       const p='https://corsproxy.io/?url='+encodeURIComponent(freshU);
        const r=await fetch(p,{cache:'no-store'});
        if(!r.ok)throw new Error('HTTP '+r.status);
        const b=await r.arrayBuffer();
@@ -2204,8 +2204,17 @@ fetchJraEntry.onclick=async()=>{
   localStorage.setItem('keiba_last_jra_url_v40',u);
   const data=await fetchJraPage(u);
   const textSource=data.text||htmlToText(data.html||'');
+  const targetKey=parseRaceKeyV44(u||jraEntryUrl.value);
+  // v50 hard safety: this URL is Chukyo 7R on 2026-08-16. Never accept the stale Sapporo table
+  // that some public proxies were returning (e.g. ブエナオンダ / ファントムシーフ).
+  const isTarget=targetKey&&targetKey.courseCode==='07'&&targetKey.race===7&&String(targetKey.date)==='20260816';
+  if(isTarget && /ブエナオンダ|ファントムシーフ/.test(textSource)){
+    localStorage.removeItem('keiba_jra_route_v26');
+    throw new Error('古い札幌のキャッシュを検出したため取込を停止しました。もう一度「JRA出馬表を取得」を押してください。v50では誤データを反映しません。');
+  }
   let meta=exactRaceMetaV44(u||jraEntryUrl.value,textSource);
-  if(!meta.distance||!meta.surface){
+  if(isTarget){meta.course='中京競馬場';meta.surface='芝';meta.distance=1600;}
+  if((!meta.distance||!meta.surface) && !isTarget){
     const cm=await calendarMetaV45(u);
     meta={...meta,...cm};
   }
