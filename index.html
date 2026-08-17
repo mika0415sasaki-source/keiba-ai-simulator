@@ -1,5 +1,5 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Safari v45</title>
+<title>KEIBA AI Safari v46</title>
 <meta name="theme-color" content="#161b22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v45</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v46</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -85,7 +85,8 @@ const ctx=E.canvas.getContext('2d');
 const MEMKEY='keiba_ai_memory_v19';
 function normName(v){return String(v||'').replace(/\s+/g,'').trim()}
 function loadMem(){try{return JSON.parse(localStorage.getItem(MEMKEY)||'{}')}catch(e){return {}}}
-function saveMemObject(m){localStorage.setItem(MEMKEY,JSON.stringify(m));updateMemoryCount()}function updateMemoryCount(){
+function saveMemObject(m){localStorage.setItem(MEMKEY,JSON.stringify(m));updateMemoryCount()}
+function updateMemoryCount(){
  const mem=loadMem();
  const real=Object.values(mem).filter(m=>m&&m.name&&!isSampleOrPlaceholderName(m.name)).length;
  if(E.memoryCount)E.memoryCount.textContent=real;
@@ -148,6 +149,7 @@ function rememberHorse(h){
  };
  localStorage.setItem(MEMKEY,JSON.stringify(mem));
 }
+
 
 function purgeInvalidImportedMemory(){
  const mem=loadMem(),out={};
@@ -212,6 +214,7 @@ function parseJraResultText(txt){
  const text=String(txt||'').replace(/\r/g,'');
  const lines=text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
  const rows=[];
+ // Fast path: lines that begin with finish position then frame/horse no/name.
  for(let i=0;i<lines.length;i++){
    const line=lines[i];
    let m=line.match(/^(\d{1,2})\s+(?:枠)?([1-8])?(?:白|黒|赤|青|黄|緑|橙|桃)?\s*(\d{1,2})\s+([ァ-ヶー一-龠A-Za-z0-9・ー]+)/);
@@ -227,6 +230,7 @@ function parseJraResultText(txt){
      continue;
    }
  }
+ // Fallback: search text blocks for "着順, 枠, 馬番, 馬名" patterns.
  if(!rows.length){
    const rg=/(\d{1,2})\s*(?:着)?\s*(?:枠\s*)?([1-8])?(?:白|黒|赤|青|黄|緑|橙|桃)?\s*(\d{1,2})\s+([ァ-ヶー一-龠A-Za-z0-9・ー]{2,30})/g;
    let m;
@@ -302,6 +306,7 @@ function autoFrames(n){
   const sizes=new Array(8).fill(0);
   for(let i=0;i<Math.min(n,8);i++)sizes[i]=1;
   let extra=n-8;
+  // 2頭目は8枠→1枠へ、3頭目も8枠→1枠へ追加。
   for(let pass=0;pass<2 && extra>0;pass++){
     for(let f=7;f>=0 && extra>0;f--){
       sizes[f]++;extra--;
@@ -324,6 +329,8 @@ function cleanCellText(v){return String(v||'').replace(/\u00a0/g,' ').replace(/[
 function detectRaceMetaFromJra(text){
   const t=String(text||'').replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ');
   const meta={};
+
+  // Prefer the race header / page title neighborhood instead of the whole page.
   const lines=t.split('\n').map(x=>x.trim()).filter(Boolean);
   let header='';
   const raceIdx=lines.findIndex(x=>/\d{1,2}R|第\d+回|競走|発走|芝|ダート/.test(x));
@@ -331,10 +338,12 @@ function detectRaceMetaFromJra(text){
   if(!header)header=lines.slice(0,80).join(' ');
 
   const courses=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
+  // Look for explicit meeting/race expressions first.
   for(const c of courses){
     const re1=new RegExp('(?:第\\d+回\\s*)?'+c+'(?:競馬|競馬場|\\s*\\d+日)');
     if(re1.test(header)){meta.course=c+'競馬場';break}
   }
+  // Fallback: choose the course nearest to an R/race token in header.
   if(!meta.course){
     let best=null;
     for(const c of courses){
@@ -386,9 +395,13 @@ function compactHorseCsv(list){
   }).join('\n');
 }
 
+// v43: attach up to four recent runs to CURRENT runners only.
+// JRA reader output varies by route, so history is extracted from each current horse's own block.
 function extractPastRunsV43(block){
  const t=String(block||'').replace(/\r/g,' ').replace(/,/g,'').replace(/\*\*/g,' ').replace(/\s+/g,' ');
  const runs=[];
+ // A past-run neighborhood normally contains distance/surface, going, finish and final-3F.
+ // Accept several JRA reader orderings, but require all four values to avoid false history.
  const patterns=[
   /(?:芝|ダート)\s*(\d{3,4})[^。|]{0,100}?(良|稍重|重|不良)[^。|]{0,140}?(?:着順[:：]?\s*)?(\d{1,2})\s*着[^。|]{0,140}?(?:上り|上がり|3F)[:：]?\s*(\d{2}\.\d)/g,
   /(\d{3,4})\s*(?:m|メートル)?\s*(?:芝|ダート)[^。|]{0,100}?(良|稍重|重|不良)[^。|]{0,140}?(\d{1,2})\s*着[^。|]{0,140}?(\d{2}\.\d)/g,
@@ -443,6 +456,8 @@ function enrichPastRunsV43(parsed,text,html){
  return parsed;
 }
 
+
+
 function parseJraMarkdownV39(txt){
  const raw=String(txt||'').replace(/\r/g,'');
  const marker=/^(?:!\[Image\s+\d+\s*:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃)\]\([^)]+\)|Image:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃))/gm;
@@ -464,6 +479,7 @@ function parseJraMarkdownV39(txt){
    const block=raw.slice(begin,end);
    const lines=block.split('\n').map(clean).filter(Boolean);
 
+   // A genuine current-runner block contains a current odds/popularity marker.
    let oddsLine=-1, oddsM=null;
    for(let j=0;j<Math.min(lines.length,35);j++){
      const m=lines[j].match(/(\d+(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*番人気\s*[）)]/);
@@ -471,11 +487,13 @@ function parseJraMarkdownV39(txt){
    }
    if(!oddsM)continue;
 
+   // Horse number is a standalone 1..18 before the odds line.
    let no=0,noLine=-1;
    for(let j=0;j<=oddsLine;j++){
      const m=lines[j].match(/^(\d{1,2})$/);
      if(m && +m[1]>=1 && +m[1]<=18){no=+m[1];noLine=j;break}
    }
+   // Some markdown renderers attach the number to the first token.
    if(!no){
      for(let j=0;j<=oddsLine;j++){
        const m=lines[j].match(/^(\d{1,2})\s+(.+)/);
@@ -484,6 +502,7 @@ function parseJraMarkdownV39(txt){
    }
    if(!no)continue;
 
+   // Name: first plausible Japanese/Latin token after horse number and before odds.
    let name='';
    for(let j=Math.max(0,noLine);j<=oddsLine;j++){
      let x=lines[j]
@@ -492,6 +511,7 @@ function parseJraMarkdownV39(txt){
        .trim();
      if(!x)continue;
      if(x.includes(oddsM[0]))x=x.slice(0,x.indexOf(oddsM[0])).trim();
+     // remove leading image alt leftovers
      x=x.replace(/^Image:\s*\S+\s*/,'').trim();
      const cand=x.match(/([ァ-ヶー一-龠A-Za-z0-9・'’\-]{2,40})/);
      if(cand && !/^(番人気|kg|枠|牡|牝|せん)$/.test(cand[1])){
@@ -531,6 +551,7 @@ function parseJraMarkdownV39(txt){
 
 function expectedMarkdownRunnersV39(txt){
  const raw=String(txt||'').replace(/\r/g,'');
+ // Count only frame markers whose following block contains a CURRENT odds marker.
  const marker=/^(?:!\[Image\s+\d+\s*:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃)\]\([^)]+\)|Image:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃))/gm;
  const ms=[...raw.matchAll(marker)];
  let n=0;
@@ -551,10 +572,12 @@ function exactRaceMetaV39(url,txt){
  };
  let u='';
  try{u=decodeURIComponent(String(url||''))}catch(e){u=String(url||'')}
+ // Actual captured URL: ...dde01072026020807... => 07 is course code.
  const cm=u.match(/CNAME=(?:pw|sw)01dde01(\d{2})/i);
  if(cm)meta.course=courseMap[cm[1]]||'';
 
  const raw=String(txt||'').replace(/\u00a0/g,' ');
+ // Explicit race-header course wording only.
  let m=raw.match(/コース\s*[:：]\s*([0-9,]{4,5})\s*メートル\s*[（(]\s*(芝|ダート)/);
  if(!m)m=raw.match(/コース\s*[:：]\s*(芝|ダート)\s*([0-9,]{4,5})\s*(?:m|メートル)/i);
  if(m){
@@ -592,6 +615,7 @@ function parseJraCurrentTableV38(txt){
    const end=i+1<starts.length?starts[i+1].index:raw.length;
    const block=raw.slice(begin,end);
 
+   // First physical line contains horse name, odds, body weight and connections.
    const firstLine=block.split('\n')[0]||'';
    const oddsM=firstLine.match(/(\d+(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*番人気\s*[）)]/);
    if(!oddsM)continue;
@@ -599,6 +623,8 @@ function parseJraCurrentTableV38(txt){
    let beforeOdds=firstLine.slice(0,oddsM.index).trim();
    beforeOdds=cleanHorseName(beforeOdds);
 
+   // Horse name is everything before odds after removing JRA image labels.
+   // Strip trailing whitespace only; owner/breeder appear AFTER body weight, not before odds.
    let name=beforeOdds.trim();
    if(!name || name.length<2 || name.length>40)continue;
    if(/^(枠\d|芝\d|ダート\d|良|稍重|重|不良|kg)$/i.test(name))continue;
@@ -606,6 +632,7 @@ function parseJraCurrentTableV38(txt){
    const bodyM=firstLine.match(/(\d{3})\s*kg/i);
    const odds=+oddsM[1];
 
+   // Sex/age, carried weight and jockey appear in the 4th table cell, starting with "|".
    let carried=55,jockey='';
    const riderM=block.match(/\|\s*(?:牡|牝|せん)\d+\/[^\n|]*?\s+(\d{2}(?:\.\d)?)\s*kg\s+([^|\n]+?)\s*\|/);
    if(riderM){
@@ -649,12 +676,14 @@ function exactRaceMetaV38(url,txt){
  }
 
  const raw=String(txt||'').replace(/\u00a0/g,' ');
+ // Only explicit JRA race-header wording is accepted.
  const courseM=raw.match(/コース\s*[:：]\s*([0-9,]{4,5})\s*メートル\s*[（(]\s*(芝|ダート)/);
  if(courseM){
    meta.distance=+courseM[1].replace(/,/g,'');
    meta.surface=courseM[2];
  }
 
+ // Weather/going is near the race header, before the table header.
  const headEnd=raw.indexOf('枠  | 馬番');
  const head=headEnd>0?raw.slice(0,headEnd):raw.slice(0,12000);
  if(/芝\s*稍重|ダート\s*稍重|馬場状態[:：]?\s*稍重/.test(head))meta.going='稍重';
@@ -679,12 +708,14 @@ function parseJraHtmlV36(html){
 
  function ct(el){return String(el&&((el.innerText||el.textContent)||'')||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()}
  function horseNameFromCell(td){
+   // JRA horse links use accessU / horse-related URLs.
    const links=[...td.querySelectorAll('a')];
    for(const a of links){
      const href=String(a.getAttribute('href')||'');
      const tx=ct(a).replace(/^Image:\s*/i,'').trim();
      if(/accessU|dud|horse/i.test(href) && /^[ァ-ヶー一-龠A-Za-z0-9・'’\-]{2,40}$/.test(tx))return tx;
    }
+   // The third cell begins with horse name (possibly after an attribute image), then odds.
    let tx=ct(td).replace(/^Image:\s*(?:マルガイ|マル外|ブリンカー着用|ブリンカー)?\s*/i,'');
    const om=tx.match(/(\d+(?:\.\d+)?)\s*[（(]\s*\d+\s*番人気/);
    if(om){
@@ -699,13 +730,14 @@ function parseJraHtmlV36(html){
    const cells=[...tr.children].filter(x=>/^(TD|TH)$/.test(x.tagName));
    if(cells.length<4)continue;
 
+   // Current JRA desktop table is exactly: frame | horse no | horse details | sex/weight/jockey | past runs...
    const frameCell=cells[0], noCell=cells[1], horseCell=cells[2], riderCell=cells[3];
    const noText=ct(noCell);
    if(!/^\d{1,2}$/.test(noText))continue;
    const no=+noText;if(no<1||no>18)continue;
 
    const htxt=ct(horseCell);
-   if(!/番人気/.test(htxt))continue;
+   if(!/番人気/.test(htxt))continue; // excludes headers / non-runner rows
    const name=horseNameFromCell(horseCell);
    if(!name || /^(枠\d|芝\d|ダート\d|良|稍重|重|不良|kg)$/i.test(name))continue;
 
@@ -807,6 +839,7 @@ function parseJraHtml(html){
    if(cells.length<3)return;
    const texts=cells.map(c=>cleanCellText(c.innerText||c.textContent||''));
 
+   // Horse number: prefer dedicated short cell 1..18.
    let noIdx=-1,no=0;
    for(let i=0;i<Math.min(texts.length,6);i++){
      const mm=texts[i].match(/^(\d{1,2})$/);
@@ -814,6 +847,7 @@ function parseJraHtml(html){
    }
    if(noIdx<0)return;
 
+   // Horse name: prefer anchor that looks like a horse link / valid Japanese horse name.
    let name='', horseIdx=-1;
    for(let i=noIdx+1;i<cells.length;i++){
      const links=[...cells[i].querySelectorAll('a')];
@@ -829,6 +863,7 @@ function parseJraHtml(html){
      if(name)break;
    }
 
+   // Fallback: inspect each cell for a clean standalone horse-like token.
    if(!name){
      for(let i=noIdx+1;i<texts.length;i++){
        const toks=texts[i].split('\n').map(x=>x.trim()).filter(Boolean);
@@ -847,16 +882,20 @@ function parseJraHtml(html){
    const rowText=texts.join(' ');
    let odds=0,body=0,carried=55,jockey='',frame=0;
 
+   // Odds
    const om=rowText.match(/(?:単勝\s*)?(\d+(?:\.\d+)?)\s*(?:\(|（)\s*\d+番人気\s*(?:\)|）)/);
    if(om)odds=+om[1];
 
+   // Body weight
    const bm=rowText.match(/(?:馬体重[:：]?\s*)?(\d{3})\s*kg/i);
    if(bm)body=+bm[1];
 
+   // Frame
    const rowHtml=tr.outerHTML||'';
    const fm=rowHtml.match(/枠(?:番)?[^1-8]*([1-8])|waku[_-]?([1-8])/i);
    if(fm)frame=+(fm[1]||fm[2]);
 
+   // Carried weight + jockey: prefer cell after horse cell, but scan the row.
    for(let i=0;i<texts.length;i++){
      const tx=texts[i];
      const wm=tx.match(/(?:斤量[:：]?\s*)?(\d{2}(?:\.\d)?)\s*(?:kg)?/);
@@ -892,18 +931,21 @@ function parseJraHtml(html){
  return uniq.slice(0,18);
 }
 
+
 function parseJraLooseText(txt){
  const raw=String(txt||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
  const lines=raw.split('\n').map(x=>x.replace(/\*\*/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').trim()).filter(Boolean);
  const out=[];
  const bad=/^(JRA|日本中央競馬会|プロモーション|メニュー|本文へ|レース結果|オッズ|出馬表|馬名|騎手|調教師|馬主|生産者|血統|JRA FUN CLUB)$/i;
 
+ // Detect horse names from the characteristic JRA "odds (N番人気)" neighborhood.
  for(let i=0;i<lines.length;i++){
    const line=lines[i];
    const pop=line.match(/(\d+(?:\.\d+)?)\s*(?:\(|（)\s*(\d{1,2})\s*番人気\s*(?:\)|）)/);
    if(!pop)continue;
 
    let name='', no=0, frame=0, body=0, carried=55, jockey='';
+   // Search backwards for a plausible horse name and number.
    for(let j=i;j>=Math.max(0,i-8);j--){
      const x=lines[j].replace(/^[#>*\-\s]+/,'').trim();
      if(!no){
@@ -926,6 +968,7 @@ function parseJraLooseText(txt){
        }
      }
    }
+   // Often horse name and odds are on the same line.
    if(!name){
      const before=line.slice(0,pop.index).trim();
      const mm=before.match(/([ァ-ヶー一-龠A-Za-z0-9・'’\-]{2,30})\s*$/);
@@ -933,6 +976,7 @@ function parseJraLooseText(txt){
    }
    if(!name)continue;
 
+   // Search nearby for body weight, carried weight and jockey.
    for(let j=Math.max(0,i-5);j<=Math.min(lines.length-1,i+8);j++){
      const x=lines[j];
      if(!body){
@@ -964,13 +1008,18 @@ function parseJraLooseText(txt){
  return uniq.slice(0,18);
 }
 
+
 function parseJraMarkdownBlocksV35(txt){
  const raw=String(txt||'').replace(/\r/g,'');
  const out=[];
 
+ // Frame image positions. The current frame applies until the next frame image.
  const frames=[...raw.matchAll(/!\[Image\s*\d*:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃)?\]\([^)]+\/waku\/[1-8]\.png\)/g)]
    .map(m=>({i:m.index,end:m.index+m[0].length,frame:+m[1]}));
 
+ // Actual JRA reader format observed:
+ // ...waku/1.png)1**48.9**(12 番人気) ...
+ // Within the same frame block there can be multiple horses, so detect EVERY such head.
  const heads=[...raw.matchAll(/(?:^|[\n\s)])(\d{1,2})\s*\*{0,2}(\d+(?:\.\d+)?)\*{0,2}\s*(?:\(|（)\s*(\d{1,2})\s*番人気\s*(?:\)|）)/g)]
    .map(m=>({i:m.index,end:m.index+m[0].length,no:+m[1],odds:+m[2],pop:+m[3]}))
    .filter(x=>x.no>=1&&x.no<=18);
@@ -990,6 +1039,7 @@ function parseJraMarkdownBlocksV35(txt){
    if(!tx||tx.length<2||tx.length>30)return false;
    if(badExact.test(tx)||badWords.test(tx))return false;
    if(/^(牡|牝|せん)\d|^\d|kg$|番人気|枠\d|^(良|稍重|重|不良)$/.test(tx))return false;
+   // Japanese racehorse names are typically katakana/kanji/Latin; avoid spaces and punctuation-heavy labels.
    return /^[ァ-ヶー一-龠A-Za-z0-9・'’\-]+$/.test(tx);
  }
 
@@ -1001,11 +1051,14 @@ function parseJraMarkdownBlocksV35(txt){
    const block=raw.slice(h0.end,end);
    const frame=currentFrame(h0.i);
 
+   // Horse name: first plausible linked label in the front part of this exact horse segment.
    let name='',jockey='';
    const links=[...block.matchAll(/\[([^\]]{1,60})\]\(([^)]+)\)/g)];
    for(const lm of links){
      const tx=cleanLinkText(lm[1]),href=String(lm[2]||'');
      if(!name && isHorseName(tx)){
+       // Horse links tend to appear before jockey/trainer/owner/breeder links.
+       // Explicit horse-ish URL is strongest, but first plausible link is accepted.
        if(/horse|uma|accessU|pw01dud/i.test(href) || lm.index<700){
          name=tx;
          break;
@@ -1013,6 +1066,7 @@ function parseJraMarkdownBlocksV35(txt){
      }
    }
 
+   // Plain-text fallback: inspect only first ~700 chars before trainer/breeder info.
    if(!name){
      const near=block.slice(0,700)
        .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
@@ -1033,6 +1087,7 @@ function parseJraMarkdownBlocksV35(txt){
    const wtM=block.match(/(?:牡|牝|せん)\d+\s*(\d{2}(?:\.\d)?)\s*kg/i) ||
              block.match(/斤量[:：]?\s*(\d{2}(?:\.\d)?)\s*kg/i);
 
+   // Jockey: explicit jockey-ish href if present.
    for(const lm of links){
      const tx=cleanLinkText(lm[1]),href=String(lm[2]||'');
      if(tx!==name && /jockey|kishu|accessK|pw01dkl/i.test(href) &&
@@ -1051,6 +1106,7 @@ function parseJraMarkdownBlocksV35(txt){
    }));
  }
 
+ // One horse per horse number, sorted 1..18.
  const uniq=[],seenNo=new Set(),seenName=new Set();
  out.sort((a,b)=>+a.no-+b.no).forEach(h=>{
    const nk=normName(h.name);
@@ -1084,20 +1140,24 @@ function parseJraOfficialText(txt){
    if(!line.includes('|'))continue;
    const cells=line.split('|').map(stripMd);
 
+   // Preserve column positions; trim only empty edge cells.
    while(cells.length && cells[0]==='')cells.shift();
    while(cells.length && cells[cells.length-1]==='')cells.pop();
    if(cells.length<4)continue;
 
+   // A real JRA runner row must start with a frame cell, then a dedicated horse-number cell.
    const frameCell=cells[0]||'';
    const noCell=cells[1]||'';
    const horseCell=cells[2]||'';
    const riderCell=cells[3]||'';
 
+   // Accept frame formats like "1", "枠1", "Image: 枠1 白".
    const fm=frameCell.match(/(?:枠\s*)?([1-8])(?:\s*(?:白|黒|赤|青|黄|緑|橙|桃))?$/) ||
             frameCell.match(/枠\s*([1-8])/);
    if(!fm)continue;
    const frame=+(fm[1]||1);
 
+   // Horse number cell must contain ONLY the horse number (optionally markdown/image noise).
    const cleanNo=noCell
       .replace(/Image:[^0-9]*/gi,'')
       .replace(/[^\d]/g,'')
@@ -1106,6 +1166,7 @@ function parseJraOfficialText(txt){
    const no=+cleanNo;
    if(no<1||no>18)continue;
 
+   // Horse cell must contain both odds and "番人気"; this prevents past-run rows from matching.
    let hc=cleanHorseCell(horseCell);
    const oddsM=hc.match(/(\d+(?:\.\d+)?)\s*(?:\(|（)\s*(\d{1,2})\s*番人気\s*(?:\)|）)/);
    if(!oddsM)continue;
@@ -1116,6 +1177,7 @@ function parseJraOfficialText(txt){
       .replace(/^(?:マルガイ|マル外|ブリンカー着用|ブリンカー|チークピーシーズ着用|メンコ着用)\s*/,'')
       .trim();
 
+   // Horse name = last horse-like token immediately before odds.
    let name='';
    const nameMatches=[...beforeOdds.matchAll(/([ァ-ヶー一-龠A-Za-z0-9・'’\-]{2,40})/g)];
    if(nameMatches.length)name=nameMatches[nameMatches.length-1][1].trim();
@@ -1145,6 +1207,7 @@ function parseJraOfficialText(txt){
    }));
  }
 
+ // Deduplicate by BOTH horse number and normalized name.
  const uniq=[],seenNo=new Set(),seenName=new Set();
  out.sort((a,b)=>Number(a.no)-Number(b.no)).forEach(h=>{
    const nk=normName(h.name);
@@ -1153,6 +1216,7 @@ function parseJraOfficialText(txt){
  });
  return uniq.slice(0,18);
 }
+
 
 function metaFromJraUrlV37(url,txt){
  const meta={};
@@ -1169,6 +1233,7 @@ function metaFromJraUrlV37(url,txt){
  }
 
  const t=String(txt||'').replace(/\u00a0/g,' ');
+ // Search only the race-header area. Stop before runner table / popularity content.
  let header=t.slice(0,12000);
  const cuts=['単勝','複勝','枠連','馬名','馬番','番人気','出馬表'];
  let cut=header.length;
@@ -1178,6 +1243,7 @@ function metaFromJraUrlV37(url,txt){
  }
  header=header.slice(0,cut);
 
+ // Require "コース" label to avoid picking distances from navigation / other races.
  let m=header.match(/コース\s*[:：]?\s*([0-9,]{4,5})\s*(?:メートル|m)\s*[（(]?\s*(芝|ダート)/i);
  if(!m)m=header.match(/(芝|ダート)\s*([0-9,]{4,5})\s*(?:メートル|m)/i);
  if(m){
@@ -1196,15 +1262,18 @@ function detectOfficialRaceMeta(txt){
  const t=String(txt||'').replace(/\u00a0/g,' ').replace(/\r/g,'');
  const meta={};
 
+ // Explicit official meeting header, e.g. "2回中京2日 発走時刻..."
  const hm=t.match(/(?:^|\n).*?\d+回(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\d+日.*?発走時刻[:：]/m);
  if(hm)meta.course=hm[1]+'競馬場';
 
+ // Explicit course line, e.g. "コース：1,400メートル（芝・左）"
  const cm=t.match(/コース[:：]\s*([0-9,]+)\s*メートル\s*[（(]\s*(芝|ダート)/);
  if(cm){
    meta.distance=+cm[1].replace(/,/g,'');
    meta.surface=cm[2];
  }
 
+ // Going only from explicit track condition wording.
  if(/馬場状態[:：]?\s*稍重/.test(t))meta.going='稍重';
  else if(/馬場状態[:：]?\s*不良/.test(t))meta.going='不良';
  else if(/馬場状態[:：]?\s*重(?:\s|$)/m.test(t))meta.going='重';
@@ -1297,7 +1366,6 @@ function parseJraReaderText(txt){
  }
  return uniq.slice(0,18);
 }
-
 function parseJraText(txt){
  const lines=String(txt||'').replace(/\\n/g,'\n').split(/\r?\n+/).map(x=>x.trim()).filter(Boolean);
  const out=[];
@@ -1307,11 +1375,13 @@ function parseJraText(txt){
    const fm=line.match(/(?:^|\s)([1-8])\s*枠|枠\s*([1-8])/);
    if(fm) frame=Number(fm[1]||fm[2]);
 
+   // Horse lines often start with horse number followed by name.
    const hm=line.match(/^\s*(\d{1,2})\s+([^\s\d][^\s]{1,30})/);
    if(!hm) continue;
    const no=Number(hm[1]);
    if(no<1||no>18) continue;
 
+   // Collect until next horse-number-like line, max 12 lines.
    const block=[line];
    for(let j=i+1;j<Math.min(lines.length,i+12);j++){
      if(/^\s*\d{1,2}\s+[^\s\d][^\s]{1,30}/.test(lines[j])) break;
@@ -1336,7 +1406,6 @@ function parseJraText(txt){
  out.forEach(h=>{if(!seen.has(h.no)){seen.add(h.no);uniq.push(h)}});
  return uniq.slice(0,18);
 }
-
 function parseCsvText(text){
  const out=[];
  const rows=String(text||'').replace(/\\n/g,'\n').split(/\r?\n+/).map(x=>x.trim()).filter(Boolean);
@@ -1381,6 +1450,7 @@ function parseCsvText(text){
 function parse(txt){
  const text=String(txt||'').replace(/\\n/g,'\n').trim();
  if(!text)return [];
+ // If there is a comma anywhere, always treat as CSV first.
  if(text.includes(',')){
    const csv=parseCsvText(text);
    if(csv.length)return csv;
@@ -1413,8 +1483,7 @@ function renderRunners(){
    h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;
    lastStats=null;renderStats();draw();
  }));
-}
-function fillCourse(){E.course.innerHTML=Object.keys(C).map(k=>'<option>'+k+'</option>').join('');E.course.value='中京競馬場';updateVariants()}
+}function fillCourse(){E.course.innerHTML=Object.keys(C).map(k=>'<option>'+k+'</option>').join('');E.course.value='中京競馬場';updateVariants()}
 function updateVariants(){const vs=Object.keys(C[E.course.value].variants[E.surface.value]);E.variant.innerHTML=vs.map(v=>'<option>'+v+'</option>').join('');updateDistances()}
 function updateDistances(){const a=C[E.course.value].variants[E.surface.value][E.variant.value];E.distance.innerHTML=a.map(d=>'<option value="'+d+'">'+d+'m</option>').join('');if(a.includes(1800))E.distance.value='1800';lastStats=null;renderStats();draw()}
 
@@ -1429,10 +1498,12 @@ function autoPaceDetail(){
  if(n>=15)score+=1.0;
  else if(n<=8)score-=1.0;
 
+ // Multiple front-runners are the strongest high-pace signal.
  if(count['逃げ']>=4)score+=3.0;
  else if(count['逃げ']===3)score+=1.8;
  else if(count['逃げ']===0)score-=2.5;
 
+ // A large concentration of forward horses increases pressure.
  const forward=count['逃げ']+count['先行'];
  if(n && forward/n>=0.55)score+=1.6;
  if(n && forward/n<=0.25)score-=1.0;
@@ -1561,6 +1632,7 @@ function getJraUrlV40(){
  const el=document.getElementById('jraEntryUrl');
  let u='';
  if(el){
+   // Use the actual DOM value. Fall back to attribute only if needed.
    u=String(el.value||el.getAttribute('value')||'').trim();
  }
  if(!u){
@@ -1644,6 +1716,7 @@ async function fetchJraPage(url){
  throw new Error('JRAページを自動取得できませんでした。取得経路をすべて試しました。');
 }
 
+// v41: robust parser for JRA desktop/mobile/reader table text.
 function exactRaceMetaV41(url,txt){
  const meta=exactRaceMetaV39(url,txt)||{};
  const raw=String(txt||'').replace(/\u00a0/g,' ').replace(/,/g,'');
@@ -1665,7 +1738,6 @@ function exactRaceMetaV41(url,txt){
  }
  return meta;
 }
-
 function parseJraSimpleTableV41(txt){
  const raw=String(txt||'').replace(/\r/g,''); const out=[];
  const lines=raw.split('\n').map(x=>x.trim()).filter(Boolean);
@@ -1690,6 +1762,10 @@ function expectedSimpleRunnersV41(txt){
  const nums=new Set(); String(txt||'').split(/\n/).forEach(x=>{const m=x.match(/(?:Image:\s*)?枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)?\s*\|\s*(\d{1,2})/);if(m&&+m[1]>=1&&+m[1]<=18)nums.add(+m[1])}); return nums.size;
 }
 
+
+
+// v44: Treat each CURRENT frame marker as exactly one runner.
+// Past-run popularity/finishing-position text is never allowed to become a runner.
 function cleanMdV44(x){
  return String(x||'')
   .replace(/\r/g,'')
@@ -1714,11 +1790,13 @@ function currentFrameBlocksV44(txt){
 }
 function horseNameFromCurrentBlockV44(block,marker){
  const raw=String(block||'');
+ // Horse link is the strongest signal.
  const lm=raw.match(/\[([^\]\n]{2,50})\]\([^)]*(?:accessU|horse|dud)[^)]*\)/i);
  if(lm){
    const n=cleanMdV44(lm[1]).replace(/^Image:\s*/,'').trim();
    if(n && !/^(枠|ブリンカー|マルガイ|マル外)/.test(n)) return n;
  }
+ // Only inspect the CURRENT-cell prefix, never previous-race cells.
  let front=raw.slice(String(marker||'').length);
  const dateAt=front.search(/20\d{2}年\d{1,2}月\d{1,2}日/);
  if(dateAt>=0)front=front.slice(0,dateAt);
@@ -1728,12 +1806,12 @@ function horseNameFromCurrentBlockV44(block,marker){
    .replace(/^\s*\|?\s*\d{1,2}\s*\|?\s*/,'')
    .replace(/^Image:\s*(?:ブリンカー着用|ブリンカー|マルガイ|マル外|マルチ)\s*/,'')
    .trim();
+ // Pipe rendering: horse name is the final plausible token in the current horse cell.
  const toks=[...p.matchAll(/([ァ-ヶー一-龠A-Za-z][ァ-ヶー一-龠A-Za-z0-9・'’\-]{1,39})/g)]
    .map(m=>m[1])
    .filter(x=>!/^(Image|kg|枠|白|黒|赤|青|黄|緑|橙|桃|ブリンカー着用|ブリンカー|マルガイ|マル外)$/.test(x));
  return toks.length?toks[toks.length-1]:'';
 }
-
 function extractPastRunsV44(block){
  const raw=cleanMdV44(block);
  const starts=[...raw.matchAll(/20\d{2}年\d{1,2}月\d{1,2}日/g)];
@@ -1778,7 +1856,8 @@ function parseJraCurrentOnlyV44(txt){
    const current=block.slice(0, Math.max(0, block.search(/20\d{2}年\d{1,2}月\d{1,2}日/)) || Math.min(block.length,2500));
    const cm=cleanMdV44(current);
    const name=horseNameFromCurrentBlockV44(block,marker);
-   if(!name)return [];
+   if(!name)return []; // never invent a horse name
+   // Current runner number is table order. JRA detailed entry table is always horse-number ascending.
    const no=i+1;
    const om=cm.match(/(\d+(?:\.\d+)?)\s*[（(]?\s*(\d{1,2})\s*番人気/);
    const bm=cm.match(/(\d{3})\s*kg(?:\s*[（(][^)]+[）)])?/i);
@@ -1812,6 +1891,7 @@ function exactRaceMetaV44(url,txt){
  const key=parseRaceKeyV44(url), meta=exactRaceMetaV42(url,txt)||{};
  if(key&&key.course)meta.course=key.course+'競馬場';
  const raw=String(txt||'').replace(/\u00a0/g,' ');
+ // Only the page header BEFORE the first current-runner marker may define this race.
  const fb=currentFrameBlocksV44(raw);
  const head=fb.length?raw.slice(0,raw.indexOf(fb[0].marker)):raw.slice(0,16000);
  let m=head.match(/コース\s*[:：]?\s*([0-9,]{4,5})\s*(?:メートル|m)\s*[（(]\s*(芝|ダート)/i);
@@ -1822,7 +1902,6 @@ function exactRaceMetaV44(url,txt){
  }
  return meta;
 }
-
 async function calendarMetaV44(url){
  const key=parseRaceKeyV44(url); if(!key||!key.course)return {};
  const d=key.date, cal='https://www.jra.go.jp/keiba/calendar'+d.slice(0,4)+'/'+d.slice(0,4)+'/'+(+d.slice(4,6))+'/'+d.slice(4,8)+'.html';
@@ -1841,6 +1920,9 @@ async function calendarMetaV44(url){
  }catch(e){return {}}
 }
 
+
+// v45: Parse the CURRENT runner row itself. A Jina row is:
+// frame-marker | horse-no | horse-cell(odds/body) | sex/weight/jockey | past1 | ...
 function cleanKeepLinksV45(x){
  return String(x||'')
   .replace(/\r/g,'')
@@ -1855,9 +1937,12 @@ function parseCurrentRowV45(frame,block,marker){
  let front=String(block||'').slice(String(marker||'').length);
  const dateAt=front.search(/20\d{2}年\d{1,2}月\d{1,2}日/);
  if(dateAt>=0)front=front.slice(0,dateAt);
+ // Preserve pipes; normalize markdown inside cells.
  let p=cleanKeepLinksV45(front).replace(/\n+/g,' ');
+ // Explicit horse number must be the first cell after the frame marker.
  let nm=p.match(/^\s*\|\s*(\d{1,2})\s*\|\s*/);
  if(!nm){
+   // JRA sometimes places an equipment image in the horse-number cell.
    nm=p.match(/^\s*\|\s*(\d{1,2})\s+(?:ブリンカー着用|ブリンカー)?\s*\|\s*/);
  }
  if(!nm)return null;
@@ -1870,15 +1955,18 @@ function parseCurrentRowV45(frame,block,marker){
    .replace(/^(?:マルガイ|マル外|ブリンカー着用|ブリンカー|チークピーシーズ着用|メンコ着用)\s*/g,'')
    .replace(/^Image:\s*\S+\s*/,'')
    .trim();
+ // Horse name is the final plausible name token before CURRENT odds.
  const toks=[...horseCell.matchAll(/([ァ-ヶー一-龠A-Za-z][ァ-ヶー一-龠A-Za-z0-9・'’\-]{1,39})/g)]
    .map(m=>m[1])
    .filter(x=>!/^(Image|マルガイ|マル外|ブリンカー着用|ブリンカー)$/.test(x));
  const name=toks.length?toks[toks.length-1]:'';
  if(!name)return null;
 
+ // Current body weight is immediately after CURRENT odds in the same horse cell.
  const afterOdds=after.slice(oddsM.index+oddsM[0].length);
  const bodyM=afterOdds.match(/\b(\d{3})\s*kg/i);
 
+ // The next pipe cell is sex/age, carried weight, jockey. Never read weight from past races.
  const pipe=afterOdds.indexOf('|');
  const riderCell=pipe>=0?afterOdds.slice(pipe+1, (afterOdds.indexOf('|',pipe+1)>=0?afterOdds.indexOf('|',pipe+1):afterOdds.length)):'';
  const rc=cleanKeepLinksV45(riderCell);
@@ -1906,6 +1994,7 @@ function extractPastRunsV45(block){
    if(!dm){ const m=seg.match(/(芝|ダート)\s*(\d{3,4})/); if(m)dm=[m[0],m[2],m[1]]; }
    if(!pm||!dm)continue;
    const gm=seg.match(/(?:\d:\d{2}\.\d|\d{3,4}(?:芝|ダート))[^]{0,100}?(良|稍重|重|不良)/);
+   // JRA detailed table often has 3F as a standalone 33.x-39.x value near the end.
    let f3=seg.match(/(?:上り|上がり|3F)\s*[:：]?\s*(\d{2}\.\d)/i);
    if(!f3){
      const vals=[...seg.matchAll(/\b(3[2-9]\.\d)\b/g)].map(m=>+m[1]);
@@ -1927,18 +2016,20 @@ function parseJraCurrentOnlyV45(txt){
  }
  return out.sort((a,b)=>+a.no-+b.no);
 }
-
 async function calendarMetaV45(url){
  const key=parseRaceKeyV44(url); if(!key||!key.course)return {};
  const d=key.date;
  const cal='https://www.jra.go.jp/keiba/calendar'+d.slice(0,4)+'/'+d.slice(0,4)+'/'+(+d.slice(4,6))+'/'+d.slice(4,8)+'.html';
  try{
+   // The entry page already proves r.jina.ai works on this device. Use it directly here;
+   // do not inherit a cached allorigins/corsproxy route.
    const r=await fetch('https://r.jina.ai/'+cal,{cache:'no-store'});
    if(!r.ok)throw new Error('calendar HTTP '+r.status);
    const t=cleanKeepLinksV45(await r.text()).replace(/\n+/g,' ');
    const secRe=new RegExp(key.meeting+'回\\s*'+key.course+'\\s*'+key.day+'日');
    const sm=secRe.exec(t); if(!sm)return {};
    const z=t.slice(sm.index,sm.index+20000);
+   // Find this race, then stop before the next race number.
    const rr=new RegExp('(?:^|\\s)'+key.race+'(?:レース|R)\\s*([^]{0,1200}?)(?=\\s'+(key.race+1)+'(?:レース|R)\\s|$)','i');
    const rm=z.match(rr); if(!rm)return {};
    const x=rm[1];
@@ -1949,6 +2040,96 @@ async function calendarMetaV45(url){
  }catch(e){return {}}
 }
 
+
+
+// v46: recent-run recovery. The current table can be fetched through a proxy that
+// keeps the runner row but drops/reshapes the four history cells. Recover history
+// independently from the Jina reader and merge by horse name/number.
+function extractPastRunsV46(block){
+ const raw=cleanKeepLinksV45(block)
+   .replace(/\r/g,' ')
+   .replace(/\n+/g,' ')
+   .replace(/[｜]/g,'|')
+   .replace(/\s+/g,' ');
+ const out=[], seen=new Set();
+ const dateRe=/(?:20\d{2}[年\/.\-]\s*\d{1,2}[月\/.\-]\s*\d{1,2}日?|\d{1,2}月\d{1,2}日)/g;
+ const dates=[...raw.matchAll(dateRe)];
+ const chunks=[];
+ if(dates.length){
+   for(let i=0;i<Math.min(8,dates.length);i++)chunks.push(raw.slice(dates[i].index,i+1<dates.length?dates[i+1].index:Math.min(raw.length,dates[i].index+1800)));
+ }else{
+   // Reader variants sometimes omit dates. Past-race cells still contain distance/surface + finish.
+   const anchors=[...raw.matchAll(/(?:芝|ダート)\s*\d{3,4}|\d{3,4}\s*(?:芝|ダート)/g)];
+   for(let i=0;i<Math.min(12,anchors.length);i++)chunks.push(raw.slice(Math.max(0,anchors[i].index-250),Math.min(raw.length,anchors[i].index+1000)));
+ }
+ for(const seg0 of chunks){
+   const seg=String(seg0).replace(/,/g,'');
+   let dm=seg.match(/(芝|ダート)\s*([1-3]\d{3})/);
+   let surface='',dist=0;
+   if(dm){surface=dm[1];dist=+dm[2]}else{
+     dm=seg.match(/([1-3]\d{3})\s*(?:m|メートル)?\s*(芝|ダート)/i);
+     if(dm){dist=+dm[1];surface=dm[2]}
+   }
+   if(!dist)continue;
+   let pm=seg.match(/(?:着順\s*[:：]?\s*)?(\d{1,2})\s*着/);
+   if(!pm)pm=seg.match(/(?:^|[|\s])着\s*(\d{1,2})(?:[|\s]|$)/);
+   if(!pm)continue;
+   const pos=+pm[1]; if(pos<1||pos>18)continue;
+   const gm=seg.match(/(?:馬場\s*[:：]?\s*)?(稍重|不良|重|良)/);
+   let last3=null;
+   const f=seg.match(/(?:上り|上がり|3F)\s*[:：]?\s*(\d{2}\.\d)/i);
+   if(f)last3=+f[1];
+   if(last3===null){
+     const vals=[...seg.matchAll(/(?:^|[|\s])(3\d\.\d|4[0-5]\.\d)(?=[|\s]|$)/g)].map(m=>+m[1]);
+     if(vals.length)last3=vals[vals.length-1];
+   }
+   const r={pos,dist,surface,going:gm?gm[1]:'',last3};
+   const key=[r.pos,r.dist,r.surface,r.going,r.last3].join('|');
+   if(!seen.has(key)){seen.add(key);out.push(r)}
+   if(out.length>=4)break;
+ }
+ return out.slice(0,4);
+}
+function attachPastRunsFromTextV46(parsed,text){
+ const raw=String(text||'');
+ const blocks=currentFrameBlocksV44(raw);
+ (parsed||[]).forEach(h=>{
+   let block='';
+   const byNo=blocks.find(b=>{
+     const x=parseCurrentRowV45(b.frame,b.block,b.marker);
+     return x && String(x.no)===String(h.no);
+   });
+   if(byNo)block=byNo.block;
+   if(!block){
+     const at=raw.indexOf(h.name);
+     if(at>=0){
+       let end=Math.min(raw.length,at+12000);
+       for(const other of parsed){
+         if(other===h)continue;
+         const nx=raw.indexOf(other.name,at+h.name.length);
+         if(nx>at&&nx<end)end=nx;
+       }
+       block=raw.slice(at,end);
+     }
+   }
+   const fresh=extractPastRunsV46(block);
+   if(fresh.length){h.runs=mergeRuns([],fresh).slice(0,4);abilitiesFromRunsV44(h)}
+ });
+ return parsed;
+}
+async function recoverPastRunsV46(url,parsed,primaryText){
+ attachPastRunsFromTextV46(parsed,primaryText);
+ if((parsed||[]).filter(h=>(h.runs||[]).length).length===parsed.length)return parsed;
+ try{
+   const r=await fetch('https://r.jina.ai/'+String(url||''),{cache:'no-store'});
+   if(r.ok){const t=await r.text();attachPastRunsFromTextV46(parsed,t)}
+ }catch(e){}
+ return parsed;
+}
+
+// v42: Jina reader fallback. Current runner markers often render as
+// ![Image ...: 枠1白](...waku/1.png)**12.3**(3 番人気) ...
+// rather than a conventional markdown table.
 function parseJraJinaBlocksV42(txt){
  const raw=String(txt||'').replace(/\r/g,'');
  const re=/!\[Image[^\]]*:\s*枠([1-8])(?:白|黒|赤|青|黄|緑|橙|桃)[^\]]*\]\([^)]+\/waku\/[1-8]\.png[^)]*\)/g;
@@ -1958,7 +2139,7 @@ function parseJraJinaBlocksV42(txt){
    const start=ms[i].index, end=i+1<ms.length?ms[i+1].index:Math.min(raw.length,start+7000);
    const block=raw.slice(start,end), front=block.slice(0,1800);
    const om=front.match(/\*\*\s*(\d+(?:\.\d+)?)\s*\*\*\s*[（(]?\s*(\d{1,2})\s*番人気\s*[）)]?/);
-   if(!om)continue;
+   if(!om)continue; // history rows do not have the current bold-odds signature
    let name='';
    const lm=front.match(/\[([^\]]{2,40})\]\([^)]*\/JRADB\/accessU\.html[^)]*\)/i);
    if(lm)name=clean(lm[1]).replace(/^Image:\s*/,'').trim();
@@ -1967,6 +2148,7 @@ function parseJraJinaBlocksV42(txt){
      const nm=after.match(/(?:^|\s)([ァ-ヶー一-龠A-Za-z][ァ-ヶー一-龠A-Za-z0-9・'’\-]{1,39})(?=\s)/);
      if(nm)name=nm[1];
    }
+   // number: prefer a standalone number close to marker; otherwise defer to table order.
    const plain=clean(front.slice(0,700));
    let no=0; const nums=[...plain.matchAll(/(?:^|\s)(\d{1,2})(?=\s|$)/g)].map(x=>+x[1]).filter(n=>n>=1&&n<=18);
    if(nums.length)no=nums[0];
@@ -1975,6 +2157,7 @@ function parseJraJinaBlocksV42(txt){
    let jockey=''; const jm=clean(front).match(/(\d{2}(?:\.\d)?)\s*kg\s+([ぁ-んァ-ヶ一-龠A-Za-z・ー .△▲☆★◇]{2,28})/); if(jm)jockey=jm[2].replace(/^[△▲☆★◇]\s*/,'').trim();
    cand.push({frame:+ms[i][1],no,name,style:inferStyleFromText(block),jockey,carried:wtM?+wtM[1]:55,body:bodyM?+bodyM[1]:0,odds:+om[1],sp:80,st:80,pw:80,runs:[]});
  }
+ // Keep the longest prefix with nondecreasing frame numbers; current table is ordered by horse number.
  let best=[];
  for(let a=0;a<cand.length;a++){
    let run=[cand[a]];
@@ -1988,6 +2171,7 @@ function parseJraJinaBlocksV42(txt){
  best=best.slice(0,18);
  const used=new Set();
  best.forEach((h,i)=>{ if(!h.no||used.has(h.no))h.no=i+1; used.add(h.no); if(!h.name)h.name='馬番'+h.no; });
+ // Never accept placeholder names: safety gate will stop instead of importing bad data.
  if(best.some(h=>/^馬番\d+$/.test(h.name)))return [];
  return best.map(h=>applyMemoryHorse({...h,no:String(h.no)}));
 }
@@ -2005,7 +2189,6 @@ function exactRaceMetaV42(url,txt){
 
 const jraEntryUrl=$('jraEntryUrl'),fetchJraEntry=$('fetchJraEntry'),jraEntryStatus=$('jraEntryStatus');
 const jraResultUrl=$('jraResultUrl'),fetchJraResult=$('fetchJraResult'),jraResultStatus=$('jraResultStatus');
-
 fetchJraEntry.onclick=async()=>{
  jraEntryStatus.textContent='取得中…';fetchJraEntry.disabled=true;
  try{
@@ -2019,11 +2202,15 @@ fetchJraEntry.onclick=async()=>{
     const cm=await calendarMetaV45(u);
     meta={...meta,...cm};
   }
+  // v44: current frame markers define runners; past-race rows stay inside each horse's runs[].
   let parsed=parseJraCurrentOnlyV45(textSource);
   if(!parsed.length && data.html)parsed=parseJraHtmlV36(data.html||'');
+  // v46: recover up to four recent runs independently; never changes the current runner list.
+  if(parsed.length)parsed=await recoverPastRunsV46(u,parsed,textSource);
   const expected=expectedCurrentOnlyV44(textSource)||expectedRunnerCountV36(data.html||'',textSource);
   const valid=validateImportedJra(parsed,meta);
 
+  // Hard gate: current JRA table count must equal parsed count.
   if(!expected){
     valid.ok=false;
     valid.errors.push('現在の出馬表の頭数を確認できません');
@@ -2035,6 +2222,7 @@ fetchJraEntry.onclick=async()=>{
     valid.errors.push('出走馬数が一致しません（'+parsed.length+'頭 / 出馬表'+expected+'頭）');
   }
 
+  // Hard gate: race conditions must be explicit and plausible.
   if(!meta.course||!meta.surface||!meta.distance){
     valid.ok=false;
     valid.errors.push('レース条件を確定できません');
@@ -2059,6 +2247,7 @@ fetchJraEntry.onclick=async()=>{
   if(meta.course&&meta.distance&&meta.surface){
     applyRaceMeta(meta);
   } else {
+    // Do not overwrite distance/surface with guesses from unrelated page text.
     if(meta.course && E.course) E.course.value=meta.course;
   }
   E.bulk.value=compactHorseCsv(parsed);
@@ -2069,7 +2258,6 @@ fetchJraEntry.onclick=async()=>{
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
 };
-
 fetchJraResult.onclick=async()=>{
  jraResultStatus.textContent='取得中…';fetchJraResult.disabled=true;
  try{
@@ -2083,14 +2271,12 @@ fetchJraResult.onclick=async()=>{
  }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraResult.disabled=false}
 };
-
 E.previewResult.onclick=()=>{
  const rows=parseJraResultText(E.resultText.value);
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">着順を解析できませんでした。</span>';return}
  const m=matchResultToHorses(rows);
  E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span><br>'+rows.slice(0,6).map(r=>r.pos+'着 '+r.no+' '+r.name).join(' / ')+(rows.length>6?' ...':'');
 };
-
 E.autoLearnResult.onclick=()=>{
  const rows=parseJraResultText(E.resultText.value);
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">確定結果を解析できませんでした。</span>';return}
@@ -2098,7 +2284,6 @@ E.autoLearnResult.onclick=()=>{
  lastStats=null;renderStats();updateMemoryCount();
  E.autoLearnStatus.innerHTML='<span class="ok">'+r.learned+'頭を自動学習しました。</span>'+(r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭</span>':'');
 };
-
 E.saveMemory.onclick=rememberAll;
 
 E.purgeBadMemory.onclick=()=>{
@@ -2111,12 +2296,10 @@ E.cleanMemory.onclick=cleanupMemory;
 E.clearMemory.onclick=()=>{if(confirm('保存している馬データをすべて削除しますか？')){localStorage.removeItem(MEMKEY);updateMemoryCount();E.memoryStatus.innerHTML='<span class="warn">学習メモリを初期化しました。</span>'}};
 E.learnResult.onclick=()=>{const n=learnResultText(E.resultLearn.value);E.learnStatus.innerHTML=n?'<span class="ok">'+n+'頭の結果を学習しました。</span>':'<span class="warn">結果形式を確認してください。</span>';lastStats=null;renderStats()};
 window.onresize=resize;
-
 if(!localStorage.getItem('keiba_v36_route_reset')){
  localStorage.removeItem('keiba_jra_route_v26');
  localStorage.setItem('keiba_v36_route_reset','1');
 }
-
 restoreJraUrlV40();
 initHorses();fillCourse();updateMemoryCount();renderStats();setTimeout(resize,0);
 })();
