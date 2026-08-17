@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v42</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v43</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1598,6 +1598,35 @@ function restoreJraUrlV40(){
  });
 }
 
+function isJraEntryUrlV43(u){
+ try{
+  const x=new URL(String(u||''));
+  const c=String(x.searchParams.get('CNAME')||'');
+  return /\/JRADB\/accessD\.html$/i.test(x.pathname) && /^pw01dde01/i.test(c);
+ }catch(e){return false}
+}
+function looksLikeExactJraEntryV43(url,html,text){
+ if(!isJraEntryUrlV43(url))return true;
+ const raw=String(text||htmlToText(html||'')||'').replace(/\r/g,'');
+ // A real JRA entry page must have the entry-page heading AND current-runner table markers.
+ if(!/出馬表/.test(raw))return false;
+ const hasHeader=/枠\s*(?:\||.*?)馬番/.test(raw) || /馬名\s*\/\s*単勝オッズ/.test(raw);
+ const hasRunner=/(?:Image:\s*)?枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)?\s*\|\s*\d{1,2}/.test(raw)
+   || /\/waku\/[1-8]\.png/i.test(raw);
+ const hasPopularity=/番人気/.test(raw);
+ if(!(hasRunner&&hasPopularity))return false;
+ // When a race number is encoded in CNAME, reject a different race page.
+ try{
+  const c=String(new URL(url).searchParams.get('CNAME')||'');
+  const m=c.match(/^pw01dde01\d{2}\d{4}\d{2}(\d{2})/i);
+  if(m){
+    const rn=+m[1];
+    if(rn>=1&&rn<=12 && !new RegExp('(?:Image:?\\s*)?'+rn+'\\s*レース').test(raw.slice(0,12000)))return false;
+  }
+ }catch(e){}
+ return true;
+}
+
 async function fetchJraPage(url){
  const u=String(url||'').trim();
  if(!u)throw new Error('JRA URLを入力してください');
@@ -1607,9 +1636,11 @@ async function fetchJraPage(url){
 
  const routes=[];
  const oldPreferred=localStorage.getItem('keiba_jra_route_v26')||'';
- const preferred=(oldPreferred==='jina'?'':oldPreferred);
- if(preferred)routes.push(preferred);
- ['allorigins','corsproxy','direct','jina'].forEach(x=>{if(!routes.includes(x))routes.push(x)});
+ const entry=isJraEntryUrlV43(u);
+ // For accessD entry pages Jina currently preserves the exact race table most reliably.
+ const ordered=entry?['jina','allorigins','corsproxy','direct']:['allorigins','corsproxy','direct','jina'];
+ if(oldPreferred && ordered.includes(oldPreferred))routes.push(oldPreferred);
+ ordered.forEach(x=>{if(!routes.includes(x))routes.push(x)});
 
  const errors=[];
  for(const route of routes){
@@ -1643,15 +1674,19 @@ async function fetchJraPage(url){
        text=htmlToText(html);
      }
      if((html&&html.length>300)||(text&&text.length>300)){
+       const resolvedText=text||htmlToText(html);
+       if(!looksLikeExactJraEntryV43(u,html,resolvedText)){
+         throw new Error('指定したレースの出馬表ではないページを取得したため破棄');
+       }
        localStorage.setItem('keiba_jra_route_v26',route);
-       return {ok:true,text:text||htmlToText(html),html,via:route};
+       return {ok:true,text:resolvedText,html,via:route};
      }
      throw new Error('本文が空です');
    }catch(e){
      errors.push(route+':'+String(e.message||e));
    }
  }
- throw new Error('JRAページを自動取得できませんでした。取得経路をすべて試しました。');
+ throw new Error('指定レースのJRA出馬表を取得できませんでした。取得経路: '+errors.join(' / '));
 }
 
 // v41: robust parser for JRA desktop/mobile/reader table text.
@@ -1701,6 +1736,7 @@ function expectedSimpleRunnersV41(txt){
 }
 
 
+// v43: exact-page validation + Jina-first fetch for entry pages.
 // v42: Jina reader fallback. Current runner markers often render as
 // ![Image ...: 枠1白](...waku/1.png)**12.3**(3 番人気) ...
 // rather than a conventional markdown table.
@@ -1822,7 +1858,7 @@ fetchJraEntry.onclick=async()=>{
   }
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name&&!/^(プロモーション|JRA|FUN CLUB|Hello|Special Times)$/i.test(h.name));horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br>安全チェックOK：馬名・馬番・斤量・騎手・馬体重・オッズ・レース条件を自動反映<br><b>判定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br>安全チェックOK：馬名・馬番・斤量・騎手・馬体重・オッズ・レース条件を自動反映<br><b>判定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m / 経路 '+data.via+'</b>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
