@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v87</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v88</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1793,42 +1793,69 @@ function renderAllFiveBreakdownV85(){
 function totalBreakdownV86(h){
   const pace=paceName();
 
-  const baseSpeed=Number(h.sp||0)*.4;
-  const baseStamina=Number(h.st||0)*.34;
-  const basePower=Number(h.pw||0)*.26;
+  // v88: base ability remains the foundation, but is compressed so recent evidence can move rankings.
+  const rawBase =
+    Number(h.sp||0)*.36 +
+    Number(h.st||0)*.31 +
+    Number(h.pw||0)*.23;
+
+  // Compress the spread around the field mean instead of simply scaling everything down.
+  // This preserves horse quality while preventing the base score from dominating all other evidence.
+  const fieldRaw = horses.length ? horses.map(x =>
+    Number(x.sp||0)*.36 + Number(x.st||0)*.31 + Number(x.pw||0)*.23
+  ) : [rawBase];
+  const fieldMean = fieldRaw.reduce((a,b)=>a+b,0)/(fieldRaw.length||1);
+  const base = fieldMean + (rawBase-fieldMean)*0.74;
 
   let paceAdj=0;
   if(pace==='ハイ'){
-    if(h.style==='差し')paceAdj+=5;
-    if(h.style==='追込')paceAdj+=6;
-    if(h.style==='逃げ')paceAdj-=4;
-  }
-  if(pace==='スロー'){
-    if(h.style==='逃げ')paceAdj+=5;
-    if(h.style==='先行')paceAdj+=3;
-    if(h.style==='追込')paceAdj-=3;
+    if(h.style==='差し')paceAdj+=4.4;
+    if(h.style==='追込')paceAdj+=5.2;
+    if(h.style==='逃げ')paceAdj-=3.5;
+    if(h.style==='先行')paceAdj-=0.8;
+  }else if(pace==='スロー'){
+    if(h.style==='逃げ')paceAdj+=4.3;
+    if(h.style==='先行')paceAdj+=2.7;
+    if(h.style==='差し')paceAdj-=0.8;
+    if(h.style==='追込')paceAdj-=2.5;
+  }else{
+    if(h.style==='先行')paceAdj+=0.3;
+    if(h.style==='差し')paceAdj+=0.2;
   }
 
   let goingAdj=0;
   if(E.going.value!=='良'){
-    goingAdj+=(Number(h.st||0)-80)*.1+(Number(h.pw||0)-80)*.1;
+    goingAdj+=(Number(h.st||0)-80)*.08+(Number(h.pw||0)-80)*.08;
   }
 
-  const distance=Number(distanceFit(h)||0);
-  const frame=Number(frameFit(h)||0);
-  const weight=Number(weightFit(h)||0);
-  const body=Number(bodyFit(h)||0);
-  const memory=Number(memoryBonus(h)||0);
-  const past5=Number(pastFiveMetricsV81(h).bonus||0);
+  // Current-race modifiers remain bounded.
+  const distance=Number(distanceFit(h)||0)*1.10;
+  const frame=Number(frameFit(h)||0)*0.90;
+  const weight=Number(weightFit(h)||0)*0.85;
+  const body=Number(bodyFit(h)||0)*0.80;
+  const memory=Number(memoryBonus(h)||0)*0.70;
 
-  const total=baseSpeed+baseStamina+basePower+paceAdj+goingAdj+distance+frame+weight+body+memory+past5;
+  // Recent-five evidence gets more influence, but still cannot overwhelm the model.
+  const p5 = pastFiveMetricsV81(h);
+  const past5 = Math.max(-9.5, Math.min(10.5, Number(p5.bonus||0)*1.28));
+
+  // Extra evidence from the five-run decomposition.
+  // These are intentionally small and capped to avoid double counting.
+  const last3Extra = Math.max(-1.8, Math.min(2.0, Number(p5.last3||0)*0.55));
+  const trendExtra = Math.max(-1.6, Math.min(1.8, Number(p5.trend||0)*0.75));
+  const distExtra = Math.max(-1.5, Math.min(1.7, Number(p5.distance||0)*0.55));
+  const stabilityExtra = Math.max(-1.2, Math.min(1.2, Number(p5.stability||0)*0.45));
+
+  const total =
+    base + paceAdj + goingAdj + distance + frame + weight + body + memory +
+    past5 + last3Extra + trendExtra + distExtra + stabilityExtra;
 
   return {
     total,
-    base:baseSpeed+baseStamina+basePower,
-    speed:baseSpeed,
-    stamina:baseStamina,
-    power:basePower,
+    base,
+    speed:Number(h.sp||0)*.36,
+    stamina:Number(h.st||0)*.31,
+    power:Number(h.pw||0)*.23,
     pace:paceAdj,
     going:goingAdj,
     distance,
@@ -1836,7 +1863,11 @@ function totalBreakdownV86(h){
     weight,
     body,
     memory,
-    past5
+    past5,
+    last3Extra,
+    trendExtra,
+    distExtra,
+    stabilityExtra
   };
 }
 function totalBreakdownTextV86(h){
@@ -1850,6 +1881,10 @@ function totalBreakdownTextV86(h){
     `馬場 ${signedV85(b.going)}`,
     `脚質×ペース ${signedV85(b.pace)}`,
     `過去5走 ${signedV85(b.past5)}`,
+    `上がり補正 ${signedV85(b.last3Extra)}`,
+    `傾向補正 ${signedV85(b.trendExtra)}`,
+    `距離履歴 ${signedV85(b.distExtra)}`,
+    `安定補正 ${signedV85(b.stabilityExtra)}`,
     `学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`(${n}件)` : ''})()}`
   ].join(' / ');
 }
@@ -1859,7 +1894,8 @@ function totalBreakdownHtmlV86(h){
     <b>総合 ${b.total.toFixed(1)}</b><br>
     基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
     馬体 ${signedV85(b.body)}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
-    過去5走 ${signedV85(b.past5)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
+    過去5走 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
+    距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
 }
 
@@ -1892,7 +1928,7 @@ function renderPaceAutoStatus(){
  }
 }
 
-function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースに加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを評価します。1回ごとにペース・前後有利・内外有利・出遅れ・位置取り不利・当日の出来を変えてレースシナリオを作ります。能力差は残しつつ、同じ条件でも毎回まったく同じ結果にならないようにします。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()
+function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースに加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを重視して評価します。基礎能力は土台として残しつつ、近走データで順位が動くように調整しています。1回ごとにペース・前後有利・内外有利・出遅れ・位置取り不利・当日の出来を変えてレースシナリオを作ります。能力差は残しつつ、同じ条件でも毎回まったく同じ結果にならないようにします。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()
 renderAllFiveBreakdownV85();
 
 renderAllTotalBreakdownV86();
