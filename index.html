@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v88</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v89</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -95,8 +95,18 @@ function updateMemoryCount(){
  if(E.memoryCount)E.memoryCount.textContent=real;
 }
 function mergeRuns(oldRuns,newRuns){
- const all=[...(oldRuns||[]),...(newRuns||[])],seen=new Set(),out=[];
- all.forEach(r=>{const k=[r.date||'',r.pos,r.last3,r.dist,r.surface||'',r.going].join('|');if(!seen.has(k)){seen.add(k);out.push(r)}});
+ const all=[...(oldRuns||[]),...(newRuns||[])],idx=new Map(),out=[];
+ all.forEach(r=>{
+   const k=[r.date||'',r.pos,r.last3,r.dist,r.surface||'',r.going].join('|');
+   if(!idx.has(k)){
+     idx.set(k,out.length);
+     out.push({...r});
+   }else{
+     const i=idx.get(k);
+     // Newer/richer copies enrich older stored runs without duplicating the race.
+     out[i]={...out[i],...Object.fromEntries(Object.entries(r||{}).filter(([_,v])=>v!==''&&v!==null&&v!==undefined&&v!==0))};
+   }
+ });
  return out.slice(-30);
 }
 function distBucket(d){d=Number(d||0);if(d<=1400)return '短距離';if(d<=1800)return 'マイル中距離';if(d<=2200)return '中距離';return '長距離'}
@@ -1556,22 +1566,106 @@ function distanceFit(h){
   else{z+=(h.st-80)*.08;if(h.style==='追込'||h.style==='差し')z+=.8}
   return z;
 }
+function frameDetailV89(h){
+  const f=Number(h.frame||1);
+  const d=Number(E.distance.value||1800);
+  const course=String(E.course.value||'');
+  const style=String(h.style||'差し');
+
+  // frame 1 = -1 (inside), frame 8 = +1 (outside)
+  const pos=clampV81((f-4.5)/3.5,-1,1);
+  const distFactor=d<=1400?1.15:d<=1800?1.0:d<=2200?.78:.58;
+
+  // Compact/turn-heavy courses generally make ground loss from wide gates more costly.
+  const compact={
+    '札幌競馬場':.62,'函館競馬場':.60,'福島競馬場':.56,'小倉競馬場':.56,
+    '中山競馬場':.48,'中京競馬場':.34,'京都競馬場':.31,'阪神競馬場':.28,
+    '東京競馬場':.12,'新潟競馬場':.10
+  }[course] ?? .28;
+
+  let z=(-pos)*compact*distFactor;
+
+  // Forward runners benefit more from saving ground into the first turn.
+  if(style==='逃げ')z+=(-pos)*.38*distFactor;
+  else if(style==='先行')z+=(-pos)*.27*distFactor;
+
+  // Closers can tolerate/benefit from a wider, cleaner path on roomier courses.
+  const roomy=['東京競馬場','新潟競馬場','中京競馬場','京都競馬場','阪神競馬場'].includes(course);
+  if(roomy && (style==='差し'||style==='追込'))z+=pos*.20*distFactor;
+
+  // Extreme gates get a small extra adjustment; not enough to dominate ability.
+  if(f===1 && (style==='逃げ'||style==='先行'))z+=.12;
+  if(f===8 && ['札幌競馬場','函館競馬場','福島競馬場','小倉競馬場'].includes(course))z-=.12;
+
+  z=clampV81(z,-1.35,1.35);
+  const side=f<=3?'内':f>=6?'外':'中';
+  return {bonus:z,reason:`${course.replace('競馬場','')} ${d}m・${style}・${side}枠`};
+}
 function frameFit(h){
-  const f=Number(h.frame||1),d=Number(E.distance.value||1800);
-  let z=0;
-  if(d<=1600 && f<=3 && (h.style==='逃げ'||h.style==='先行'))z+=1.2;
-  if(C[E.course.value].dir==='左' && f>=7 && (h.style==='差し'||h.style==='追込'))z+=.4;
-  return z;
+  return frameDetailV89(h).bonus;
 }
 function weightFit(h){
   return -(Number(h.carried||55)-55)*.45;
 }
-function bodyFit(h){
-  const b=Number(h.body||0); if(!b)return 0;
+function bodyDetailV89(h){
+  const b=Number(h.body||0);
+  if(!b)return {bonus:0,reason:'馬体重なし',prev:0,delta:null,goodN:0};
+
+  const runs=(h.runs||[]).slice(0,5);
+  const hist=runs.map(r=>Number(r.body||0)).filter(x=>x>=350&&x<=650);
+  const prev=hist.length?hist[0]:0;
+  const delta=prev?b-prev:null;
   let z=0;
-  if(E.going.value!=='良'&&b>=500)z+=.5;
-  if(b<430)z-=.4;
-  return z;
+  const why=[];
+
+  // Current change from the most recent known race body weight.
+  if(delta!==null){
+    const a=Math.abs(delta);
+    if(a<=6){z+=.28;why.push(`前走比${delta>=0?'+':''}${delta}kg安定`);}
+    else if(a<=12){z+=.05;why.push(`前走比${delta>=0?'+':''}${delta}kg`);}
+    else if(a<=18){z-=.30;why.push(`増減${delta>=0?'+':''}${delta}kg大きめ`);}
+    else {z-=.70;why.push(`増減${delta>=0?'+':''}${delta}kg大`);}
+  }
+
+  // Compare with body weights from top-3 finishes in the recent five.
+  const good=runs
+    .filter(r=>Number(r.pos||99)<=3 && Number(r.body||0)>=350 && Number(r.body||0)<=650)
+    .map(r=>Number(r.body));
+  if(good.length){
+    const avg=good.reduce((a,x)=>a+x,0)/good.length;
+    const diff=Math.abs(b-avg);
+    const confidence=Math.min(1,good.length/2);
+    if(diff<=8){z+=.58*confidence;why.push(`好走時馬体≈${Math.round(avg)}kg`);}
+    else if(diff<=16){z+=.24*confidence;why.push(`好走時レンジ近い`);}
+    else {z-=.38*confidence;why.push(`好走時馬体から${Math.round(diff)}kg差`);}
+  }else{
+    // Fallback only when historical body weights are not yet available:
+    // use field median very lightly, so body size itself never becomes a major handicap.
+    const field=(horses||[]).map(x=>Number(x.body||0)).filter(x=>x>=350&&x<=650).sort((a,b)=>a-b);
+    if(field.length>=5){
+      const med=field[Math.floor(field.length/2)];
+      const diff=b-med;
+      if(Math.abs(diff)<=35)z+=.05;
+      else if(diff<-55)z-=.20;
+      else if(diff>65)z-=.10;
+    }
+  }
+
+  // On softer ground, a little more physical substance can help, but keep this tiny.
+  if(E.going.value!=='良'){
+    const field=(horses||[]).map(x=>Number(x.body||0)).filter(x=>x>=350&&x<=650).sort((a,b)=>a-b);
+    if(field.length>=5){
+      const med=field[Math.floor(field.length/2)];
+      if(b>=med+20)z+=.12;
+      if(b<=med-35)z-=.10;
+    }
+  }
+
+  z=clampV81(z,-1.25,1.25);
+  return {bonus:z,reason:why.join('・')||'標準域',prev,delta,goodN:good.length};
+}
+function bodyFit(h){
+  return bodyDetailV89(h).bonus;
 }
 
 function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}
@@ -1893,7 +1987,9 @@ function totalBreakdownHtmlV86(h){
   return `<div style="margin:3px 0 10px 24px;font-size:12px;line-height:1.6;opacity:.86">
     <b>総合 ${b.total.toFixed(1)}</b><br>
     基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
+    <span style="opacity:.72">枠理由: ${frameDetailV89(h).reason}</span><br>
     馬体 ${signedV85(b.body)}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
+    <span style="opacity:.72">馬体理由: ${bodyDetailV89(h).reason}</span><br>
     過去5走 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
     距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
@@ -3802,9 +3898,22 @@ function parseHorseResultV80(text){
      }
    }
 
+   let body=0,bodyDiff=null;
+   // netkeiba result tables usually contain body weight as 3 digits, often like 494(+4).
+   for(let i=distIdx+1;i<cells.length;i++){
+     const bm=String(cells[i]||'').replace(/\s/g,'').match(/^(\d{3})(?:\(([+\-]?\d+)\))?$/);
+     if(bm){
+       const bw=+bm[1];
+       if(bw>=350&&bw<=650){
+         body=bw;
+         if(bm[2]!==undefined)bodyDiff=+bm[2];
+       }
+     }
+   }
+
    runs.push({
      date:cells[dateIdx].replace(/\//g,'-'),
-     pos,last3,dist,surface,going,corners,
+     pos,last3,dist,surface,going,corners,body,bodyDiff,
      source:'netkeiba-horse-db'
    });
  }
