@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v64</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v63</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2665,35 +2665,26 @@ async function fetchTextTimeoutV63(url, ms=10000){
    return await r.text();
  }finally{clearTimeout(timer)}
 }
-// v64: read ONLY the current-row style attached to each horse name.
-// netkeiba shutuba_past renders the current style near the horse name as Image逃/Image先/Image差/Image追.
-// Never scan into past-race cells or the next horse row.
-function extractNetkeibaStylesV64(text, parsed){
+function extractNetkeibaStylesV63(text, parsed){
  const styles={};
  const src=String(text||'').normalize('NFKC');
- const horses=(parsed||[]).map(h=>({h,name:String(h.name||'').normalize('NFKC').trim()})).filter(x=>x.name);
- const positions=[];
- let cursor=0;
- for(const x of horses){
-   let at=src.indexOf(x.name,cursor);
-   if(at<0)at=src.indexOf(x.name);
-   positions.push({h:x.h,name:x.name,at});
-   if(at>=0)cursor=at+x.name.length;
- }
- for(let i=0;i<positions.length;i++){
-   const x=positions[i];
-   if(x.at<0)continue;
-   let end=src.length;
-   for(let j=i+1;j<positions.length;j++){
-     if(positions[j].at>x.at){end=positions[j].at;break;}
+ for(const h of (parsed||[])){
+   const name=String(h.name||'').normalize('NFKC').trim();
+   if(!name)continue;
+   let at=src.indexOf(name), found='';
+   while(at>=0 && !found){
+     const around=src.slice(at,Math.min(src.length,at+1400));
+     // shutuba_past reader: Image先 / Image差 / Image追 / Image逃 / Image大
+     let m=around.match(/Image\s*(大|逃|先|差|追)(?=[^ぁ-んァ-ヶ一-龠A-Za-z0-9]|中|連|休|$)/);
+     if(m)found=styleLabelV62(m[1]);
+     // newspaper_master reader: current style may be a standalone one-character label.
+     if(!found){
+       m=around.match(/(?:^|[\n\r\s])([大逃先差追])(?:[\n\r\s]|$)/);
+       if(m)found=styleLabelV62(m[1]);
+     }
+     if(!found)at=src.indexOf(name,at+name.length);
    }
-   let row=src.slice(x.at,end);
-   // Current-style icon is before the past-race cells. Cut at the first past-race date/lap marker.
-   const cut=row.search(/20\d{2}[.年\/\-]\s*\d{1,2}(?:[.月\/\-]\s*\d{1,2})?|\d+ヵ月|\d+ヶ月/);
-   if(cut>0)row=row.slice(0,cut);
-   // Strictly accept netkeiba's current-row image label only.
-   const m=row.match(/Image\s*(大|逃|先|差|追)(?=[^ぁ-んァ-ヶ一-龠A-Za-z0-9]|中|連|休|$)/);
-   if(m)styles[String(x.h.no)]=styleLabelV62(m[1]);
+   if(found)styles[String(h.no)]=found;
  }
  return styles;
 }
@@ -2716,11 +2707,11 @@ async function fetchNetkeibaStylesV62(jraUrl, parsed){
      try{
        const text=await fetchTextTimeoutV63(rt.url, rt.name==='direct'?6000:10000);
        if(!text||text.length<500)throw new Error('本文が空です');
-       const got=extractNetkeibaStylesV64(text,parsed);
+       const got=extractNetkeibaStylesV63(text,parsed);
        const count=Object.keys(got).length;
        attempts.push(rt.name+':'+count+'頭');
        if(count){
-         out.styles=got; out.matched=count; out.url=page; out.via=rt.name+'-current-row';
+         out.styles=got; out.matched=count; out.url=page; out.via=rt.name;
          return out;
        }
      }catch(e){
