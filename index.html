@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v92</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v93</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1609,7 +1609,7 @@ function weightFit(h){
 }
 function bodyDetailV89(h){
   const b=Number(h.body||0);
-  if(!b)return {bonus:0,reason:'馬体重なし',prev:0,delta:null,goodN:0};
+  if(!b)return {bonus:0,reason:'未発表（評価対象外）',prev:0,delta:null,goodN:0,available:false};
 
   const runs=(h.runs||[]).slice(0,5);
   const hist=runs.map(r=>Number(r.body||0)).filter(x=>x>=350&&x<=650);
@@ -1662,7 +1662,7 @@ function bodyDetailV89(h){
   }
 
   z=clampV81(z,-1.25,1.25);
-  return {bonus:z,reason:why.join('・')||'標準域',prev,delta,goodN:good.length};
+  return {bonus:z,reason:why.join('・')||'標準域',prev,delta,goodN:good.length,available:true};
 }
 function bodyFit(h){
   return bodyDetailV89(h).bonus;
@@ -1971,10 +1971,10 @@ function totalBreakdownTextV86(h){
     `距離 ${signedV85(b.distance)}`,
     `枠 ${signedV85(b.frame)}`,
     `斤量 ${signedV85(b.weight)}`,
-    `馬体 ${signedV85(b.body)}`,
+    `馬体 ${bodyDetailV89(h).available?signedV85(b.body):'未発表'}`,
     `馬場 ${signedV85(b.going)}`,
     `脚質×ペース ${signedV85(b.pace)}`,
-    `過去5走 ${signedV85(b.past5)}`,
+    `5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)}→反映 ${signedV85(b.past5)}`,
     `上がり補正 ${signedV85(b.last3Extra)}`,
     `傾向補正 ${signedV85(b.trendExtra)}`,
     `距離履歴 ${signedV85(b.distExtra)}`,
@@ -1988,9 +1988,9 @@ function totalBreakdownHtmlV86(h){
     <b>総合 ${b.total.toFixed(1)}</b><br>
     基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
     <span style="opacity:.72">枠理由: ${frameDetailV89(h).reason}</span><br>
-    馬体 ${signedV85(b.body)}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
+    馬体 ${bodyDetailV89(h).available?signedV85(b.body):'未発表'}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
     <span style="opacity:.72">馬体理由: ${bodyDetailV89(h).reason}</span><br>
-    過去5走 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
+    5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)} → 最終反映 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
     距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
 }
@@ -3976,7 +3976,7 @@ async function fetchNetkeibaPast5V71(jraUrl,parsed){
  const raceId=netkeibaRaceIdV62(jraUrl);
  const out={
    raceId,byNo:new Map(),totalRuns:0,withRuns:0,with5:0,error:'',
-   via:'horse-search>horse-db-v92-safe-date-filter',url:'',readUrl:''
+   via:'horse-search>horse-db-v93-safe-date-filter',url:'',readUrl:''
  };
  const list=(parsed||[]).slice().sort((a,b)=>+a.no-+b.no);
  const failures=[];
@@ -4076,7 +4076,7 @@ fetchJraEntry.onclick=async()=>{
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v92：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v93：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
