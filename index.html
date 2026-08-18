@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v82</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v83</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -80,6 +80,7 @@ const C={
 };
 const FC={1:['#fff','#111'],2:['#222','#fff'],3:['#e53935','#fff'],4:['#1976d2','#fff'],5:['#fdd835','#111'],6:['#2e7d32','#fff'],7:['#ef6c00','#fff'],8:['#ec407a','#fff']};
 let horses=[],mode='2d',running=false,progress=0,lastTs=0,raf=0,finishTimes=[],raceOrder=[],startReaction=[],lastStats=null;
+let simulationRunSeqV83=0,lastSimulationCountV83=0,lastSimulationLabelV83='未実行';
 const ctx=E.canvas.getContext('2d');
 
 const MEMKEY='keiba_ai_memory_v19';
@@ -1686,14 +1687,20 @@ function scenarioScoreV82(h,scenario){
 }
 
 function currentModel(){
-  const r=(lastStats&&lastStats.length)?lastStats:batch(1000);
-  return r.map(q=>({...q,h:horses[q.i],ev:oddsValue(horses[q.i],q.win)}));
+  if(!(lastStats&&lastStats.length)){
+    lastStats=batch(1000);
+    lastSimulationCountV83=1000;
+    simulationRunSeqV83++;
+    lastSimulationLabelV83='出馬表読込時の自動計算';
+  }
+  return lastStats.map(q=>({...q,h:horses[q.i],ev:oddsValue(horses[q.i],q.win)}));
 }
 function renderAISummary(){
   if(!horses.length)return;
   const r=currentModel();
   const top=r.slice(0,5),marks=['◎','○','▲','☆','△'];
-  E.aiSummary.innerHTML=top.map((q,i)=>{
+  const head=`<div class="small" style="margin-bottom:8px">シミュレーション: <b>${lastSimulationCountV83.toLocaleString()}回</b> / 実行 #${simulationRunSeqV83} / ${lastSimulationLabelV83}</div>`;
+  E.aiSummary.innerHTML=head+top.map((q,i)=>{
     const m=pastFiveMetricsV81(q.h);
     const s=(m.bonus>=0?'+':'')+m.bonus.toFixed(1);
     return `${marks[i]} ${q.h.no} ${q.h.name}　勝率${q.win.toFixed(1)}% / 3着内${q.show.toFixed(1)}% <span class="small">5走評価 ${s}</span>`;
@@ -1760,7 +1767,7 @@ function play(){if(!horses.length)return;try{localStorage.setItem('keiba_ai_pend
 function reset(){if(raf)cancelAnimationFrame(raf);running=false;progress=0;lastTs=0;finishTimes=[];raceOrder=[];startReaction=[];E.runstatus.textContent='停止中';E.phase.textContent='スタート前';updateFinish();draw()}
 E.sample.onclick=()=>{E.bulk.value=sampleText();const n=E.bulk.value.split(/\r?\n/).filter(Boolean).length;E.importStatus.innerHTML='<span class="ok">サンプルを'+n+'頭分入力しました。</span>'};
 E.apply.onclick=()=>{const p=parse(E.bulk.value);if(!p.length){E.importStatus.innerHTML='<span class="warn">読み込めるデータがありません。</span>';return}horses=p.slice(0,18);horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();E.importStatus.innerHTML='<span class="ok">'+horses.length+'頭を反映しました。 '+horses[0].no+' '+horses[0].name+' 〜 '+horses[horses.length-1].no+' '+horses[horses.length-1].name+'</span>'};
-E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;renderStats();draw()});E.play.onclick=play;E.batch.onclick=()=>{lastStats=batch(+E.count.value);renderStats()};E.reset.onclick=reset;E.tab2d.onclick=()=>{mode='2d';E.tab2d.classList.add('active');E.tab3d.classList.remove('active');draw()};E.tab3d.onclick=()=>{mode='3d';E.tab3d.classList.add('active');E.tab2d.classList.remove('active');draw()};E.navImport.onclick=()=>E.bulk.scrollIntoView({behavior:'smooth',block:'center'});E.navAnalyze.onclick=()=>{renderStats();E.ranking.scrollIntoView({behavior:'smooth',block:'center'})};E.navPlay.onclick=play;E.navBatch.onclick=()=>{lastStats=batch(1000);renderStats()};
+E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;lastSimulationCountV83=0;lastSimulationLabelV83='条件変更後の自動計算';renderStats();draw()});E.play.onclick=play;E.batch.onclick=()=>{const n=Number(E.count.value)||1000;lastStats=batch(n);lastSimulationCountV83=n;simulationRunSeqV83++;lastSimulationLabelV83='一括シミュレーション';renderStats()};E.reset.onclick=reset;E.tab2d.onclick=()=>{mode='2d';E.tab2d.classList.add('active');E.tab3d.classList.remove('active');draw()};E.tab3d.onclick=()=>{mode='3d';E.tab3d.classList.add('active');E.tab2d.classList.remove('active');draw()};E.navImport.onclick=()=>E.bulk.scrollIntoView({behavior:'smooth',block:'center'});E.navAnalyze.onclick=()=>{renderStats();E.ranking.scrollIntoView({behavior:'smooth',block:'center'})};E.navPlay.onclick=play;E.navBatch.onclick=()=>{const n=1000;lastStats=batch(n);lastSimulationCountV83=n;simulationRunSeqV83++;lastSimulationLabelV83='クイック1,000回';renderStats()};
 
 function htmlToText(html){
  const doc=new DOMParser().parseFromString(String(html||''),'text/html');
