@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v55</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v56</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1907,10 +1907,15 @@ function expectedCurrentOnlyV44(txt){ return currentFrameBlocksV44(txt).length; 
 
 function parseRaceKeyV44(url){
  let u='';try{u=decodeURIComponent(String(url||''))}catch(e){u=String(url||'')}
- const m=u.match(/CNAME=(?:pw|sw)01dde01(\d{2})(\d{4})(\d{2})(\d{2})(\d{2})(\d{8})?/i);
- if(!m)return null;
  const map={'01':'札幌','02':'函館','03':'福島','04':'新潟','05':'東京','06':'中山','07':'中京','08':'京都','09':'阪神','10':'小倉'};
- return {courseCode:m[1],course:map[m[1]]||'',year:+m[2],meeting:+m[3],day:+m[4],race:+m[5],date:m[6]||''};
+ // v56: JRA has more than one detailed-entry CNAME prefix. Read the race identity
+ // from the stable 20-digit tail immediately before the /check-code instead.
+ const all=[...u.matchAll(/(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})(20\d{6})\/[0-9A-F]{2}(?=&|$)/ig)];
+ if(!all.length)return null;
+ const m=all[all.length-1];
+ const courseCode=m[1],year=+m[2],meeting=+m[3],day=+m[4],race=+m[5],date=m[6];
+ if(!map[courseCode]||meeting<1||meeting>12||day<1||day>12||race<1||race>12)return null;
+ return {courseCode,course:map[courseCode],year,meeting,day,race,date};
 }
 function exactRaceMetaV44(url,txt){
  const key=parseRaceKeyV44(url), meta=exactRaceMetaV42(url,txt)||{};
@@ -2391,157 +2396,117 @@ function exactRaceMetaV54(url,txt){
 }
 
 
-// v55: strict two-pass JRA parser.
-// PASS 1 reads ONLY the left/current columns. PASS 2 reads ONLY the four past-race columns.
-// The two results are merged by the CURRENT horse number. No past-race text can define current identity.
-function rowCellsV55(block,marker){
-  let raw=String(block||'').slice(String(marker||'').length);
-  raw=cleanKeepLinksV45(raw)
-    .replace(/\r?\n+/g,' ')
-    .replace(/[｜]/g,'|')
-    .replace(/\s*\|\s*/g,'|')
-    .trim();
-  return raw.split('|').map(x=>x.trim());
+// v56: Jina-specific strict two-pass parser.
+// Jina does NOT reliably preserve the JRA table's pipe cells. Therefore:
+// PASS 1: each CURRENT frame marker defines exactly one runner. Read only text BEFORE
+//         the first past-race date and use marker order as the current horse number.
+// PASS 2: read only dated history AFTER that boundary and store it in runs[].
+// PASS 3: merge by the current horse number. Past text can never define current identity.
+function pastBoundaryV56(block,marker){
+  const raw=String(block||'').slice(String(marker||'').length);
+  const m=raw.search(/(?:20\d{2}[年\/.\-]\s*\d{1,2}[月\/.\-]\s*\d{1,2}日?|\d{1,2}月\d{1,2}日)/);
+  return m>=0?m:raw.length;
 }
-function locateRowColumnsV55(cells){
-  const a=Array.isArray(cells)?cells:[];
-  let noIdx=-1,no=0;
-  for(let i=0;i<Math.min(5,a.length);i++){
-    const m=String(a[i]||'').match(/^(\d{1,2})(?:\s+(?:ブリンカー着用|ブリンカー))?$/);
-    if(m && +m[1]>=1 && +m[1]<=18){noIdx=i;no=+m[1];break;}
+function currentLeftRawV56(block,marker){
+  const raw=String(block||'').slice(String(marker||'').length);
+  return raw.slice(0,pastBoundaryV56(block,marker));
+}
+function horseNameFromLeftV56(leftRaw){
+  const raw=String(leftRaw||'');
+  // Prefer the horse-detail link. This is the strongest identity signal and it lies in the current-left area.
+  const links=[...raw.matchAll(/\[([^\]\n]{2,80})\]\(([^)]+)\)/g)];
+  const bad=/^(?:Image|枠|白|黒|赤|青|黄|緑|橙|桃|ブリンカー|ブリンカー着用|マルガイ|マル外|印刷用ページ|馬柱の見方)$/;
+  for(const lm of links){
+    const text=cleanKeepLinksV45(lm[1]).replace(/^Image:\s*/,'').trim();
+    const href=String(lm[2]||'');
+    if(/accessU|horse/i.test(href) && text && !bad.test(text)){
+      const k=(text.match(/[ァ-ヶー]{2,30}/)||[])[0];
+      if(k && !bad.test(k))return k;
+    }
   }
-  if(noIdx<0)return null;
-  return {
-    no,
-    noIdx,
-    horseCell:String(a[noIdx+1]||''),
-    riderCell:String(a[noIdx+2]||''),
-    pastCells:a.slice(noIdx+3,noIdx+7).map(x=>String(x||''))
-  };
-}
-function cleanHorseCellV55(cell){
-  return String(cell||'')
-    .replace(/Image:\s*(?:ブリンカー着用|ブリンカー|マルガイ|マル外|チークピーシーズ着用|メンコ着用)\s*/g,' ')
+  // JRA horse names are rendered in katakana. Take the FIRST plausible katakana token
+  // in the current-left segment; sire/dam names occur later and past races are already cut off.
+  let plain=cleanKeepLinksV45(raw)
+    .replace(/Image:\s*(?:枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)|ブリンカー着用|ブリンカー|マルガイ|マル外)/g,' ')
     .replace(/(?:ブリンカー着用|ブリンカー|マルガイ|マル外|チークピーシーズ着用|メンコ着用)/g,' ')
-    .replace(/\s+/g,' ')
-    .trim();
+    .replace(/\s+/g,' ');
+  const toks=[...plain.matchAll(/[ァ-ヶー]{2,30}/g)].map(m=>m[0]);
+  const stop=new Set(['ブリンカー','マルガイ','マル外','チークピーシーズ','メンコ','サラブレッド']);
+  return toks.find(x=>!stop.has(x))||'';
 }
-function parseLeftCurrentCellV55(frame,cols,block){
-  if(!cols)return null;
-  const c=cleanHorseCellV55(cols.horseCell);
-  // The horse name is the text BEFORE current single-win odds. Owner/breeder/trainer text is after body weight.
-  const oddsM=c.match(/(\d+(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*番人気\s*[）)]/);
-  if(!oddsM)return null;
-  let namePart=c.slice(0,oddsM.index).trim();
-  namePart=namePart.replace(/^Image:\s*\S+\s*/,'').trim();
-  const nm=namePart.match(/([ァ-ヶーA-Za-z][ァ-ヶーA-Za-z0-9・'’\-]{1,39})/);
-  if(!nm)return null;
-  const name=nm[1];
-  const afterOdds=c.slice(oddsM.index+oddsM[0].length);
-  const bodyM=afterOdds.match(/(?:^|\s)(\d{3})\s*kg(?:\s*[（(][^）)]*[）)])?/i);
-
-  const rc=String(cols.riderCell||'').replace(/\s+/g,' ').trim();
-  let carried=55,jockey='';
-  const wm=rc.match(/(?:牡|牝|せん)\s*\d+[^0-9]{0,30}([45-6]\d(?:\.\d)?)\s*kg\s*(.*)$/i)
-    || rc.match(/(?:^|\s)([45-6]\d(?:\.\d)?)\s*kg\s*(.*)$/i);
-  if(wm){
-    carried=+wm[1];
-    let tail=String(wm[2]||'').trim();
-    tail=tail.replace(/^[△▲☆★◇]\s*/,'').trim();
-    const jm=tail.match(/^([ぁ-んァ-ヶ一-龠A-Za-z・ー .]{2,30})/);
-    if(jm)jockey=jm[1].trim();
-  }
-  return {
-    frame:+frame,
-    no:String(cols.no),
-    name,
-    style:inferStyleFromText(block),
-    jockey,
-    carried,
-    body:bodyM?+bodyM[1]:0,
-    odds:+oddsM[1],
-    sp:80,st:80,pw:80,runs:[]
-  };
-}
-function parseCurrentLeftV55(txt){
+function parseCurrentLeftV56(txt){
   const blocks=currentFrameBlocksV44(txt);
   if(blocks.length<5||blocks.length>18)return [];
-  const out=[],seenNo=new Set(),seenName=new Set();
-  for(const b of blocks){
-    const cols=locateRowColumnsV55(rowCellsV55(b.block,b.marker));
-    const h=parseLeftCurrentCellV55(b.frame,cols,b.block);
-    if(!h)return [];
-    const nk=normName(h.name);
-    if(seenNo.has(h.no)||!nk||seenName.has(nk))return [];
-    seenNo.add(h.no);seenName.add(nk);out.push(h);
+  const out=[],seenName=new Set();
+  for(let i=0;i<blocks.length;i++){
+    const b=blocks[i];
+    const leftRaw=currentLeftRawV56(b.block,b.marker);
+    const left=cleanKeepLinksV45(leftRaw).replace(/\r?\n+/g,' ').replace(/\s+/g,' ').trim();
+    const name=horseNameFromLeftV56(leftRaw);
+    if(!name)return [];
+    const nk=normName(name); if(!nk||seenName.has(nk))return [];
+    seenName.add(nk);
+
+    // The detailed entry table is ordered by current horse number. Marker block #1 = horse 1, etc.
+    const no=i+1;
+    const oddsM=left.match(/(?:^|\s)(\d+(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*番人気\s*[）)]/);
+    let body=0;
+    const bodyM=left.match(/(?:^|\s)(\d{3})\s*kg(?:\s*[（(][^）)]*[）)])?/i);
+    if(bodyM)body=+bodyM[1];
+
+    let carried=55,jockey='';
+    const weights=[...left.matchAll(/(?:^|\s)([45-6]\d(?:\.\d)?)\s*kg\s*/ig)];
+    if(weights.length){
+      const wm=weights[weights.length-1];
+      carried=+wm[1];
+      let tail=left.slice(wm.index+wm[0].length).trim().replace(/^[△▲☆★◇]\s*/,'');
+      const jm=tail.match(/^([ぁ-んァ-ヶ一-龠々A-Za-z・ー]+(?:\s+[ぁ-んァ-ヶ一-龠々A-Za-z・ー]+){0,2})/);
+      if(jm)jockey=jm[1].trim();
+    }
+    out.push({
+      frame:+b.frame,no:String(no),name,style:inferStyleFromText(b.block),jockey,carried,body,
+      odds:oddsM?+oddsM[1]:0,sp:80,st:80,pw:80,runs:[]
+    });
   }
-  return out.sort((a,b)=>+a.no-+b.no);
+  return out;
 }
-function parseOnePastCellV55(cell){
-  const c=cleanKeepLinksV45(String(cell||''))
-    .replace(/\r?\n+/g,' ')
-    .replace(/,/g,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-  if(!c)return null;
-  const pm=c.match(/(?:^|\s)(\d{1,2})\s*着(?:\s|$)/);
-  if(!pm)return null;
-  let dm=c.match(/([1-3]\d{3})\s*(芝|ダート)/);
-  if(!dm){
-    const d2=c.match(/(芝|ダート)\s*([1-3]\d{3})/);
-    if(d2)dm=[d2[0],d2[2],d2[1]];
-  }
-  if(!dm)return null;
-  const pos=+pm[1],dist=+dm[1],surface=dm[2];
-  if(pos<1||pos>18||dist<1000||dist>3600)return null;
-  const gm=c.match(/(?:馬場\s*[:：]?\s*)?(稍重|不良|重|良)/);
-  let last3=null;
-  const f=c.match(/(?:上り|上がり|3F)\s*[:：]?\s*(\d{2}\.\d)/i);
-  if(f)last3=+f[1];
-  return {pos,dist,surface,going:gm?gm[1]:'',last3};
-}
-function parsePastRightV55(txt){
+function parsePastRightV56(txt){
   const blocks=currentFrameBlocksV44(txt);
   const byNo=new Map();
   let rows=0,withRuns=0,totalRuns=0;
-  for(const b of blocks){
-    const cols=locateRowColumnsV55(rowCellsV55(b.block,b.marker));
-    if(!cols)continue;
+  for(let i=0;i<blocks.length;i++){
+    const b=blocks[i], no=String(i+1);
+    const raw=String(b.block||'').slice(String(b.marker||'').length);
+    const cut=pastBoundaryV56(b.block,b.marker);
+    const right=raw.slice(cut); // ONLY the dated previous-race side.
     rows++;
-    const runs=[];
-    for(const cell of cols.pastCells){
-      const r=parseOnePastCellV55(cell);
-      if(r)runs.push(r);
-    }
-    const four=runs.slice(0,4);
-    if(four.length){withRuns++;totalRuns+=four.length;}
-    byNo.set(String(cols.no),four);
+    const runs=extractPastRunsV46(right).slice(0,4);
+    if(runs.length){withRuns++;totalRuns+=runs.length;}
+    byNo.set(no,runs);
   }
   return {byNo,rows,withRuns,totalRuns};
 }
-function mergeLeftRightV55(left,right){
+function mergeLeftRightV56(left,right){
   return (left||[]).map(src=>{
-    const h={...src,runs:(right&&right.byNo?right.byNo.get(String(src.no)):[])||[]};
-    h.runs=h.runs.slice(0,4);
+    const fresh=((right&&right.byNo?right.byNo.get(String(src.no)):[])||[]).slice(0,4).map(r=>({...r}));
+    const h={...src,runs:fresh};
     abilitiesFromRunsV44(h);
-    // Memory may tune ability values, but must never replace the exact four runs just read from this JRA row.
-    const fresh=h.runs.map(r=>({...r}));
     const merged=applyMemoryHorse(h);
+    // Stored memory must never overwrite the four runs read from this exact JRA row.
     merged.runs=fresh;
     return merged;
   });
 }
-function exactRaceMetaV55(url,txt){
-  const meta=exactRaceMetaV54(url,txt)||{};
-  const key=parseRaceKeyV44(url); if(key&&key.course)meta.course=key.course+'競馬場';
+function exactRaceMetaV56(url,txt){
+  const meta={};
+  const key=parseRaceKeyV44(url);
+  if(key&&key.course)meta.course=key.course+'競馬場';
   let raw=cleanKeepLinksV45(String(txt||''))
     .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
-    .replace(/，/g,',');
-  const marker=raw.search(/(?:Image:\s*)?枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)/);
-  if(marker>=0)raw=raw.slice(0,marker);
-  raw=raw.replace(/\r?\n+/g,' ').replace(/\s+/g,' ');
+    .replace(/，/g,',').replace(/\r?\n+/g,' ').replace(/\s+/g,' ');
+  // Reader sometimes retains the race header; when present, use it directly.
   const m=raw.match(/コース\s*[:：]?\s*([1-3][0-9,]{3,4})\s*(?:メートル|m)\s*[（(]\s*(芝|ダート)/i)
-    || raw.match(/([1-3][0-9,]{3,4})\s*(?:メートル|m)\s*[（(]\s*(芝|ダート)(?:[・･]\s*(?:左|右|直線))?/i);
+    || raw.match(/([1-3][0-9,]{3,4})\s*(?:メートル|m)\s*[（(]\s*(芝|ダート)[・･\s]*(?:左|右|直線)?/i);
   if(m){meta.distance=+String(m[1]).replace(/,/g,'');meta.surface=m[2];}
   return meta;
 }
@@ -2558,21 +2523,21 @@ fetchJraEntry.onclick=async()=>{
   const textSource=data.text||htmlToText(data.html||'');
   const identity=validateRaceIdentityV51(u||jraEntryUrl.value,textSource);
   if(!identity.ok)throw new Error(identity.error);
-  let meta=exactRaceMetaV55(u||jraEntryUrl.value,textSource);
+  let meta=exactRaceMetaV56(u||jraEntryUrl.value,textSource);
   if(!meta.distance||!meta.surface){
     const cm=await calendarMetaV45(u);
     meta={...meta,...cm};
   }
-  // v55: three strictly separated phases.
+  // v56: three strictly separated phases using marker order, not pipe cells.
   // 1) LEFT/current columns -> current runners only.
   // 2) RIGHT four past-race columns -> runs[] only.
   // 3) merge by current horse number. No broad parser fallback is allowed.
   jraEntryStatus.textContent='① 左側（今回の出走馬）を解析中…';
-  const leftCurrent=parseCurrentLeftV55(textSource);
+  const leftCurrent=parseCurrentLeftV56(textSource);
   jraEntryStatus.textContent='② 右側（過去4走）を解析中…';
-  const rightPast=parsePastRightV55(textSource);
+  const rightPast=parsePastRightV56(textSource);
   jraEntryStatus.textContent='③ 馬番で結合・安全確認中…';
-  let parsed=mergeLeftRightV55(leftCurrent,rightPast);
+  let parsed=mergeLeftRightV56(leftCurrent,rightPast);
   const expected=expectedCurrentOnlyV44(textSource)||expectedRunnerCountV36(data.html||'',textSource);
   const valid=validateImportedJra(parsed,meta);
 
@@ -2619,7 +2584,7 @@ fetchJraEntry.onclick=async()=>{
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name&&!/^(プロモーション|JRA|FUN CLUB|Hello|Special Times)$/i.test(h.name));horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist4=horses.filter(h=>(h.runs||[]).length>=4).length;
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br><b>分離取込OK：左欄 '+leftCurrent.length+'頭 → 右欄 '+rightPast.withRuns+'頭・'+rightPast.totalRuns+'走 → 馬番で結合 '+parsed.length+'頭</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ / 過去欄: 前走〜4走前のみ<br>近走データ: '+histN+'頭取得（4走取得 '+hist4+'頭）<br><b>判定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br><b>分離取込OK v56：左欄 '+leftCurrent.length+'頭 → 右欄 '+rightPast.withRuns+'頭・'+rightPast.totalRuns+'走 → 馬番で結合 '+parsed.length+'頭</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ / 過去欄: 前走〜4走前のみ<br>近走データ: '+histN+'頭取得（4走取得 '+hist4+'頭）<br><b>判定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
