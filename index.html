@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v85</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v86</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -67,6 +67,7 @@ JRAページの出馬表テキスト貼り付けにも対応"></textarea><div cl
 const $=id=>document.getElementById(id);
 const E={course:$('course'),surface:$('surface'),variant:$('variant'),distance:$('distance'),going:$('going'),pace:$('pace'),speed:$('speed'),count:$('count'),bulk:$('bulk'),sample:$('sample'),apply:$('apply'),importStatus:$('importStatus'),play:$('play'),batch:$('batch'),reset:$('reset'),resultLearn:$('resultLearn'),learnResult:$('learnResult'),learnStatus:$('learnStatus'),resultText:$('resultText'),previewResult:$('previewResult'),autoLearnResult:$('autoLearnResult'),autoLearnStatus:$('autoLearnStatus'),runners:$('runners'),tab2d:$('tab2d'),tab3d:$('tab3d'),canvas:$('canvas'),badge:$('badge'),runstatus:$('runstatus'),phase:$('phase'),finish:$('finish'),ranking:$('ranking'),analysis:$('analysis'),paceAutoStatus:$('paceAutoStatus'),aiSummary:$('aiSummary'),valueSummary:$('valueSummary'),memoryCount:$('memoryCount'),memoryStatus:$('memoryStatus'),saveMemory:$('saveMemory'),clearMemory:$('clearMemory'),cleanMemory:$('cleanMemory'),purgeBadMemory:$('purgeBadMemory'),navImport:$('navImport'),navAnalyze:$('navAnalyze'),navPlay:$('navPlay'),navBatch:$('navBatch')};
 E.fiveBreakdownAll=document.getElementById('fiveBreakdownAll');
+E.totalBreakdownAll=document.getElementById('totalBreakdownAll');
 const C={
 '新潟競馬場':{dir:'左',rx:.43,ry:118,variants:{芝:{直線:[1000],内回り:[1200,1400,2000,2200,2400],外回り:[1400,1600,1800,2000,3000,3200]},ダート:{通常:[1200,1800,2500]}}},
 '中京競馬場':{dir:'左',rx:.39,ry:130,variants:{芝:{通常:[1200,1400,1600,2000,2200]},ダート:{通常:[1200,1400,1800,1900,2500]}}},
@@ -1730,7 +1731,7 @@ function renderAISummary(){
   E.aiSummary.innerHTML=head+top.map((q,i)=>{
     const m=pastFiveMetricsV81(q.h);
     const s=(m.bonus>=0?'+':'')+m.bonus.toFixed(1);
-    return `<div style="margin-bottom:7px">${marks[i]} ${q.h.no} ${q.h.name}　勝率${q.win.toFixed(1)}% / 3着内${q.show.toFixed(1)}% <span class="small">5走評価 ${s}</span></div>${fiveBreakdownHtmlV85(q.h)}`;
+    return `<div style="margin-bottom:7px">${marks[i]} ${q.h.no} ${q.h.name}　勝率${q.win.toFixed(1)}% / 3着内${q.show.toFixed(1)}% <span class="small">5走評価 ${s}</span></div>${fiveBreakdownHtmlV85(q.h)}${totalBreakdownHtmlV86(q.h)}`;
   }).join('');
 
   const value=r.filter(q=>q.ev!=null).sort((a,b)=>b.ev-a.ev);
@@ -1746,6 +1747,19 @@ function renderAISummary(){
   E.valueSummary.innerHTML=txt;
 }
 
+
+function renderAllTotalBreakdownV86(){
+  if(!E.totalBreakdownAll||!horses.length)return;
+  const r=currentModel().slice().sort((a,b)=>b.show-a.show||b.win-a.win);
+  E.totalBreakdownAll.innerHTML=r.map(q=>{
+    const b=totalBreakdownV86(q.h);
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+      <b>${q.h.no} ${q.h.name}</b>　総合 ${b.total.toFixed(1)}　勝率 ${q.win.toFixed(1)}%<br>
+      <span style="opacity:.82">${totalBreakdownTextV86(q.h)}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderAllFiveBreakdownV85(){
   if(!E.fiveBreakdownAll||!horses.length)return;
   const r=currentModel().slice().sort((a,b)=>b.show-a.show||b.win-a.win);
@@ -1758,7 +1772,81 @@ function renderAllFiveBreakdownV85(){
   }).join('');
 }
 
-function score(h){let z=h.sp*.4+h.st*.34+h.pw*.26,p=paceName();if(p==='ハイ'){if(h.style==='差し')z+=5;if(h.style==='追込')z+=6;if(h.style==='逃げ')z-=4}if(p==='スロー'){if(h.style==='逃げ')z+=5;if(h.style==='先行')z+=3;if(h.style==='追込')z-=3}if(E.going.value!=='良')z+=(h.st-80)*.1+(h.pw-80)*.1;z+=distanceFit(h)+frameFit(h)+weightFit(h)+bodyFit(h)+memoryBonus(h)+pastFiveMetricsV81(h).bonus;return z}
+
+function totalBreakdownV86(h){
+  const pace=paceName();
+
+  const baseSpeed=Number(h.sp||0)*.4;
+  const baseStamina=Number(h.st||0)*.34;
+  const basePower=Number(h.pw||0)*.26;
+
+  let paceAdj=0;
+  if(pace==='ハイ'){
+    if(h.style==='差し')paceAdj+=5;
+    if(h.style==='追込')paceAdj+=6;
+    if(h.style==='逃げ')paceAdj-=4;
+  }
+  if(pace==='スロー'){
+    if(h.style==='逃げ')paceAdj+=5;
+    if(h.style==='先行')paceAdj+=3;
+    if(h.style==='追込')paceAdj-=3;
+  }
+
+  let goingAdj=0;
+  if(E.going.value!=='良'){
+    goingAdj+=(Number(h.st||0)-80)*.1+(Number(h.pw||0)-80)*.1;
+  }
+
+  const distance=Number(distanceFit(h)||0);
+  const frame=Number(frameFit(h)||0);
+  const weight=Number(weightFit(h)||0);
+  const body=Number(bodyFit(h)||0);
+  const memory=Number(memoryBonus(h)||0);
+  const past5=Number(pastFiveMetricsV81(h).bonus||0);
+
+  const total=baseSpeed+baseStamina+basePower+paceAdj+goingAdj+distance+frame+weight+body+memory+past5;
+
+  return {
+    total,
+    base:baseSpeed+baseStamina+basePower,
+    speed:baseSpeed,
+    stamina:baseStamina,
+    power:basePower,
+    pace:paceAdj,
+    going:goingAdj,
+    distance,
+    frame,
+    weight,
+    body,
+    memory,
+    past5
+  };
+}
+function totalBreakdownTextV86(h){
+  const b=totalBreakdownV86(h);
+  return [
+    `基礎 ${signedV85(b.base)}`,
+    `距離 ${signedV85(b.distance)}`,
+    `枠 ${signedV85(b.frame)}`,
+    `斤量 ${signedV85(b.weight)}`,
+    `馬体 ${signedV85(b.body)}`,
+    `馬場 ${signedV85(b.going)}`,
+    `脚質×ペース ${signedV85(b.pace)}`,
+    `過去5走 ${signedV85(b.past5)}`,
+    `学習 ${signedV85(b.memory)}`
+  ].join(' / ');
+}
+function totalBreakdownHtmlV86(h){
+  const b=totalBreakdownV86(h);
+  return `<div style="margin:3px 0 10px 24px;font-size:12px;line-height:1.6;opacity:.86">
+    <b>総合 ${b.total.toFixed(1)}</b><br>
+    基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
+    馬体 ${signedV85(b.body)}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
+    過去5走 ${signedV85(b.past5)}　学習 ${signedV85(b.memory)}
+  </div>`;
+}
+
+function score(h){return totalBreakdownV86(h).total}
 function batch(n){
   const s=horses.map(()=>({w:0,p2:0,p3:0}));
   for(let r=0;r<n;r++){
@@ -1789,6 +1877,8 @@ function renderPaceAutoStatus(){
 
 function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースに加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを評価します。1回ごとにペース・前後有利・内外有利・出遅れ・位置取り不利・当日の出来を変えてレースシナリオを作ります。能力差は残しつつ、同じ条件でも毎回まったく同じ結果にならないようにします。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()
 renderAllFiveBreakdownV85();
+
+renderAllTotalBreakdownV86();
 }
 function geom(){const w=E.canvas.clientWidth,h=E.canvas.clientHeight,c=C[E.course.value];return{cx:w/2,cy:h/2+8,rx:Math.max(145,w*c.rx),ry:Math.min(c.ry,h*.33)}}
 function straight(){return E.course.value==='新潟競馬場'&&E.surface.value==='芝'&&E.variant.value==='直線'}
