@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v80</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v81</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1553,6 +1553,69 @@ function bodyFit(h){
   if(b<430)z-=.4;
   return z;
 }
+
+function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}
+function pastFiveMetricsV81(h){
+ const runs=(h.runs||[]).slice(0,5);
+ if(!runs.length)return {bonus:0,form:0,finish:0,last3:0,distance:0,surface:0,going:0,stability:0,trend:0,volatility:5.4,n:0};
+ const weights=[1.00,.84,.70,.58,.48].slice(0,runs.length);
+ const targetD=Number(E.distance.value||1600);
+ const targetS=String(E.surface.value||'芝');
+ const targetG=String(E.going.value||'良');
+
+ let sw=0,finish=0,last3=0,distance=0,surface=0,going=0;
+ const pos=[];
+ runs.forEach((r,i)=>{
+   const w=weights[i]; sw+=w;
+   const p=Number(r.pos||9), f=Number(r.last3||34.5), d=Number(r.dist||targetD);
+   pos.push(p);
+
+   // Finish: 1st strongly positive; double-digit finishes negative, capped for outliers.
+   finish += clampV81((6.2-p)*.78,-4.2,4.2)*w;
+
+   // Final 3F: useful but not allowed to dominate, because pace/course also affect it.
+   if(Number.isFinite(f))last3 += clampV81((34.7-f)*1.05,-2.4,2.8)*w;
+
+   // Distance fit: reward good runs close to today's distance, mildly penalize repeated poor close-distance runs.
+   const closeness=clampV81(1-Math.abs(d-targetD)/1200,0,1);
+   const quality=clampV81((7-p)/6,-.75,1);
+   distance += closeness*quality*1.35*w;
+
+   // Surface is a direct condition match.
+   if(r.surface){
+     if(String(r.surface)===targetS)surface += .38*w;
+     else surface -= .28*w;
+   }
+
+   // Going: exact match matters most; both non-good is a smaller match.
+   const rg=String(r.going||'良');
+   if(rg===targetG)going += .30*w;
+   else if(targetG!=='良' && rg!=='良')going += .14*w;
+ });
+ sw=sw||1;
+ finish/=sw; last3/=sw; distance/=sw; surface/=sw; going/=sw;
+
+ const mean=pos.reduce((a,b)=>a+b,0)/pos.length;
+ const sd=Math.sqrt(pos.reduce((a,b)=>a+(b-mean)*(b-mean),0)/pos.length);
+ const stability=clampV81(1.55-sd*.32,-1.7,1.25);
+
+ const recent=pos.slice(0,2).reduce((a,b)=>a+b,0)/Math.min(2,pos.length);
+ const older=pos.slice(2).length?pos.slice(2).reduce((a,b)=>a+b,0)/pos.slice(2).length:recent;
+ const trend=clampV81((older-recent)*.34,-1.6,1.6);
+
+ // Keep this as an incremental adjustment; base sp/st/pw already contains neutral five-run ability.
+ const bonus=clampV81(
+   finish*.72 + last3*.58 + distance + surface + going + stability + trend,
+   -8.5, 9.5
+ );
+ const volatility=clampV81(3.7+sd*.32+(runs.length<5?.7:0),3.5,6.6);
+ return {bonus,form:finish*.72,finish,last3:last3*.58,distance,surface,going,stability,trend,volatility,n:runs.length};
+}
+function simulationNoiseV81(h){
+ const m=pastFiveMetricsV81(h);
+ return m.volatility;
+}
+
 function oddsValue(h,modelWin){
   const o=Number(h.odds||0);
   if(!o||o<=0)return null;
@@ -1567,7 +1630,11 @@ function renderAISummary(){
   if(!horses.length)return;
   const r=currentModel();
   const top=r.slice(0,5),marks=['◎','○','▲','☆','△'];
-  E.aiSummary.innerHTML=top.map((q,i)=>`${marks[i]} ${q.h.no} ${q.h.name}　勝率${q.win.toFixed(1)}% / 3着内${q.show.toFixed(1)}%`).join('<br>');
+  E.aiSummary.innerHTML=top.map((q,i)=>{
+    const m=pastFiveMetricsV81(q.h);
+    const s=(m.bonus>=0?'+':'')+m.bonus.toFixed(1);
+    return `${marks[i]} ${q.h.no} ${q.h.name}　勝率${q.win.toFixed(1)}% / 3着内${q.show.toFixed(1)}% <span class="small">5走評価 ${s}</span>`;
+  }).join('<br>');
   const value=r.filter(q=>q.ev!=null).sort((a,b)=>b.ev-a.ev);
   const hole=value.find(q=>q.ev>=1.15 && q.win<18);
   const danger=value.slice().sort((a,b)=>a.ev-b.ev).find(q=>q.h.odds>0 && q.win>=12);
@@ -1579,8 +1646,8 @@ function renderAISummary(){
   const best=value[0]; if(best)txt+=`最高期待値: ${best.h.no} ${best.h.name}　${best.ev.toFixed(2)}`;
   E.valueSummary.innerHTML=txt;
 }
-function score(h){let z=h.sp*.4+h.st*.34+h.pw*.26,p=paceName();if(p==='ハイ'){if(h.style==='差し')z+=5;if(h.style==='追込')z+=6;if(h.style==='逃げ')z-=4}if(p==='スロー'){if(h.style==='逃げ')z+=5;if(h.style==='先行')z+=3;if(h.style==='追込')z-=3}if(E.going.value!=='良')z+=(h.st-80)*.1+(h.pw-80)*.1;z+=distanceFit(h)+frameFit(h)+weightFit(h)+bodyFit(h)+memoryBonus(h);return z}
-function batch(n){const s=horses.map(()=>({w:0,p2:0,p3:0}));for(let r=0;r<n;r++){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()+Math.random()+Math.random()-1.5)*5})).sort((a,b)=>b.s-a.s);if(!o.length)continue;s[o[0].i].w++;if(o[1]){s[o[0].i].p2++;s[o[1].i].p2++}for(let k=0;k<Math.min(3,o.length);k++)s[o[k].i].p3++}return s.map((x,i)=>({i,win:100*x.w/n,quin:100*x.p2/n,show:100*x.p3/n})).sort((a,b)=>b.show-a.show||b.win-a.win)}
+function score(h){let z=h.sp*.4+h.st*.34+h.pw*.26,p=paceName();if(p==='ハイ'){if(h.style==='差し')z+=5;if(h.style==='追込')z+=6;if(h.style==='逃げ')z-=4}if(p==='スロー'){if(h.style==='逃げ')z+=5;if(h.style==='先行')z+=3;if(h.style==='追込')z-=3}if(E.going.value!=='良')z+=(h.st-80)*.1+(h.pw-80)*.1;z+=distanceFit(h)+frameFit(h)+weightFit(h)+bodyFit(h)+memoryBonus(h)+pastFiveMetricsV81(h).bonus;return z}
+function batch(n){const s=horses.map(()=>({w:0,p2:0,p3:0}));for(let r=0;r<n;r++){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()+Math.random()+Math.random()-1.5)*simulationNoiseV81(h)})).sort((a,b)=>b.s-a.s);if(!o.length)continue;s[o[0].i].w++;if(o[1]){s[o[0].i].p2++;s[o[1].i].p2++}for(let k=0;k<Math.min(3,o.length);k++)s[o[k].i].p3++}return s.map((x,i)=>({i,win:100*x.w/n,quin:100*x.p2/n,show:100*x.p3/n})).sort((a,b)=>b.show-a.show||b.win-a.win)}
 
 function renderPaceAutoStatus(){
  if(!E.paceAutoStatus)return;
@@ -1592,7 +1659,7 @@ function renderPaceAutoStatus(){
  }
 }
 
-function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースを評価し、全馬ほぼ横一線でスタートし、発馬差をわずかに再現した後、100〜300mで脚質に応じて隊列を作ります。後半は差し・追込が進出します。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()}
+function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>'<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+horses[q.i].no+' '+horses[q.i].name+'</td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>').join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースに加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを評価します。全馬ほぼ横一線でスタートし、発馬差をわずかに再現した後、100〜300mで脚質に応じて隊列を作ります。後半は差し・追込が進出します。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()}
 function geom(){const w=E.canvas.clientWidth,h=E.canvas.clientHeight,c=C[E.course.value];return{cx:w/2,cy:h/2+8,rx:Math.max(145,w*c.rx),ry:Math.min(c.ry,h*.33)}}
 function straight(){return E.course.value==='新潟競馬場'&&E.surface.value==='芝'&&E.variant.value==='直線'}
 function startAngle(){const lap=E.variant.value==='外回り'?1800:E.variant.value==='内回り'?1500:1600,d=+E.distance.value,dir=C[E.course.value].dir==='左'?-1:1,rem=d%lap||lap;return-dir*2*Math.PI*(rem/lap)}
@@ -1601,7 +1668,7 @@ function point(th,lane){const g=geom();return{x:g.cx+(g.rx-lane)*Math.cos(th),y:
 function drawTrack(){const g=geom(),w=E.canvas.clientWidth,h=E.canvas.clientHeight;ctx.fillStyle='#0a4d22';ctx.fillRect(0,0,w,h);if(straight()){ctx.fillStyle='#5f8f44';ctx.fillRect(28,g.cy-52,w-56,104);ctx.strokeStyle='#fff';ctx.strokeRect(28,g.cy-52,w-56,104);ctx.beginPath();ctx.moveTo(w-55,g.cy-52);ctx.lineTo(w-55,g.cy+52);ctx.stroke();return}ctx.strokeStyle='#ddd';ctx.lineWidth=48;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=E.surface.value==='芝'?'#5f8f44':'#b99063';ctx.lineWidth=39;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx-20,g.ry-10,0,0,Math.PI*2);ctx.stroke()}
 function frame(h,i){const f=Number(h.frame);return (f>=1&&f<=8)?f:1}
 function marker(p,h,i,scale=1){if(horses.length>=15)scale*=.88;const c=FC[frame(h,i)];ctx.save();ctx.translate(p.x,p.y);ctx.scale(scale,scale);ctx.fillStyle=c[0];ctx.strokeStyle='#111';ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle=c[1];ctx.font='bold 9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.no,0,.5);ctx.restore()}
-function prepare(){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()-.5)*4})).sort((a,b)=>b.s-a.s);raceOrder=o.map(x=>x.i);finishTimes=new Array(horses.length).fill(1);startReaction=horses.map(()=>((Math.random()+Math.random()+Math.random())/3-.5)*.012);const best=o[0]?.s||1;o.forEach((x,r)=>finishTimes[x.i]=1+r*.045+Math.max(0,best-x.s)*.0025+Math.random()*.015)}
+function prepare(){const o=horses.map((h,i)=>({i,s:score(h)+(Math.random()-.5)*simulationNoiseV81(h)*.8})).sort((a,b)=>b.s-a.s);raceOrder=o.map(x=>x.i);finishTimes=new Array(horses.length).fill(1);startReaction=horses.map(()=>((Math.random()+Math.random()+Math.random())/3-.5)*.012);const best=o[0]?.s||1;o.forEach((x,r)=>finishTimes[x.i]=1+r*.045+Math.max(0,best-x.s)*.0025+Math.random()*.015)}
 function visual(i){const ft=finishTimes[i]||1;if(progress>=ft)return 1;const h=horses[i],raw=Math.max(0,progress/ft);let p=raw;const gate=Math.min(1,raw/.035),form=Math.max(0,Math.min(1,(raw-.035)/.18));p+=(startReaction[i]||0)*gate;if(h.style==='逃げ')p+=.065*form;else if(h.style==='先行')p+=.035*form;else if(h.style==='差し')p-=.008*form;else if(h.style==='追込')p-=.035*form;if(raw>.65){const q=(raw-.65)/.35;if(h.style==='差し')p+=.025*q;if(h.style==='追込')p+=.045*q;if(paceName()==='ハイ'&&(h.style==='逃げ'||h.style==='先行'))p-=.025*q}return Math.max(0,Math.min(.995,p))}
 function draw2d(){drawTrack();const g=geom(),dir=C[E.course.value].dir==='左'?-1:1,sa=startAngle(),lp=laps();horses.forEach((h,i)=>{const v=visual(i);let p;if(straight())p={x:32+v*(E.canvas.clientWidth-90),y:g.cy-45+i*13};else p=point(sa+dir*v*2*Math.PI*lp,5+i*(horses.length>12?2.35:3.5));marker(p,h,i)})}
 function draw3d(){drawTrack();ctx.fillStyle='rgba(10,17,25,.28)';ctx.fillRect(0,0,E.canvas.clientWidth,E.canvas.clientHeight);const g=geom(),dir=C[E.course.value].dir==='左'?-1:1,sa=startAngle(),lp=laps();horses.map((h,i)=>{const v=visual(i);let p;if(straight())p={x:32+v*(E.canvas.clientWidth-90),y:g.cy-45+i*13};else p=point(sa+dir*v*2*Math.PI*lp,5+i*(horses.length>12?2.35:3.5));return{h,i,p,sc:.7+(p.y/E.canvas.clientHeight)*.55}}).sort((a,b)=>a.p.y-b.p.y).forEach(o=>marker(o.p,o.h,o.i,o.sc))}
@@ -1863,13 +1930,36 @@ function extractPastRunsV44(block){
 function abilitiesFromRunsV44(h){
  const r=(h.runs||[]).slice(0,5);
  if(!r.length)return h;
- const avgPos=r.reduce((a,x)=>a+Number(x.pos||9),0)/r.length;
- const avgDist=r.reduce((a,x)=>a+Number(x.dist||1600),0)/r.length;
- const f3=r.filter(x=>Number.isFinite(Number(x.last3)) && +x.last3>=30 && +x.last3<=45);
- const avg3=f3.length?f3.reduce((a,x)=>a+(+x.last3),0)/f3.length:34.5;
- h.sp=Math.max(55,Math.min(98,Math.round(95-avgPos*2.5-(avg3-33.5)*3.0)));
- h.st=Math.max(55,Math.min(98,Math.round(72+(avgDist-1200)/48-avgPos*.7)));
- h.pw=Math.max(55,Math.min(98,Math.round(82-avgPos*.7+r.filter(x=>x.going&&x.going!=='良').length*2.5)));
+ const w=[1.00,.84,.70,.58,.48].slice(0,r.length);
+ const ws=w.reduce((a,b)=>a+b,0)||1;
+ const wav=(fn,def=0)=>{
+   let z=0,ww=0;
+   r.forEach((x,i)=>{
+     const v=Number(fn(x));
+     if(Number.isFinite(v)){z+=v*w[i];ww+=w[i]}
+   });
+   return ww?z/ww:def;
+ };
+ const avgPos=wav(x=>x.pos,9);
+ const avgDist=wav(x=>x.dist,1600);
+ const avg3=wav(x=>x.last3,34.5);
+ const positions=r.map(x=>Number(x.pos||9)).filter(Number.isFinite);
+ const mean=positions.reduce((a,b)=>a+b,0)/(positions.length||1);
+ const sd=Math.sqrt(positions.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(positions.length||1));
+ const recent=r.slice(0,2).reduce((a,x)=>a+Number(x.pos||9),0)/Math.min(2,r.length);
+ const older=r.slice(2).length?r.slice(2).reduce((a,x)=>a+Number(x.pos||9),0)/r.slice(2).length:recent;
+ const trend=older-recent; // positive = improving recently
+ const wet=r.filter(x=>x.going&&x.going!=='良').length;
+
+ h.sp=Math.max(55,Math.min(99,Math.round(
+   97-avgPos*2.25-(avg3-33.5)*3.2 + Math.max(-2.5,Math.min(2.5,trend*.55)) - sd*.25
+ )));
+ h.st=Math.max(55,Math.min(99,Math.round(
+   71+(avgDist-1200)/50-avgPos*.58 + Math.max(-1.5,Math.min(1.5,trend*.25))
+ )));
+ h.pw=Math.max(55,Math.min(99,Math.round(
+   82-avgPos*.58+wet*1.6 + Math.max(-1.5,Math.min(1.5,(34.5-avg3)*.55))
+ )));
  return h;
 }
 function parseJraCurrentOnlyV44(txt){
@@ -3551,7 +3641,7 @@ fetchJraEntry.onclick=async()=>{
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v80：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v81：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
