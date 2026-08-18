@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v79</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v80</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -3355,31 +3355,80 @@ async function resolveHorseIdV79(name){
  }
  return {id:'',via:'',error:errs.join('/')};
 }
-function parseHorseResultV78(text){
+function parseHorseResultV80(text){
  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
  const runs=[];
  const lines=src.split('\n');
  for(const raw of lines){
    if(runs.length>=5)break;
    if(!raw.includes('|'))continue;
-   const cells=raw.split('|').map(plainMdV79);
-   if(cells.length<20)continue;
-   const date=cells[0].match(/\d{4}\/\d{2}\/\d{2}/);
-   if(!date)continue;
-   const posm=String(cells[11]||'').match(/^\d{1,2}$/);
-   if(!posm)continue;
-   const dm=String(cells[14]||'').match(/^(芝|ダート|ダ|障)\s*([1-4]\d{3})$/);
+
+   const cells=raw.split('|').map(plainMdV79).filter((c,i,a)=>!(i===0&&c==='') && !(i===a.length-1&&c===''));
+   if(cells.length<12)continue;
+
+   const dateIdx=cells.findIndex(c=>/^\d{4}\/\d{2}\/\d{2}$/.test(c));
+   if(dateIdx<0)continue;
+
+   const distIdx=cells.findIndex((c,i)=>i>dateIdx && /^(芝|ダート|ダ|障)\s*[1-4]\d{3}$/.test(c));
+   if(distIdx<0)continue;
+
+   const dm=cells[distIdx].match(/^(芝|ダート|ダ|障)\s*([1-4]\d{3})$/);
    if(!dm)continue;
-   const pos=+posm[0];
-   if(pos<1||pos>30)continue;
+
+   // netkeiba result table order is ... popularity, finish, jockey, weight, distance ...
+   let pos=0;
+   for(let i=Math.max(dateIdx+1,distIdx-6);i<distIdx;i++){
+     if(/^\d{1,2}$/.test(cells[i])){
+       const n=+cells[i];
+       if(n>=1&&n<=30)pos=n;
+     }
+   }
+   // Prefer the cell three places before distance when the standard table layout is present.
+   if(distIdx>=3 && /^\d{1,2}$/.test(cells[distIdx-3])){
+     const n=+cells[distIdx-3];
+     if(n>=1&&n<=30)pos=n;
+   }
+   if(!pos)continue;
+
    const surface=dm[1]==='ダ'?'ダート':dm[1];
    const dist=+dm[2];
-   const going=normalizeGoingV71(cells[16]||'')||String(cells[16]||'').trim()||'良';
-   const corners=String(cells[25]||'').match(/\d{1,2}(?:-\d{1,2}){1,3}/)?.[0]||'';
-   let last3=Number.parseFloat(String(cells[27]||'').replace(/[^\d.]/g,''));
-   if(!Number.isFinite(last3)||last3<30||last3>50)last3=34.5;
+
+   let going='良';
+   for(let i=distIdx+1;i<Math.min(cells.length,distIdx+6);i++){
+     const g=normalizeGoingV71(cells[i]||'');
+     if(g){going=g;break;}
+   }
+
+   let corners='';
+   let cornerIdx=-1;
+   for(let i=distIdx+1;i<cells.length;i++){
+     if(/^\d{1,2}(?:-\d{1,2}){1,3}$/.test(cells[i])){
+       corners=cells[i];
+       cornerIdx=i;
+       break;
+     }
+   }
+
+   let last3=34.5;
+   if(cornerIdx>=0){
+     for(let i=cornerIdx+1;i<Math.min(cells.length,cornerIdx+6);i++){
+       if(/^(?:3\d|4[0-9])\.\d$/.test(cells[i])){
+         const n=+cells[i];
+         if(n>=30&&n<50){last3=n;break;}
+       }
+     }
+   }
+   if(last3===34.5){
+     for(let i=distIdx+1;i<cells.length;i++){
+       if(/^(?:3\d|4[0-9])\.\d$/.test(cells[i])){
+         const n=+cells[i];
+         if(n>=30&&n<50)last3=n;
+       }
+     }
+   }
+
    runs.push({
-     date:date[0].replace(/\//g,'-'),
+     date:cells[dateIdx].replace(/\//g,'-'),
      pos,last3,dist,surface,going,corners,
      source:'netkeiba-horse-db'
    });
@@ -3392,7 +3441,7 @@ async function fetchHorseRunsV79(h){
  const target='https://db.netkeiba.com/horse/result/'+resolved.id+'/';
  try{
    const t=await fetchTextRetryV79('https://r.jina.ai/'+target,16000,'競走成績');
-   const runs=parseHorseResultV78(t);
+   const runs=parseHorseResultV80(t);
    if(runs.length)return {no:h.no,name:h.name,id:resolved.id,runs,via:resolved.via+'>jina-db',url:target};
    return {no:h.no,name:h.name,id:resolved.id,runs:[],error:'jina-db:0走'};
  }catch(e){
@@ -3502,7 +3551,7 @@ fetchJraEntry.onclick=async()=>{
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v79：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v80：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
