@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v94</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v95</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2018,6 +2018,46 @@ function batch(n){
     .sort((a,b)=>b.show-a.show||b.win-a.win);
 }
 
+
+async function batchAsyncV95(n,onProgress){
+  const s=horses.map(()=>({w:0,p2:0,p3:0}));
+  const chunk=n>=10000?160:n>=5000?220:320;
+  for(let r=0;r<n;r++){
+    const scenario={
+      pace:samplePaceV82(),
+      frontBias:randNormV82()*1.25,
+      frameBias:randNormV82()*1.05
+    };
+    const o=horses.map((h,i)=>({i,s:scenarioScoreV82(h,scenario)})).sort((a,b)=>b.s-a.s);
+    if(o.length){
+      s[o[0].i].w++;
+      if(o[1]){s[o[0].i].p2++;s[o[1].i].p2++}
+      for(let k=0;k<Math.min(3,o.length);k++)s[o[k].i].p3++;
+    }
+
+    if((r+1)%chunk===0 || r===n-1){
+      if(onProgress)onProgress(r+1,n);
+      // Yield to Safari so scrolling/painting stays responsive.
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+  }
+  return s.map((x,i)=>({i,win:100*x.w/n,quin:100*x.p2/n,show:100*x.p3/n}))
+    .sort((a,b)=>b.show-a.show||b.win-a.win);
+}
+
+function setSimulationBusyV95(busy,done,total){
+  const playBtn=E.play, batchBtn=E.batch;
+  if(playBtn)playBtn.disabled=!!busy;
+  if(batchBtn)batchBtn.disabled=!!busy;
+  if(E.runstatus){
+    if(busy){
+      const pct=total?Math.round(done/total*100):0;
+      E.runstatus.textContent=`集計中 ${done.toLocaleString()}/${total.toLocaleString()}回 (${pct}%)`;
+    }else if(!running){
+      E.runstatus.textContent='停止中';
+    }
+  }
+}
 function renderPaceAutoStatus(){
  if(!E.paceAutoStatus)return;
  if(E.pace.value==='AI自動'){
@@ -2052,21 +2092,45 @@ function resize(){const dpr=Math.min(devicePixelRatio||1,2),w=E.canvas.clientWid
 function animate(ts){if(!running)return;if(!lastTs)lastTs=ts;let dt=(ts-lastTs)/1000;if(!Number.isFinite(dt)||dt<0||dt>.2)dt=.016;lastTs=ts;progress+=dt*.24*Number(E.speed.value||1);draw();phase();updateFinish();const max=finishTimes.length?Math.max(...finishTimes):1;if(progress>=max){progress=max;running=false;E.runstatus.textContent='全馬ゴール';draw();updateFinish();return}raf=requestAnimationFrame(animate)}
 function play(){if(!horses.length)return;try{localStorage.setItem('keiba_ai_pending_race_v20',JSON.stringify({course:E.course.value,surface:E.surface.value,variant:E.variant.value,distance:+E.distance.value,going:E.going.value,pace:paceName(),horses:horses.map(h=>({no:h.no,name:h.name,frame:h.frame})) ,savedAt:new Date().toISOString()}))}catch(e){}if(raf)cancelAnimationFrame(raf);progress=0;lastTs=0;prepare();running=true;E.runstatus.textContent='再生中';draw();raf=requestAnimationFrame(animate)}
 
-function runSelectedSimulationV84(){
+async function runSelectedSimulationV84(){
   if(!horses.length)return;
   const n=Number(E.count.value)||1000;
-  lastStats=batch(n);
-  lastSimulationCountV83=n;
-  simulationRunSeqV83++;
-  lastSimulationLabelV83='選択回数シミュレーション';
-  renderStats();
+  setSimulationBusyV95(true,0,n);
+  try{
+    if(n>=5000){
+      lastStats=await batchAsyncV95(n,(done,total)=>setSimulationBusyV95(true,done,total));
+    }else{
+      // Even 1,000 runs gets one paint opportunity before calculation begins.
+      await new Promise(resolve=>setTimeout(resolve,0));
+      lastStats=batch(n);
+    }
+    lastSimulationCountV83=n;
+    simulationRunSeqV83++;
+    lastSimulationLabelV83='選択回数シミュレーション';
+    renderStats();
+  }finally{
+    setSimulationBusyV95(false,n,n);
+  }
   play();
 }
 
 function reset(){if(raf)cancelAnimationFrame(raf);running=false;progress=0;lastTs=0;finishTimes=[];raceOrder=[];startReaction=[];E.runstatus.textContent='停止中';E.phase.textContent='スタート前';updateFinish();draw()}
 E.sample.onclick=()=>{E.bulk.value=sampleText();const n=E.bulk.value.split(/\r?\n/).filter(Boolean).length;E.importStatus.innerHTML='<span class="ok">サンプルを'+n+'頭分入力しました。</span>'};
 E.apply.onclick=()=>{const p=parse(E.bulk.value);if(!p.length){E.importStatus.innerHTML='<span class="warn">読み込めるデータがありません。</span>';return}horses=p.slice(0,18);horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();E.importStatus.innerHTML='<span class="ok">'+horses.length+'頭を反映しました。 '+horses[0].no+' '+horses[0].name+' 〜 '+horses[horses.length-1].no+' '+horses[horses.length-1].name+'</span>'};
-E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;lastSimulationCountV83=0;lastSimulationLabelV83='条件変更後の自動計算';renderStats();draw()});E.play.onclick=runSelectedSimulationV84;E.batch.onclick=()=>{const n=Number(E.count.value)||1000;lastStats=batch(n);lastSimulationCountV83=n;simulationRunSeqV83++;lastSimulationLabelV83='集計のみ再計算';renderStats()};E.reset.onclick=reset;E.tab2d.onclick=()=>{mode='2d';E.tab2d.classList.add('active');E.tab3d.classList.remove('active');draw()};E.tab3d.onclick=()=>{mode='3d';E.tab3d.classList.add('active');E.tab2d.classList.remove('active');draw()};E.navImport.onclick=()=>E.bulk.scrollIntoView({behavior:'smooth',block:'center'});E.navAnalyze.onclick=()=>{renderStats();E.ranking.scrollIntoView({behavior:'smooth',block:'center'})};E.navPlay.onclick=runSelectedSimulationV84;E.navBatch.onclick=()=>{E.count.value='1000';runSelectedSimulationV84()};
+E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;lastSimulationCountV83=0;lastSimulationLabelV83='条件変更後の自動計算';renderStats();draw()});E.play.onclick=runSelectedSimulationV84;E.batch.onclick=async()=>{
+  const n=Number(E.count.value)||1000;
+  setSimulationBusyV95(true,0,n);
+  try{
+    if(n>=5000)lastStats=await batchAsyncV95(n,(done,total)=>setSimulationBusyV95(true,done,total));
+    else{await new Promise(resolve=>setTimeout(resolve,0));lastStats=batch(n);}
+    lastSimulationCountV83=n;
+    simulationRunSeqV83++;
+    lastSimulationLabelV83='集計のみ再計算';
+    renderStats();
+  }finally{
+    setSimulationBusyV95(false,n,n);
+  }
+};E.reset.onclick=reset;E.tab2d.onclick=()=>{mode='2d';E.tab2d.classList.add('active');E.tab3d.classList.remove('active');draw()};E.tab3d.onclick=()=>{mode='3d';E.tab3d.classList.add('active');E.tab2d.classList.remove('active');draw()};E.navImport.onclick=()=>E.bulk.scrollIntoView({behavior:'smooth',block:'center'});E.navAnalyze.onclick=()=>{renderStats();E.ranking.scrollIntoView({behavior:'smooth',block:'center'})};E.navPlay.onclick=runSelectedSimulationV84;E.navBatch.onclick=()=>{E.count.value='1000';runSelectedSimulationV84()};
 
 function htmlToText(html){
  const doc=new DOMParser().parseFromString(String(html||''),'text/html');
@@ -2920,37 +2984,69 @@ function horseNameFromLeftV56(leftRaw){
   return toks.find(x=>!stop.has(x))||'';
 }
 
-function pedigreeFromLeftV94(raw){
-  const s=cleanKeepLinksV45(String(raw||''))
-    .normalize('NFKC')
-    .replace(/\r?\n+/g,' ')
-    .replace(/\s+/g,' ');
+function pedigreeFromLeftV95(raw){
+  const source=String(raw||'').normalize('NFKC');
+  const s=cleanKeepLinksV45(source)
+    .replace(/\r/g,'\n')
+    .replace(/\n+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
 
-  const pick=(patterns)=>{
-    for(const re of patterns){
-      const m=s.match(re);
-      if(m&&m[1]){
-        const v=String(m[1]).trim()
-          .replace(/[）)\]】].*$/,'')
-          .replace(/\s{2,}.*/,'')
-          .replace(/[、,;；].*$/,'');
-        if(v)return v;
+  const cleanName=v=>String(v||'')
+    .replace(/\[[^\]]*\]\([^)]*\)/g,' ')
+    .replace(/[（(].*$/,'')
+    .replace(/^(?:父馬?|母父馬?|母の父)\s*[:：]?\s*/,'')
+    .replace(/\s+/g,' ')
+    .trim();
+
+  let sire='',damsire='';
+
+  // JRA detailed card examples:
+  // 父：○○ / 母：△△（母の父：□□）
+  // 父 ○○　母 △△ (母父 □□)
+  // Markdown links may sit inside the labels/names, so allow broad text between delimiters.
+  const sirePatterns=[
+    /(?:^|\s)父\s*[:：]\s*([^\s（(]{2,60})/,
+    /(?:^|\s)父\s+([^\s（(]{2,60})/,
+    /父馬\s*[:：]?\s*([^\s（(]{2,60})/
+  ];
+  for(const re of sirePatterns){
+    const m=s.match(re);
+    if(m){sire=cleanName(m[1]); if(sire)break;}
+  }
+
+  const damSirePatterns=[
+    /母の父\s*[:：]\s*([^）)\s]{2,60})/,
+    /母父\s*[:：]\s*([^）)\s]{2,60})/,
+    /[（(]\s*母の父\s*[:：]?\s*([^）)]{2,60})[）)]/,
+    /[（(]\s*母父\s*[:：]?\s*([^）)]{2,60})[）)]/
+  ];
+  for(const re of damSirePatterns){
+    const m=s.match(re);
+    if(m){damsire=cleanName(m[1]); if(damsire)break;}
+  }
+
+  // Fallback: inspect individual markdown/text lines before the first past-race date.
+  if(!sire||!damsire){
+    const flat=source
+      .replace(/\r/g,'\n')
+      .split('\n')
+      .map(x=>cleanKeepLinksV45(x).normalize('NFKC').trim())
+      .filter(Boolean);
+    for(const line of flat){
+      if(!sire){
+        const m=line.match(/(?:^|[\s　])父(?:馬)?\s*[:：]?\s*([ァ-ヶーA-Za-z一-龠々・'’.\-]{2,60})/);
+        if(m)sire=cleanName(m[1]);
+      }
+      if(!damsire){
+        const m=line.match(/(?:母の父|母父(?:馬)?)\s*[:：]?\s*([ァ-ヶーA-Za-z一-龠々・'’.\-]{2,60})/);
+        if(m)damsire=cleanName(m[1]);
       }
     }
-    return '';
-  };
+  }
 
-  const sire=pick([
-    /(?:父|父馬)\s*[:：]\s*([ぁ-んァ-ヶ一-龠々A-Za-z0-9・'’.\-\s]{2,50}?)(?=\s+(?:母|母馬|母父|母の父|調教師|馬主|生産者)\b|$)/,
-    /(?:父|父馬)\s+([ぁ-んァ-ヶ一-龠々A-Za-z0-9・'’.\-]{2,40})/
-  ]);
-  const damsire=pick([
-    /(?:母の父|母父|母父馬)\s*[:：]\s*([ぁ-んァ-ヶ一-龠々A-Za-z0-9・'’.\-\s]{2,50}?)(?=\s+(?:調教師|馬主|生産者|父|母)\b|$)/,
-    /[（(]\s*(?:母の父|母父)\s*[:：]?\s*([ぁ-んァ-ヶ一-龠々A-Za-z0-9・'’.\-\s]{2,50}?)[）)]/
-  ]);
   return {sire,damsire};
 }
-
 // Broad, intentionally conservative pedigree tendencies.
 // These are weak priors, not hard rules. Unknown bloodlines stay neutral.
 const BLOOD_PROFILE_V94={
@@ -2994,7 +3090,7 @@ function bloodDetailV94(h){
   const sp=bloodProfileV94(sire);
   const dp=bloodProfileV94(damsire);
   if(!sp&&!dp){
-    return {bonus:0,reason:(sire||damsire)?`父 ${sire||'-'} / 母父 ${damsire||'-'}（補正データなし）`:'血統未取得'};
+    return {bonus:0,reason:(sire||damsire)?`父 ${sire||'-'} / 母父 ${damsire||'-'}（補正データなし）`:'血統未取得（JRA左欄から抽出できず）'};
   }
 
   const surf=String(E.surface.value||'芝');
@@ -3041,7 +3137,7 @@ function parseCurrentLeftV56(txt){
 
     // The detailed entry table is ordered by current horse number. Marker block #1 = horse 1, etc.
     const no=i+1;
-    const pedigree=pedigreeFromLeftV94(leftRaw);
+    const pedigree=pedigreeFromLeftV95(leftRaw);
     const oddsM=left.match(/(?:^|\s)(\d+(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*番人気\s*[）)]/);
     let body=0;
     const bodyM=left.match(/(?:^|\s)(\d{3})\s*kg(?:\s*[（(][^）)]*[）)])?/i);
@@ -4089,7 +4185,7 @@ async function fetchNetkeibaPast5V71(jraUrl,parsed){
  const raceId=netkeibaRaceIdV62(jraUrl);
  const out={
    raceId,byNo:new Map(),totalRuns:0,withRuns:0,with5:0,error:'',
-   via:'horse-search>horse-db-v94-safe-date-filter',url:'',readUrl:''
+   via:'horse-search>horse-db-v95-safe-date-filter',url:'',readUrl:''
  };
  const list=(parsed||[]).slice().sort((a,b)=>+a.no-+b.no);
  const failures=[];
@@ -4189,7 +4285,7 @@ fetchJraEntry.onclick=async()=>{
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v94：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br><b>v95：今回欄 JRA '+leftCurrent.length+'頭 / 脚質 netkeiba '+styleN+'/'+horses.length+'頭 / 過去5走 netkeibaのみ '+total5+'走</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ<br>近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br><small>netkeiba過去走: '+nkPast.withRuns+'頭・'+nkPast.totalRuns+'走 / 5走取得 '+nkPast.with5+'頭 / 経路:'+(nkPast.via||'-')+'<br>表示URL: '+(nkPast.url||'-')+'<br>読取URL: '+(nkPast.readUrl||'-')+'</small>'+(nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+(missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+'<br><b>netkeiba脚質: '+styleN+'/'+horses.length+'頭</b> '+(nkStyle.via?'経路:'+nkStyle.via+' ':'')+(nkStyle.error?'<span class="warn">('+nkStyle.error+')</span>':'')+'<br><small>race_id '+nkStyle.raceId+'</small>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
