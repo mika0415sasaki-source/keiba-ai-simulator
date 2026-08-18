@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v86</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v87</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -108,17 +108,34 @@ function addProfile(bucket,key,pos){
 function profileBonus(st){
  if(!st||!st.n)return 0;
  const avg=st.sum/st.n,top3=st.top3/st.n;
- let b=0;if(avg<=3)b+=2.5;else if(avg>=8)b-=1.5;if(top3>=.5)b+=1.5;
- return b;
+ let raw=0;
+ if(avg<=3)raw+=2.5;
+ else if(avg>=8)raw-=1.5;
+ if(top3>=.5)raw+=1.5;
+
+ // v87: one learned race must not dominate the model.
+ // Confidence grows gradually as actual result samples accumulate.
+ const confidence=st.n/(st.n+4);
+ return raw*confidence;
+}
+function memoryDetailV87(h){
+ const m=loadMem()[normName(h.name)];
+ if(!m)return {bonus:0,course:0,going:0,distance:0,nCourse:0,nGoing:0,nDistance:0};
+ const p=ensureProfile(m);
+ const c=p.course[E.course.value+'|'+E.surface.value];
+ const g=p.going[E.going.value];
+ const d=p.distance[distBucket(E.distance.value)];
+ const cb=profileBonus(c),gb=profileBonus(g),db=profileBonus(d);
+
+ // Correlated dimensions are blended instead of simply added.
+ const bonus=Math.max(-3,Math.min(3,cb*.40+gb*.25+db*.35));
+ return {
+   bonus,course:cb,going:gb,distance:db,
+   nCourse:c?.n||0,nGoing:g?.n||0,nDistance:d?.n||0
+ };
 }
 function memoryBonus(h){
- const m=loadMem()[normName(h.name)];if(!m)return 0;
- const p=ensureProfile(m);
- let b=0;
- b+=profileBonus(p.course[E.course.value+'|'+E.surface.value]);
- b+=profileBonus(p.going[E.going.value]);
- b+=profileBonus(p.distance[distBucket(E.distance.value)]);
- return Math.max(-4,Math.min(8,b));
+ return memoryDetailV87(h).bonus;
 }
 function applyMemoryHorse(h){
  const m=loadMem()[normName(h.name)];if(!m)return h;
@@ -1833,7 +1850,7 @@ function totalBreakdownTextV86(h){
     `馬場 ${signedV85(b.going)}`,
     `脚質×ペース ${signedV85(b.pace)}`,
     `過去5走 ${signedV85(b.past5)}`,
-    `学習 ${signedV85(b.memory)}`
+    `学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`(${n}件)` : ''})()}`
   ].join(' / ');
 }
 function totalBreakdownHtmlV86(h){
@@ -1842,7 +1859,7 @@ function totalBreakdownHtmlV86(h){
     <b>総合 ${b.total.toFixed(1)}</b><br>
     基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
     馬体 ${signedV85(b.body)}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
-    過去5走 ${signedV85(b.past5)}　学習 ${signedV85(b.memory)}
+    過去5走 ${signedV85(b.past5)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
 }
 
