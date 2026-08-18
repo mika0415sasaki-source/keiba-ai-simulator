@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v59</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v60</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2690,11 +2690,7 @@ fetchJraEntry.onclick=async()=>{
     valid.errors.push('出走馬数が一致しません（'+parsed.length+'頭 / 出馬表'+expected+'頭）');
   }
 
-  // Hard gate: race conditions must be explicit and plausible.
-  if(!meta.course||!meta.surface||!meta.distance){
-    valid.ok=false;
-    valid.errors.push('レース条件を確定できません');
-  }
+  // v60: race conditions are manual. Do not block runner import when course/surface/distance cannot be read.
   if(!valid.ok){
     localStorage.setItem('keiba_jra_last_text_v27',String(textSource||'').slice(0,200000));
     const candCount=expectedCurrentOnlyV44(textSource);
@@ -2712,16 +2708,12 @@ fetchJraEntry.onclick=async()=>{
     }
     throw new Error('安全チェックで取込を中止: '+valid.errors.join(' / ')+'。誤データは保存していません。［左欄 '+leftCurrent.length+'頭 / 左候補 '+leftResult.debug.slice(0,18).join('・')+' / 右欄 '+rightPast.withRuns+'頭・'+rightPast.totalRuns+'走 / 現在枠 '+candCount+'頭 / 左取得 '+(smartData.text?'スマホJRA':'元ページ')+(smartData.error?'('+smartData.error+')':'')+'］');
   }
-  if(meta.course&&meta.distance&&meta.surface){
-    applyRaceMeta(meta);
-  } else {
-    // Do not overwrite distance/surface with guesses from unrelated page text.
-    if(meta.course && E.course) E.course.value=meta.course;
-  }
+  // v60: course / surface / distance are intentionally manual.
+  // JRA import updates runners and past runs only; keep the user's current race-condition controls unchanged.
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name&&!/^(プロモーション|JRA|FUN CLUB|Hello|Special Times)$/i.test(h.name));horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
   const histN=horses.filter(h=>(h.runs||[]).length>0).length, hist4=horses.filter(h=>(h.runs||[]).length>=4).length;
-  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br><b>分離取込OK v59：左欄 '+leftCurrent.length+'頭 → 右欄 '+rightPast.withRuns+'頭・'+rightPast.totalRuns+'走 → 馬番で結合 '+parsed.length+'頭</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ / 過去欄: 前走〜4走前のみ<br>近走データ: '+histN+'頭取得（4走取得 '+hist4+'頭）<br><b>判定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
+  jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭をJRAから取り込みました。</span><br><b>分離取込OK v60：左欄 '+leftCurrent.length+'頭 → 右欄 '+rightPast.withRuns+'頭・'+rightPast.totalRuns+'走 → 馬番で結合 '+parsed.length+'頭</b><br>今回欄: 馬名・馬番・斤量・騎手・馬体重・オッズ / 過去欄: 前走〜4走前のみ<br>近走データ: '+histN+'頭取得（4走取得 '+hist4+'頭）<br><b>レース条件は手動設定: '+E.course.value+' / '+E.surface.value+' / '+E.distance.value+'m</b>';
   if(E.importStatus)E.importStatus.innerHTML='<span class="ok">JRA自動取込データを反映しました。</span>';
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
