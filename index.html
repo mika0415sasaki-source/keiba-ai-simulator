@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v143</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v144</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -5157,11 +5157,94 @@ async function fetchHorseRunsV118(h,raceDate){
   };
 }
 
+
+function normalizeCachedNetkeibaRunsV144(runs,raceDate){
+  const cutoff=dateKeyV92(raceDate);
+  const seen=new Set();
+  return (runs||[])
+    .filter(r=>{
+      if(!r)return false;
+      const src=String(r.source||'');
+      // Never use JRA/manual learning rows as historical-form fallback.
+      if(src && !/^netkeiba/i.test(src))return false;
+      const k=dateKeyV92(r.date);
+      if(k===null)return false;
+      if(cutoff!==null && !(k<cutoff))return false;
+      const p=Number(r.pos||0),d=Number(r.dist||0);
+      return p>=1&&p<=30&&d>=1000&&d<=3600;
+    })
+    .sort((a,b)=>(dateKeyV92(b.date)||0)-(dateKeyV92(a.date)||0))
+    .filter(r=>{
+      const key=[r.date,r.dist,r.pos].join('|');
+      if(seen.has(key))return false;
+      seen.add(key);return true;
+    })
+    .slice(0,5)
+    .map(r=>({...r}));
+}
+
+function pastCacheKeyV144(h){
+  const id=String(h&&h.netkeibaId||'').trim();
+  return 'keiba_netkeiba_past5_v144_'+(id||normName(h&&h.name||''));
+}
+
+function saveNetkeibaPastCacheV144(h,runs){
+  const safe=normalizeCachedNetkeibaRunsV144(runs,null);
+  if(!safe.length)return false;
+  try{
+    localStorage.setItem(pastCacheKeyV144(h),JSON.stringify({
+      name:h.name||'',id:h.netkeibaId||'',runs:safe,savedAt:Date.now()
+    }));
+    return true;
+  }catch(e){return false;}
+}
+
+function loadNetkeibaPastCacheV144(h,raceDate){
+  // First: dedicated cache written only from netkeiba horse-result rows.
+  try{
+    const obj=JSON.parse(localStorage.getItem(pastCacheKeyV144(h))||'null');
+    const rs=normalizeCachedNetkeibaRunsV144(obj&&obj.runs,raceDate);
+    if(rs.length)return {runs:rs,via:'dedicated-cache'};
+  }catch(e){}
+
+  // Migration path from the app's existing memory.
+  // Accept ONLY rows explicitly marked as netkeiba-derived.
+  try{
+    const m=loadMem()[normName(h.name)];
+    const rs=normalizeCachedNetkeibaRunsV144(
+      (m&&m.runs||[]).filter(r=>/^netkeiba/i.test(String(r&&r.source||''))),
+      raceDate
+    );
+    if(rs.length)return {runs:rs,via:'trusted-memory'};
+  }catch(e){}
+
+  return {runs:[],via:''};
+}
+
+function mergePastRunsV144(primary,secondary,raceDate){
+  const cutoff=dateKeyV92(raceDate);
+  const all=[...(primary||[]),...(secondary||[])];
+  const seen=new Set(),out=[];
+  all.sort((a,b)=>(dateKeyV92(b&&b.date)||0)-(dateKeyV92(a&&a.date)||0));
+  for(const r of all){
+    if(!r)continue;
+    const k=dateKeyV92(r.date);
+    if(k===null)continue;
+    if(cutoff!==null && !(k<cutoff))continue;
+    const key=[r.date,r.dist,r.pos].join('|');
+    if(seen.has(key))continue;
+    seen.add(key);out.push({...r});
+    if(out.length>=5)break;
+  }
+  return out;
+}
+
 async function fetchNetkeibaPast5V118(jraUrl,parsed,explicitRaceDate){
   const raceId=netkeibaRaceIdV62(jraUrl);
   const out={
     raceId,byNo:new Map(),pedByNo:new Map(),totalRuns:0,withRuns:0,with5:0,withPed:0,error:'',
-    via:'newspaper-id>horse-db-v118',url:'',readUrl:''
+    via:'newspaper-id>horse-db-v118',url:'',readUrl:'',
+    cacheRecovered:0,cacheRecoveredRuns:0,networkFailed:0
   };
   const list=(parsed||[]).slice().sort((a,b)=>+a.no-+b.no);
   const failures=[];
@@ -5169,8 +5252,9 @@ async function fetchNetkeibaPast5V118(jraUrl,parsed,explicitRaceDate){
     ? new Date(Date.UTC(+explicitRaceDate.slice(0,4),+explicitRaceDate.slice(4,6)-1,+explicitRaceDate.slice(6,8)))
     : null;
 
-  // v116: process in small batches of 2.
-  // This is much faster than sequential name-searches but still gentle enough for iPhone/Safari.
+  const byNoHorse=new Map(list.map(h=>[String(h.no),h]));
+
+  // Process in pairs so iPhone/Safari stays responsive.
   const batchSize=2;
   for(let base=0;base<list.length;base+=batchSize){
     const batch=list.slice(base,base+batchSize);
@@ -5179,7 +5263,6 @@ async function fetchNetkeibaPast5V118(jraUrl,parsed,explicitRaceDate){
     }
 
     const settled=await Promise.all(batch.map(async h=>{
-      // Hard outer guard: one problematic horse must never freeze the whole import.
       let timer;
       try{
         return await Promise.race([
@@ -5198,17 +5281,34 @@ async function fetchNetkeibaPast5V118(jraUrl,parsed,explicitRaceDate){
     }));
 
     for(const r of settled){
+      const h=byNoHorse.get(String(r.no))||{no:r.no,name:r.name,netkeibaId:r.id||''};
+
       if(r.sire||r.damsire||r.sex||r.age){
         out.pedByNo.set(String(r.no),{
           sire:r.sire||'',damsire:r.damsire||'',sex:r.sex||'',age:Number(r.age||0),via:r.pedVia||''
         });
         if(r.sire||r.damsire)out.withPed++;
       }
-      if(r.runs&&r.runs.length){
-        out.byNo.set(String(r.no),r.runs.slice(0,5));
+
+      let runs=(r.runs||[]).slice(0,5);
+
+      if(runs.length){
+        saveNetkeibaPastCacheV144(h,runs);
+      }else{
+        out.networkFailed++;
+        const cached=loadNetkeibaPastCacheV144(h,targetRaceDate);
+        if(cached.runs.length){
+          runs=cached.runs.slice(0,5);
+          out.cacheRecovered++;
+          out.cacheRecoveredRuns+=runs.length;
+        }
+      }
+
+      if(runs.length){
+        out.byNo.set(String(r.no),runs);
         out.withRuns++;
-        out.totalRuns+=r.runs.length;
-        if(r.runs.length>=5)out.with5++;
+        out.totalRuns+=runs.length;
+        if(runs.length>=5)out.with5++;
       }else{
         failures.push(r.no+' '+r.name+'('+(r.error||'0走')+')');
       }
@@ -5252,14 +5352,23 @@ function applyNetkeibaPastOnlyV71(parsed,nk){
  (parsed||[]).forEach(h=>{
    const rs=(nk&&nk.byNo&&nk.byNo.get(String(h.no)))||[];
    const ped=(nk&&nk.pedByNo&&nk.pedByNo.get(String(h.no)))||null;
-   h.runs=rs.slice(0,5).map(r=>({...r}));
+
+   if(rs.length)h.runs=rs.slice(0,5).map(r=>({...r}));
+   else if(!Array.isArray(h.runs))h.runs=[];
+
+   // v144 safety: transient history failure must be neutral, never 0 ability.
+   if(!(Number(h.sp)>=55&&Number(h.sp)<=99))h.sp=80;
+   if(!(Number(h.st)>=55&&Number(h.st)<=99))h.st=80;
+   if(!(Number(h.pw)>=55&&Number(h.pw)<=99))h.pw=80;
+
    if(ped){
      if(!h.sire&&ped.sire)h.sire=ped.sire;
      if(!h.damsire&&ped.damsire)h.damsire=ped.damsire;
      if(ped.sex)h.sex=ped.sex;
      if(ped.age>=2&&ped.age<=12)h.age=Number(ped.age);
    }
-   abilitiesFromRunsV44(h);
+
+   if((h.runs||[]).length)abilitiesFromRunsV44(h);
  });
  return parsed;
 }
@@ -6481,7 +6590,8 @@ function parseNetkeibaRunnerListV110(text){
   return names.map((name,i)=>({
     frame:frameByNoCountV108(i+1,n),
     no:i+1,name,
-    style:'差し',jockey:'',carried:0,body:0,odds:0,runs:[]
+    style:'差し',jockey:'',carried:0,body:0,odds:0,
+    sp:80,st:80,pw:80,runs:[]
   }));
 }
 
@@ -8449,7 +8559,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v143：相手レベルを「出走した格」ではなく「その格での実着順」込みで評価</b><br>'+
+    '<b>v144：過去5走の一時取得失敗をnetkeiba専用キャッシュで救済＋0走時の能力崩壊を防止</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
@@ -8463,7 +8573,8 @@ async function importFromNetkeibaV108(url){
     '<b>v125直接解析: DBブロック '+exactV125.matched+'/'+horses.length+' / 血統 '+exactV125.withPed+'/'+horses.length+' / 斤量 '+exactV125.withWeight+'/'+horses.length+' / オッズ '+exactV125.withOdds+'/'+horses.length+' / 騎手 '+exactV125.withJockey+'/'+horses.length+'</b><br>'+
     '<small>競馬新聞取得経路: '+src.via+' / 本文DB '+(src.horseMarks||0)+'件 / 本文オッズ '+(src.oddsMarks||0)+'件</small><br>'+
     '主取得: netkeiba競馬新聞 / 補完: netkeiba出馬表・馬DB / JRA: 最終補完用<br>'+
-    '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
+    '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）'+
+    (nkPast.cacheRecovered? ' / <b class="ok">netkeibaキャッシュ救済 '+nkPast.cacheRecovered+'頭・'+nkPast.cacheRecoveredRuns+'走</b>':'')+'<br>'+
     '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭 / 過去騎手: '+pastJockeyN+'/'+horses.length+'頭（'+pastJockeyRuns+'走）</b><br>'+
     '<b>馬DB ID: '+horseIdN+'/'+horses.length+'頭 / 過去走取得: v118 / 対象日: '+(raceDate||'未確定（DB最新から取得）')+'</b><br>'+
     '<small>不足: 斤量 '+(missingWeightV122.length?missingWeightV122.join('・'):'なし')+
