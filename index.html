@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v132</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v133</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1670,10 +1670,107 @@ function bodyFit(h){
   return bodyDetailV89(h).bonus;
 }
 
+
+let currentRaceLevelV133=0;
+let currentRaceClassLabelV133='不明';
+
+function raceClassInfoV133(name){
+  const s=String(name||'').normalize('NFKC').replace(/\s+/g,' ').trim();
+
+  // Grade order intentionally spaced so lower-class wins cannot equal
+  // graded-race performance purely through finish position / fast final 3F.
+  if(/(?:G\s*1|GI(?!I)|GⅠ|ＧⅠ|J・?GⅠ)/i.test(s))return {level:9.0,label:'G1'};
+  if(/(?:G\s*2|GII(?!I)|GⅡ|ＧⅡ|J・?GⅡ)/i.test(s))return {level:8.0,label:'G2'};
+  if(/(?:G\s*3|GIII|GⅢ|ＧⅢ|J・?GⅢ)/i.test(s))return {level:7.0,label:'G3'};
+  if(/(?:\(\s*L\s*\)|Listed|リステッド)/i.test(s))return {level:6.0,label:'L'};
+  if(/(?:\(\s*OP\s*\)|オープン特別|オープン\b|\bOP\b)/i.test(s))return {level:5.5,label:'OP'};
+  if(/(?:3勝クラス|1600万下|1600万)/.test(s))return {level:4.5,label:'3勝'};
+  if(/(?:2勝クラス|1000万下|1000万)/.test(s))return {level:3.5,label:'2勝'};
+  if(/(?:1勝クラス|500万下|500万)/.test(s))return {level:2.5,label:'1勝'};
+  if(/未勝利/.test(s))return {level:1.5,label:'未勝利'};
+  if(/(?:新馬|新馬戦)/.test(s))return {level:1.2,label:'新馬'};
+  return {level:0,label:'不明'};
+}
+
+function detectCurrentRaceClassV133(text){
+  const src=String(text||'').normalize('NFKC');
+  const firstHorse=src.indexOf('のデータベース');
+  const head=src.slice(0,firstHorse>0?Math.min(firstHorse,18000):18000);
+
+  // Search the current header only, never historical race rows.
+  const checks=[
+    [/GIII|GⅢ|ＧⅢ|G3/i,{level:7,label:'G3'}],
+    [/GII(?!I)|GⅡ|ＧⅡ|G2/i,{level:8,label:'G2'}],
+    [/(?:GI(?!I)|GⅠ|ＧⅠ|G1)/i,{level:9,label:'G1'}],
+    [/\(\s*L\s*\)|Listed|リステッド/i,{level:6,label:'L'}],
+    [/\(\s*OP\s*\)|オープン特別|\bOP\b/i,{level:5.5,label:'OP'}],
+    [/3勝クラス|1600万下/i,{level:4.5,label:'3勝'}],
+    [/2勝クラス|1000万下/i,{level:3.5,label:'2勝'}],
+    [/1勝クラス|500万下/i,{level:2.5,label:'1勝'}],
+    [/未勝利/i,{level:1.5,label:'未勝利'}],
+    [/新馬/i,{level:1.2,label:'新馬'}]
+  ];
+  for(const [re,info] of checks){
+    if(re.test(head))return info;
+  }
+  return {level:0,label:'不明'};
+}
+
+function raceClassDetailV133(h){
+  const runs=(h.runs||[]).slice(0,5);
+  const weights=[1.00,.84,.70,.58,.48].slice(0,runs.length);
+  let sw=0,sum=0,known=0;
+  const count={};
+
+  runs.forEach((r,i)=>{
+    const lv=Number(r.classLevel||0);
+    if(!lv)return;
+    const w=weights[i]||1;
+    sw+=w; sum+=lv*w; known++;
+    const lab=r.classLabel||raceClassInfoV133(r.raceName).label||'不明';
+    count[lab]=(count[lab]||0)+1;
+  });
+
+  if(!known||!sw){
+    return {bonus:0,avg:0,n:0,reason:'レース格未取得'};
+  }
+
+  const avg=sum/sw;
+  const target=Number(currentRaceLevelV133||0);
+
+  // Relative to today's class. A horse moving sharply up in class is discounted,
+  // while a horse dropping from stronger company gets a modest credit.
+  // Bound the effect so class alone never decides the race.
+  let bonus=0;
+  if(target){
+    bonus=clampV81((avg-target)*0.92,-3.2,2.2);
+  }
+
+  const summary=Object.entries(count)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>k+'×'+v)
+    .join('・');
+
+  return {
+    bonus,avg,n:known,
+    reason:summary+(target?' → 今回'+currentRaceClassLabelV133:'')
+  };
+}
+
+function classAbilityAdjV133(h){
+  const d=raceClassDetailV133(h);
+  if(!d.n || !currentRaceLevelV133)return 0;
+
+  // Smaller than the explicit recent-five class factor.
+  // This only prevents raw 1st/2nd + fast 3F in lower classes from
+  // inflating SP/ST/PW to graded-horse levels.
+  return clampV81((d.avg-currentRaceLevelV133)*1.12,-4.2,2.8);
+}
+
 function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}
 function pastFiveMetricsV81(h){
  const runs=(h.runs||[]).slice(0,5);
- if(!runs.length)return {bonus:0,form:0,finish:0,last3:0,distance:0,surface:0,going:0,stability:0,trend:0,volatility:5.4,n:0};
+ if(!runs.length)return {bonus:0,form:0,finish:0,last3:0,distance:0,surface:0,going:0,stability:0,trend:0,classLevel:0,classReason:'データなし',volatility:5.4,n:0};
  const weights=[1.00,.84,.70,.58,.48].slice(0,runs.length);
  const targetD=Number(E.distance.value||1600);
  const targetS=String(E.surface.value||'芝');
@@ -1720,12 +1817,17 @@ function pastFiveMetricsV81(h){
  const trend=clampV81((older-recent)*.34,-1.6,1.6);
 
  // Keep this as an incremental adjustment; base sp/st/pw already contains neutral five-run ability.
+ const classD=raceClassDetailV133(h);
  const bonus=clampV81(
-   finish*.72 + last3*.58 + distance + surface + going + stability + trend,
-   -8.5, 9.5
+   finish*.72 + last3*.58 + distance + surface + going + stability + trend + classD.bonus,
+   -9.5, 9.5
  );
  const volatility=clampV81(3.7+sd*.32+(runs.length<5?.7:0),3.5,6.6);
- return {bonus,form:finish*.72,finish,last3:last3*.58,distance,surface,going,stability,trend,volatility,n:runs.length};
+ return {
+   bonus,form:finish*.72,finish,last3:last3*.58,distance,surface,going,
+   stability,trend,classLevel:classD.bonus,classReason:classD.reason,
+   volatility,n:runs.length
+ };
 }
 function simulationNoiseV81(h){
  const m=pastFiveMetricsV81(h);
@@ -1823,6 +1925,7 @@ function fiveBreakdownTextV85(h){
     `距離 ${signedV85(m.distance)}`,
     `芝ダ ${signedV85(m.surface)}`,
     `馬場 ${signedV85(m.going)}`,
+    `相手レベル ${signedV85(m.classLevel)}`,
     `安定 ${signedV85(m.stability)}`,
     `傾向 ${signedV85(m.trend)}`
   ].join(' / ');
@@ -1831,9 +1934,13 @@ function fiveBreakdownHtmlV85(h){
   const m=pastFiveMetricsV81(h);
   const rows=[
     ['近走',m.form],['上がり',m.last3],['距離',m.distance],
-    ['芝/ダ',m.surface],['馬場',m.going],['安定',m.stability],['傾向',m.trend]
+    ['芝/ダ',m.surface],['馬場',m.going],['相手レベル',m.classLevel],
+    ['安定',m.stability],['傾向',m.trend]
   ];
-  return `<div style="margin:4px 0 9px 24px;font-size:12px;line-height:1.55;opacity:.82">${rows.map(([k,v])=>`${k} ${signedV85(v)}`).join('　')}</div>`;
+  return `<div style="margin:4px 0 9px 24px;font-size:12px;line-height:1.55;opacity:.82">
+    ${rows.map(([k,v])=>`${k} ${signedV85(v)}`).join('　')}<br>
+    <span style="opacity:.72">相手レベル理由: ${m.classReason||'レース格未取得'}</span>
+  </div>`;
 }
 
 function renderAISummary(){
@@ -2156,6 +2263,7 @@ function totalBreakdownHtmlV86(h){
     騎手 ${signedV85(b.jockey)}　<span style="opacity:.72">騎手理由: ${jockeyDetailV115(h).reason}</span><br>
     <span style="opacity:.65">騎手内訳: 継続 ${signedV85(jockeyDetailV115(h).continuity)} / 同馬相性 ${signedV85(jockeyDetailV115(h).combo)} / 条件適性 ${signedV85(jockeyDetailV115(h).condition)} / 乗替比較 ${signedV85(jockeyDetailV115(h).change)}</span><br>
     5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)} → 最終反映 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
+    <span style="opacity:.72">相手レベル ${signedV85(pastFiveMetricsV81(h).classLevel||0)}：${pastFiveMetricsV81(h).classReason||'未取得'}</span><br>
     距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
 }
@@ -2292,7 +2400,32 @@ async function runSelectedSimulationV84(){
 
 function reset(){if(raf)cancelAnimationFrame(raf);running=false;progress=0;lastTs=0;finishTimes=[];raceOrder=[];startReaction=[];E.runstatus.textContent='停止中';E.phase.textContent='スタート前';updateFinish();draw()}
 E.sample.onclick=()=>{E.bulk.value=sampleText();const n=E.bulk.value.split(/\r?\n/).filter(Boolean).length;E.importStatus.innerHTML='<span class="ok">サンプルを'+n+'頭分入力しました。</span>'};
-E.apply.onclick=()=>{const p=parse(E.bulk.value);if(!p.length){E.importStatus.innerHTML='<span class="warn">読み込めるデータがありません。</span>';return}horses=p.slice(0,18);horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();E.importStatus.innerHTML='<span class="ok">'+horses.length+'頭を反映しました。 '+horses[0].no+' '+horses[0].name+' 〜 '+horses[horses.length-1].no+' '+horses[horses.length-1].name+'</span>'};
+E.apply.onclick=()=>{
+  const oldByName=new Map((horses||[]).map(h=>[String(h.name||'').trim(),h]));
+  const p=parse(E.bulk.value);
+  if(!p.length){E.importStatus.innerHTML='<span class="warn">読み込めるデータがありません。</span>';return}
+  p.forEach(h=>{
+    const old=oldByName.get(String(h.name||'').trim());
+    if(!old)return;
+    // CSV stays simple for iPhone editing, but imported class/date/jockey metadata is retained.
+    if((old.runs||[]).length && (h.runs||[]).length){
+      h.runs.forEach((r,i)=>{
+        const o=(old.runs||[])[i];
+        if(!o)return;
+        for(const k of ['date','surface','jockey','raceName','classLevel','classLabel']){
+          if(o[k]!=null && o[k]!=='')r[k]=o[k];
+        }
+      });
+      abilitiesFromRunsV44(h);
+    }
+    if(old.sire&&!h.sire)h.sire=old.sire;
+    if(old.damsire&&!h.damsire)h.damsire=old.damsire;
+    if(old.age&&!h.age)h.age=old.age;
+  });
+  horses=p.slice(0,18);
+  horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
+  E.importStatus.innerHTML='<span class="ok">'+horses.length+'頭を反映しました。 '+horses[0].no+' '+horses[0].name+' 〜 '+horses[horses.length-1].no+' '+horses[horses.length-1].name+'</span>';
+};
 E.course.onchange=updateVariants;E.surface.onchange=updateVariants;E.variant.onchange=updateDistances;[E.distance,E.going,E.pace].forEach(x=>x.onchange=()=>{lastStats=null;lastSimulationCountV83=0;lastSimulationLabelV83='条件変更後の自動計算';renderStats();draw()});E.play.onclick=runSelectedSimulationV84;E.batch.onclick=async()=>{
   const n=Number(E.count.value)||1000;
   setSimulationBusyV95(true,0,n);
@@ -2576,14 +2709,18 @@ function abilitiesFromRunsV44(h){
  const trend=older-recent; // positive = improving recently
  const wet=r.filter(x=>x.going&&x.going!=='良').length;
 
+ const classAbilityV133=classAbilityAdjV133(h);
  h.sp=Math.max(55,Math.min(99,Math.round(
    97-avgPos*2.25-(avg3-33.5)*3.2 + Math.max(-2.5,Math.min(2.5,trend*.55)) - sd*.25
+   + classAbilityV133
  )));
  h.st=Math.max(55,Math.min(99,Math.round(
    71+(avgDist-1200)/50-avgPos*.58 + Math.max(-1.5,Math.min(1.5,trend*.25))
+   + classAbilityV133*.55
  )));
  h.pw=Math.max(55,Math.min(99,Math.round(
    82-avgPos*.58+wet*1.6 + Math.max(-1.5,Math.min(1.5,(34.5-avg3)*.55))
+   + classAbilityV133*.65
  )));
  return h;
 }
@@ -4853,8 +4990,15 @@ function parseNetkeibaResultPageV74(text, jraUrl){
      const vals=[...line.matchAll(/(?:^|\s)((?:3\d|4[0-9])\.\d)(?=\s|\||$)/g)].map(m=>+m[1]);
      if(vals.length)last3=vals[vals.length-1];
    }
+   const raceName=String(c[4]||'').trim();
+   const classInfoV133=raceClassInfoV133(raceName);
    seen.add(date);
-   out.push({date,pos,dist,surface,going:going||'良',last3:last3===null?34.5:last3,corners,jockey,source:'netkeiba-db'});
+   out.push({
+     date,pos,dist,surface,going:going||'良',last3:last3===null?34.5:last3,
+     corners,jockey,raceName,
+     classLevel:classInfoV133.level,classLabel:classInfoV133.label,
+     source:'netkeiba-db'
+   });
    if(out.length>=5)break;
  }
  return out;
@@ -7284,6 +7428,11 @@ async function importFromNetkeibaV108(url){
     throw new Error('出走馬を正しく判定できません（'+parsed.length+'頭 / 馬DB表記 '+dbMarks+'件）。netkeiba本文取得は成功しています。');
   }
 
+  // v133: establish today's race class before deriving ability from past runs.
+  const currentClassV133=detectCurrentRaceClassV133(src.text);
+  currentRaceLevelV133=Number(currentClassV133.level||0);
+  currentRaceClassLabelV133=currentClassV133.label||'不明';
+
   jraEntryStatus.textContent='② netkeiba今回情報を解析中…';
 
   // v125: exact newspaper block parser is first and authoritative.
@@ -7442,8 +7591,9 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v132：血統不足馬はVercelサーバー経由でnetkeiba馬DBを取得（他項目は固定）</b><br>'+
+    '<b>v133：過去5走のレース格・相手レベルを評価へ追加（G1/G2/G3/L/OP/条件戦を区別）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
+    '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+'</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
     '<b>v125直接解析: DBブロック '+exactV125.matched+'/'+horses.length+' / 血統 '+exactV125.withPed+'/'+horses.length+' / 斤量 '+exactV125.withWeight+'/'+horses.length+' / オッズ '+exactV125.withOdds+'/'+horses.length+' / 騎手 '+exactV125.withJockey+'/'+horses.length+'</b><br>'+
