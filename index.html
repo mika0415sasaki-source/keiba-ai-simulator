@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v115</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v116</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -4213,6 +4213,110 @@ function extractNetkeibaPast5V71(text,parsed,jraUrl){
  for(const rs of byNo.values()){if(rs.length){withRuns++;totalRuns+=rs.length;if(rs.length>=5)with5++;}}
  return {byNo,totalRuns,withRuns,with5};
 }
+
+async function fetchHorseRunsV116(h,raceDate){
+  const id=String(h.netkeibaId||'').trim();
+  if(!id){
+    // Fallback only when newspaper parsing truly did not expose an ID.
+    return fetchHorseRunsV79(h,raceDate);
+  }
+
+  const target='https://db.netkeiba.com/horse/result/'+id+'/';
+  try{
+    // One direct horse-result request. No name search and no pedigree request here.
+    // Bloodline completion is handled later by supplementMissingPedigreeV112.
+    const t=await fetchTextRetryV79('https://r.jina.ai/'+target,11000,'競走成績');
+    let runs=parseHorseResultV80(t);
+
+    const cutoffKey=dateKeyV92(raceDate);
+    if(cutoffKey!==null){
+      runs=runs.filter(r=>{
+        const k=dateKeyV92(r.date);
+        return k!==null&&k<cutoffKey;
+      });
+    }
+    runs.sort((a,b)=>(dateKeyV92(b.date)||0)-(dateKeyV92(a.date)||0));
+    runs=runs.slice(0,5);
+
+    return {
+      no:h.no,name:h.name,id,runs,
+      sire:h.sire||'',damsire:h.damsire||'',
+      sex:h.sex||'',age:Number(h.age||0),
+      via:'newspaper-id>jina-db',url:target,
+      error:runs.length?'':'jina-db:対象レース以前0走'
+    };
+  }catch(e){
+    return {
+      no:h.no,name:h.name,id,runs:[],
+      sire:h.sire||'',damsire:h.damsire||'',
+      sex:h.sex||'',age:Number(h.age||0),
+      error:'jina-db:'+String(e&&e.message||e)
+    };
+  }
+}
+
+async function fetchNetkeibaPast5V116(jraUrl,parsed){
+  const raceId=netkeibaRaceIdV62(jraUrl);
+  const out={
+    raceId,byNo:new Map(),pedByNo:new Map(),totalRuns:0,withRuns:0,with5:0,withPed:0,error:'',
+    via:'newspaper-id>horse-db-v116',url:'',readUrl:''
+  };
+  const list=(parsed||[]).slice().sort((a,b)=>+a.no-+b.no);
+  const failures=[];
+  const targetRaceDate=raceDateFromJraV71(jraUrl);
+
+  // v116: process in small batches of 2.
+  // This is much faster than sequential name-searches but still gentle enough for iPhone/Safari.
+  const batchSize=2;
+  for(let base=0;base<list.length;base+=batchSize){
+    const batch=list.slice(base,base+batchSize);
+    if(typeof jraEntryStatus!=='undefined'&&jraEntryStatus){
+      jraEntryStatus.textContent=`③ netkeiba過去5走 ${base+1}〜${Math.min(base+batch.length,list.length)}/${list.length}頭を取得中…`;
+    }
+
+    const settled=await Promise.all(batch.map(async h=>{
+      // Hard outer guard: one problematic horse must never freeze the whole import.
+      let timer;
+      try{
+        return await Promise.race([
+          fetchHorseRunsV116(h,targetRaceDate),
+          new Promise(resolve=>{
+            timer=setTimeout(()=>resolve({
+              no:h.no,name:h.name,id:h.netkeibaId||'',runs:[],
+              sire:h.sire||'',damsire:h.damsire||'',sex:h.sex||'',age:Number(h.age||0),
+              error:'取得タイムアウト(18秒)'
+            }),18000);
+          })
+        ]);
+      }finally{
+        if(timer)clearTimeout(timer);
+      }
+    }));
+
+    for(const r of settled){
+      if(r.sire||r.damsire||r.sex||r.age){
+        out.pedByNo.set(String(r.no),{
+          sire:r.sire||'',damsire:r.damsire||'',sex:r.sex||'',age:Number(r.age||0),via:r.pedVia||''
+        });
+        if(r.sire||r.damsire)out.withPed++;
+      }
+      if(r.runs&&r.runs.length){
+        out.byNo.set(String(r.no),r.runs.slice(0,5));
+        out.withRuns++;
+        out.totalRuns+=r.runs.length;
+        if(r.runs.length>=5)out.with5++;
+      }else{
+        failures.push(r.no+' '+r.name+'('+(r.error||'0走')+')');
+      }
+    }
+
+    if(base+batchSize<list.length)await sleepV79(350);
+  }
+
+  if(failures.length)out.error='5走未満/未取得: '+failures.join('・');
+  return out;
+}
+
 async function fetchNetkeibaPast5V71(jraUrl,parsed){
  const raceId=netkeibaRaceIdV62(jraUrl);
  const out={raceId,byNo:new Map(),totalRuns:0,withRuns:0,with5:0,error:'',via:'',url:'',readUrl:''};
@@ -5476,9 +5580,16 @@ async function importFromNetkeibaV108(url){
   applyNetkeibaCurrentProfileV105(parsed,styleResult);
 
   jraEntryStatus.textContent='③ netkeibaから過去5走を取得中…';
+  // v116: newspaper already contains the exact horse DB IDs.
+  // Attach them now so past-run fetches do not waste time on per-horse name searches.
+  const horseIdsV116=extractNetkeibaHorseIdsV75(src.text,parsed);
+  for(const h of parsed){
+    const id=horseIdsV116[String(h.no)]||'';
+    if(id)h.netkeibaId=id;
+  }
   const raceDate=dateFromNetkeibaTextV108(src.text);
   const fakeJra=fakeJraUrlFromRaceIdV108(raceId,raceDate);
-  const nkPast=await fetchNetkeibaPast5V71(fakeJra,parsed);
+  const nkPast=await fetchNetkeibaPast5V116(fakeJra,parsed);
   parsed=applyNetkeibaPastOnlyV71(parsed,nkPast);
   applyNetkeibaCurrentProfileV105(parsed,styleResult);
 
@@ -5518,16 +5629,18 @@ async function importFromNetkeibaV108(url){
   const finalPedN=horses.filter(h=>h.sire&&h.damsire).length;
   const finalAgeN=horses.filter(h=>Number(h.age)>=2&&Number(h.age)<=12).length;
   const finalJockeyN=horses.filter(h=>h.jockey&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(h.jockey))).length;
+  const horseIdN=horses.filter(h=>String(h.netkeibaId||'').length>=8).length;
   const pastJockeyN=horses.filter(h=>(h.runs||[]).some(r=>validJockeyNameV114(r&&r.jockey))).length;
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v115：騎手を独立評価（継続・初騎乗・乗替・同馬相性・条件適性・前騎手比較）</b><br>'+
+    '<b>v116：過去5走取得を高速化・1頭の通信不良で全体停止しない</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '主取得: netkeiba競馬新聞 / 補完: netkeiba出馬表・馬DB / JRA: 最終補完用<br>'+
     '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
-    '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭 / 過去騎手: '+pastJockeyN+'/'+horses.length+'頭（'+pastJockeyRuns+'走）</b>'+
+    '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭 / 過去騎手: '+pastJockeyN+'/'+horses.length+'頭（'+pastJockeyRuns+'走）</b><br>'+
+    '<b>馬DB ID: '+horseIdN+'/'+horses.length+'頭 / 過去走高速取得: v116</b>'+
     '<br><small>補完: 今回欄 '+supplementN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統不足補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
