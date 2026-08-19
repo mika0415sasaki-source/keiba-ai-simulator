@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v138</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v139</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1677,11 +1677,23 @@ let currentRaceClassLabelV133='不明';
 function raceClassInfoV133(name){
   const s=String(name||'').normalize('NFKC').replace(/\s+/g,' ').trim();
 
-  // Grade order intentionally spaced so lower-class wins cannot equal
-  // graded-race performance purely through finish position / fast final 3F.
+  // v139: NAR / dirt-grade classes.
+  // Jpn grades are treated on the same numerical tier as their G counterpart.
+  if(/(?:Jpn\s*I(?!I)|JpnⅠ|JPN\s*1)/i.test(s))return {level:9.0,label:'Jpn1'};
+  if(/(?:Jpn\s*II(?!I)|JpnⅡ|JPN\s*2)/i.test(s))return {level:8.0,label:'Jpn2'};
+  if(/(?:Jpn\s*III|JpnⅢ|JPN\s*3)/i.test(s))return {level:7.0,label:'Jpn3'};
+
+  // JRA grades must be checked before generic "重賞".
+  // Some page headings contain both "重賞" and an explicit G grade.
   if(/(?:G\s*1|GI(?!I)|GⅠ|ＧⅠ|J・?GⅠ)/i.test(s))return {level:9.0,label:'G1'};
   if(/(?:G\s*2|GII(?!I)|GⅡ|ＧⅡ|J・?GⅡ)/i.test(s))return {level:8.0,label:'G2'};
   if(/(?:G\s*3|GIII|GⅢ|ＧⅢ|J・?GⅢ)/i.test(s))return {level:7.0,label:'G3'};
+
+  // Local-only graded races do not have a universal JRA-equivalent grade.
+  // Keep them between OP and Listed instead of falsely calling all of them G3.
+  if(/重賞\s*1|重賞Ⅰ/.test(s))return {level:6.2,label:'地方重賞1'};
+  if(/重賞\s*2|重賞Ⅱ/.test(s))return {level:5.9,label:'地方重賞2'};
+  if(/重賞/.test(s))return {level:5.8,label:'地方重賞'};
   if(/(?:\(\s*L\s*\)|Listed|リステッド)/i.test(s))return {level:6.0,label:'L'};
   if(/(?:\(\s*OP\s*\)|オープン特別|オープン\b|\bOP\b)/i.test(s))return {level:5.5,label:'OP'};
   if(/(?:3勝クラス|3歳以上3勝|4歳以上3勝|1600万下|1600万|(?:^|[（(\s])3勝(?:[）)\s]|$))/.test(s))return {level:4.5,label:'3勝'};
@@ -1717,10 +1729,10 @@ function parseCurrentRaceClassStrictV136(text){
     if(!titleLike)continue;
 
     // Require an explicit grade token on the CURRENT title/heading line.
-    let m=line.match(/[（(]\s*(G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)\s*[）)]/i);
+    let m=line.match(/[（(]\s*(Jpn\s*I(?:II|I)?|Jpn[ⅠⅡⅢ]|G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)\s*[）)]/i);
     if(!m){
-      // Some netkeiba headings use "中京記念 G3" without parentheses.
-      m=line.match(/(?:^|\s)(G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)(?=\s|$|\|)/i);
+      // Some netkeiba headings use "中京記念 G3" or "兵庫GT JpnIII" without parentheses.
+      m=line.match(/(?:^|\s)(Jpn\s*I(?:II|I)?|Jpn[ⅠⅡⅢ]|G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)(?=\s|$|\|)/i);
     }
     if(!m)continue;
 
@@ -5508,7 +5520,7 @@ async function supplementUnknownRunClassesV138(runs){
     if(ci&&Number(ci.level)>0){
       r.classLevel=Number(ci.level);
       r.classLabel=ci.label||'不明';
-      r.classVia=ci.via||'v138';
+      r.classVia=(ci.via||'v138')+(String(ci.label||'').startsWith('地方重賞')?'-nar':'');
       filled++;
     }else{
       r.classVia=(ci&&ci.via)||'v138-unresolved';
@@ -7948,6 +7960,7 @@ async function importFromNetkeibaV108(url){
   const classKnownRunsV134=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>Number(r.classLevel)>0).length,0);
   const classKnownHorsesV134=horses.filter(h=>(h.runs||[]).slice(0,5).some(r=>Number(r.classLevel)>0)).length;
   const classSupplementedV138=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>String(r.classVia||'').startsWith('v138')).length,0);
+  const narClassRunsV139=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>/^(?:Jpn|地方重賞)/.test(String(r.classLabel||''))).length,0);
   const classUnknownListV138=[];
   for(const h of horses){
     for(const r of (h.runs||[]).slice(0,5)){
@@ -7991,11 +8004,11 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v138：過去格不明走だけrace_idのレース本体を再照会して79/79を補完</b><br>'+
+    '<b>v139：JpnI/II/IIIと地方重賞を相手レベルへ追加し残り4走を判定</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
-    '<small>今回格取得元: '+currentRaceClassViaV136+' / v138格補完 '+classSupplementedV138+'走</small><br>'+
+    '<small>今回格取得元: '+currentRaceClassViaV136+' / v138格補完 '+classSupplementedV138+'走 / 地方・Jpn格 '+narClassRunsV139+'走</small><br>'+
     (classUnknownListV138.length
       ? '<small class="warn">格未取得: '+classUnknownListV138.join('・')+'</small><br>'
       : '<small class="ok">過去レース格: 全走取得完了</small><br>')+
