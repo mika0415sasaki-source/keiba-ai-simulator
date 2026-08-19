@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v129</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v130</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -6238,6 +6238,134 @@ function extractResultMarketV124(text,parsed){
 }
 
 
+
+function cleanShutubaPlainLineV130(x){
+  return String(x||'')
+    .normalize('NFKC')
+    .replace(/\r/g,'')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g,' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\*\*/g,' ')
+    .replace(/&nbsp;|&#160;/g,' ')
+    .replace(/\u00a0/g,' ')
+    .replace(/[ \t]+/g,' ')
+    .trim();
+}
+
+function extractShutubaPlainPedigreeV130(text,parsed){
+  const lines=String(text||'')
+    .normalize('NFKC')
+    .replace(/\r/g,'')
+    .split('\n')
+    .map(cleanShutubaPlainLineV130);
+
+  const out={};
+  let matched=0,complete=0;
+
+  const previousNonEmpty=(i,min=0)=>{
+    for(let k=i;k>=min;k--){
+      if(lines[k])return {idx:k,val:lines[k]};
+    }
+    return {idx:-1,val:''};
+  };
+  const nextNonEmpty=(i,max=lines.length)=>{
+    for(let k=i;k<Math.min(max,lines.length);k++){
+      if(lines[k])return {idx:k,val:lines[k]};
+    }
+    return {idx:-1,val:''};
+  };
+
+  for(const h of (parsed||[])){
+    const name=String(h.name||'').normalize('NFKC').trim();
+    if(!name)continue;
+
+    let best=null;
+
+    // A horse name can appear in historical results too.
+    // Select only the occurrence shaped as:
+    // sire / HORSE / dam / (damsire) / stable.
+    for(let i=0;i<lines.length;i++){
+      if(!(lines[i]===name || lines[i].replace(/\s+/g,'')===name.replace(/\s+/g,'')))continue;
+
+      const p=previousNonEmpty(i-1,Math.max(0,i-4));
+      const d=nextNonEmpty(i+1,Math.min(lines.length,i+5));
+      if(p.idx<0||d.idx<0)continue;
+
+      const ds=nextNonEmpty(d.idx+1,Math.min(lines.length,i+7));
+      if(ds.idx<0)continue;
+
+      const dm=String(ds.val||'').match(/^[（(]\s*([^）)]+?)\s*[）)]$/);
+      if(!dm)continue;
+
+      const sire=validPedigreeValueV129(p.val,name);
+      const dam=validPedigreeValueV129(d.val,name);
+      const damsire=validPedigreeValueV129(dm[1],name);
+      if(!sire||!dam||!damsire)continue;
+
+      // Confirm this is a CURRENT horse card, not a random text occurrence:
+      // stable name or body/current row should appear shortly after the pedigree.
+      const tail=lines.slice(ds.idx+1,Math.min(lines.length,ds.idx+9)).join(' ');
+      const currentLike=
+        /(?:栗東|美浦|地方)[・･]/.test(tail) ||
+        /\d{3}\s*kg\s*[（(][+\-−]?\d+[）)]/.test(tail) ||
+        /\d{1,3}(?:\.\d+)?\s*[（(]\s*\d{1,2}\s*人気/.test(tail);
+
+      if(!currentLike)continue;
+
+      best={sire,dam,damsire};
+      break;
+    }
+
+    if(best){
+      matched++;
+      complete++;
+      out[String(h.no)]=best;
+    }
+  }
+
+  return {map:out,matched,complete};
+}
+
+function applyShutubaPlainPedigreeV130(parsed,result){
+  const map=(result&&result.map)||{};
+  let filled=0,corrected=0;
+
+  for(const h of (parsed||[])){
+    const p=map[String(h.no)];
+    if(!p)continue;
+
+    const oldSire=validPedigreeValueV129(h.sire,h.name);
+    const oldDamSire=validPedigreeValueV129(h.damsire,h.name);
+
+    let any=false;
+    if(!oldSire && p.sire){
+      h.sire=p.sire;
+      any=true;
+    }
+    if(!oldDamSire && p.damsire){
+      h.damsire=p.damsire;
+      any=true;
+    }
+
+    // If an existing value was malformed, the shutuba current-card value is authoritative.
+    if(h.sire && !validPedigreeValueV129(h.sire,h.name) && p.sire){
+      h.sire=p.sire;
+      corrected++;
+      any=true;
+    }
+    if(h.damsire && !validPedigreeValueV129(h.damsire,h.name) && p.damsire){
+      h.damsire=p.damsire;
+      corrected++;
+      any=true;
+    }
+
+    if(any)filled++;
+  }
+
+  return {filled,corrected};
+}
+
 function extractShutubaPipeRowsV126(text,parsed){
   const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
   const out={};
@@ -7008,6 +7136,7 @@ async function importFromNetkeibaV108(url){
   let shutuba={text:'',via:'newspaper-complete'};
   let supplementN=0, shutubaStructN=0, shutubaPedN=0;
   let pipePedV126={matched:0,pedN:0},pipePedFilledV126=0;
+  let plainPedV130={matched:0,complete:0},plainPedAppliedV130={filled:0,corrected:0};
   const primaryMissingV123=parsed.some(h=>
     !(Number(h.carried)>=48&&Number(h.carried)<=62) ||
     !(Number(h.body)>=300&&Number(h.body)<=700) ||
@@ -7018,6 +7147,10 @@ async function importFromNetkeibaV108(url){
     jraEntryStatus.textContent='②-2 競馬新聞で不足した項目だけ補完中…';
     shutuba=await fetchNetkeibaShutubaTextV120(raceId);
     if(shutuba.text){
+      // v130: simplest and strongest pedigree source — current shutuba_past text.
+      plainPedV130=extractShutubaPlainPedigreeV130(shutuba.text,parsed);
+      plainPedAppliedV130=applyShutubaPlainPedigreeV130(parsed,plainPedV130);
+
       const sup=extractNetkeibaShutubaSupplementV112(shutuba.text,parsed);
       supplementN=applyNetkeibaMissingCurrentV112(parsed,sup);
       const structuredV121=extractShutubaPastStructuredV122(shutuba.text,parsed);
@@ -7060,11 +7193,17 @@ async function importFromNetkeibaV108(url){
   parsed=applyNetkeibaPastOnlyV71(parsed,nkPast);
   applyNetkeibaCurrentProfileV105(parsed,styleResult);
 
-  // v129: reject metadata-contaminated pedigree before deciding "complete".
+  // v130: reject metadata contamination before deciding completeness.
   const invalidPedClearedV129=sanitizePedigreesV129(parsed);
 
-  // Re-apply deterministic newspaper pedigree, then validate again.
+  // Re-apply trustworthy current-race pedigree sources.
   applyNewspaperPedigreeV120(parsed,masterPedV120);
+  if(shutuba.text){
+    plainPedV130=extractShutubaPlainPedigreeV130(shutuba.text,parsed);
+    const again=applyShutubaPlainPedigreeV130(parsed,plainPedV130);
+    plainPedAppliedV130.filled+=again.filled;
+    plainPedAppliedV130.corrected+=again.corrected;
+  }
   sanitizePedigreesV129(parsed);
 
   jraEntryStatus.textContent='④-2 血統の不足馬だけ補完中…';
@@ -7129,7 +7268,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v129：血統値の妥当性を検証し誤取得を破棄＋5代血統ページから再取得（他項目は固定）</b><br>'+
+    '<b>v130：shutuba_past本文の父→馬名→母→母父を直接取得（斤量・オッズ・近走等は固定）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
@@ -7142,7 +7281,7 @@ async function importFromNetkeibaV108(url){
     '<small>不足: 斤量 '+(missingWeightV122.length?missingWeightV122.join('・'):'なし')+
     ' / 血統 '+(missingPedV122.length?missingPedV122.join('・'):'なし')+
     ' / オッズ '+(missingOddsV122.length?missingOddsV122.join('・'):'なし')+'</small>'+
-    '<br><small>補完: 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
+    '<br><small>補完: shutuba本文血統 '+plainPedV130.complete+'/'+plainPedV130.matched+'頭 / 適用 '+plainPedAppliedV130.filled+'頭 / 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
     '<br><small>race_id '+raceId+' / 経路 '+src.via+'</small>';
