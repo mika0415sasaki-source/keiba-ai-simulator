@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v140</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v141</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2057,9 +2057,28 @@ function calibratedWinBundleV140(stats){
     }
 
     trust=clampV81(trust-gapPenalty,.34,.70);
+
+    // v141: sharp class rises + long prices need stronger shrinkage.
+    const longshot = r.odds>=30;
+    const extremeLongshot = r.odds>=60;
+    const sharpRise = r.classBonus<=-1.5;
+    const verySharpRise = r.classBonus<=-2.0;
+
+    if(longshot && sharpRise) trust=Math.min(trust,.42);
+    if(extremeLongshot && verySharpRise) trust=Math.min(trust,.34);
+
     r.trust=trust;
 
     r.preCal=trust*r.pModel+(1-trust)*r.pMarket;
+
+    // Additional guardrail only for severe longshot + class-rise cases.
+    if(extremeLongshot && verySharpRise){
+      const maxMultiple=2.35;
+      r.preCal=Math.min(r.preCal,r.pMarket*maxMultiple);
+    }else if(longshot && sharpRise){
+      const maxMultiple=3.00;
+      r.preCal=Math.min(r.preCal,r.pMarket*maxMultiple);
+    }
   });
 
   // Different trust values make the preliminary sum drift;
@@ -2243,9 +2262,9 @@ function renderAISummary(){
     return Number(q.h.odds||0)>=8 &&
       q.ev>=1.15 &&
       q.calWin>=c.marketWin*1.15 &&
-      c.consensus>=.48 &&
-      c.classBonus>-2.8 &&
-      c.coreDiagnosis>=medianCore-2.0;
+      c.consensus>=.52 &&
+      c.classBonus>=-1.0 &&
+      c.coreDiagnosis>=medianCore-1.0;
   });
 
   // "Dangerous favorite" is restricted to market top-5 horses whose
@@ -2278,8 +2297,18 @@ function renderAISummary(){
 
   const best=value[0];
   if(best){
+    const actionable =
+      best.ev>=1.15 &&
+      best.calibration &&
+      best.calibration.consensus>=.52 &&
+      best.calibration.classBonus>=-1.0 &&
+      best.calibration.coreDiagnosis>=medianCore-1.0;
+
     txt+=`最高校正期待値: <b>${best.h.no} ${best.h.name}　${best.ev.toFixed(2)}</b>
-      <span style="opacity:.68">（生EV ${best.rawEv.toFixed(2)}）</span>`;
+      <span style="opacity:.68">（生EV ${best.rawEv.toFixed(2)}）</span>
+      ${actionable
+        ? '<span style="margin-left:6px">✓買い候補基準内</span>'
+        : '<span style="margin-left:6px;opacity:.75">※期待値上位だが買い候補基準外</span>'}`;
   }
 
   E.valueSummary.innerHTML=txt;
@@ -2673,9 +2702,14 @@ function renderPaceAutoStatus(){
 function renderStats(){
   renderPaceAutoStatus();
 
-  // renderStats can be called before a formal batch run; create a temporary
-  // model only for display without mutating lastStats.
-  const baseStats=lastStats||batch(300);
+  // v141: table, detailed summary and value judgment MUST use the same run.
+  if(!(lastStats&&lastStats.length)){
+    lastStats=batch(1000);
+    lastSimulationCountV83=1000;
+    simulationRunSeqV83++;
+    lastSimulationLabelV83='出馬表読込時の自動計算';
+  }
+  const baseStats=lastStats;
   const calMap=calibratedWinBundleV140(baseStats);
 
   E.ranking.innerHTML=baseStats.map((q,i)=>{
@@ -2705,7 +2739,7 @@ function renderStats(){
     '頭<br>'+
     '枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手・血統・馬齢・市場・過去5走・レース格/相手レベルを評価。'+
     'シミュレーションの生勝率はレースシナリオ集計として保持し、馬券期待値には総合診断と市場確率を組み合わせた校正AI勝率を使用します。'+
-    '市場とAIの乖離が極端な場合は自動的に保守化し、単に高オッズという理由だけで穴馬判定しないようにしています。';
+    '市場とAIの乖離が極端な場合は自動的に保守化し、さらに30倍以上かつ大幅な格上挑戦では追加縮小します。単に高オッズという理由だけで穴馬判定しません。';
 
   renderAISummary();
   renderAllFiveBreakdownV85();
@@ -8273,7 +8307,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v140：校正AI勝率を追加し期待値を保守化（生シミュ勝率・総合診断・相手レベル・市場乖離を統合）</b><br>'+
+    '<b>v141：一覧と詳細を同一1000回結果へ統一＋大幅格上挑戦の大穴EVを追加保守化</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
