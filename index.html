@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v142</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v143</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1802,34 +1802,78 @@ function detectCurrentRaceClassV133(text){
   return {level:0,label:'不明'};
 }
 
+function classPerformanceAdjV143(run){
+  const p=Number(run&&run.pos||0);
+  if(!(p>=1))return 0;
+
+  // Merely entering a high-grade race must not be rewarded.
+  // Reward actual competitiveness; discount poor finishes progressively.
+  if(p===1)return +0.65;
+  if(p===2)return +0.48;
+  if(p===3)return +0.32;
+  if(p===4)return +0.14;
+  if(p===5)return 0.00;
+  if(p===6)return -0.22;
+  if(p===7)return -0.40;
+  if(p===8)return -0.58;
+  if(p===9)return -0.76;
+  if(p===10)return -0.94;
+  if(p===11)return -1.12;
+  if(p===12)return -1.30;
+  if(p===13)return -1.48;
+  if(p===14)return -1.66;
+  if(p===15)return -1.84;
+  return -2.05;
+}
+
 function raceClassDetailV133(h){
   const runs=(h.runs||[]).slice(0,5);
   const weights=[1.00,.84,.70,.58,.48].slice(0,runs.length);
-  let sw=0,sum=0,known=0;
+
+  let sw=0,sum=0,rawSum=0,known=0,perfSum=0;
   const count={};
+  const detail=[];
 
   runs.forEach((r,i)=>{
     const lv=Number(r.classLevel||0);
     if(!lv)return;
+
     const w=weights[i]||1;
-    sw+=w; sum+=lv*w; known++;
+    const perf=classPerformanceAdjV143(r);
+
+    // "Effective class" = nominal class + what the horse actually achieved there.
+    // Example: a double-digit G1 finish should not count as full G1 ability.
+    const effective=lv+perf;
+
+    sw+=w;
+    sum+=effective*w;
+    rawSum+=lv*w;
+    perfSum+=perf*w;
+    known++;
+
     const lab=r.classLabel||raceClassInfoV133(r.raceName).label||'不明';
     count[lab]=(count[lab]||0)+1;
+
+    const p=Number(r.pos||0);
+    detail.push(lab+(p?` ${p}着`:''));
   });
 
   if(!known||!sw){
-    return {bonus:0,avg:0,n:0,reason:'レース格未取得'};
+    return {
+      bonus:0,avg:0,rawAvg:0,perfAdj:0,n:0,
+      reason:'レース格未取得'
+    };
   }
 
   const avg=sum/sw;
+  const rawAvg=rawSum/sw;
+  const perfAdj=perfSum/sw;
   const target=Number(currentRaceLevelV133||0);
 
-  // Relative to today's class. A horse moving sharply up in class is discounted,
-  // while a horse dropping from stronger company gets a modest credit.
-  // Bound the effect so class alone never decides the race.
   let bonus=0;
   if(target){
-    bonus=clampV81((avg-target)*0.92,-3.2,2.2);
+    // Slightly less aggressive than v142 because performance is now already embedded.
+    bonus=clampV81((avg-target)*0.88,-3.2,2.2);
   }
 
   const summary=Object.entries(count)
@@ -1837,9 +1881,14 @@ function raceClassDetailV133(h){
     .map(([k,v])=>k+'×'+v)
     .join('・');
 
+  const perfTxt=(perfAdj>=0?'+':'')+perfAdj.toFixed(1);
+
   return {
-    bonus,avg,n:known,
-    reason:summary+(target?' → 今回'+currentRaceClassLabelV133:'')
+    bonus,avg,rawAvg,perfAdj,n:known,
+    reason:summary+
+      ` / 着順補正 ${perfTxt}`+
+      (target?' → 今回'+currentRaceClassLabelV133:''),
+    detail
   };
 }
 
@@ -1847,10 +1896,9 @@ function classAbilityAdjV133(h){
   const d=raceClassDetailV133(h);
   if(!d.n || !currentRaceLevelV133)return 0;
 
-  // Smaller than the explicit recent-five class factor.
-  // This only prevents raw 1st/2nd + fast 3F in lower classes from
-  // inflating SP/ST/PW to graded-horse levels.
-  return clampV81((d.avg-currentRaceLevelV133)*1.12,-4.2,2.8);
+  // v143: d.avg already includes actual finishing performance.
+  // Keep this secondary to the explicit recent-five class factor.
+  return clampV81((d.avg-currentRaceLevelV133)*1.00,-4.0,2.5);
 }
 
 function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}
@@ -8401,7 +8449,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v142：過去レースのオッズを結果一覧から補完＋オッズ不足時は市場確率を仮置きしない</b><br>'+
+    '<b>v143：相手レベルを「出走した格」ではなく「その格での実着順」込みで評価</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
