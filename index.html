@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v112</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v113</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1887,6 +1887,70 @@ function renderAllFiveBreakdownV85(){
 
 
 
+
+function normJockeyV113(x){
+  return String(x||'')
+    .normalize('NFKC')
+    .replace(/^[△▲☆★◇]\s*/,'')
+    .replace(/\s+/g,'')
+    .trim();
+}
+function jockeyDetailV113(h){
+  const cur=normJockeyV113(h.jockey);
+  if(!cur || /^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(cur)){
+    return {bonus:0,reason:'騎手名未取得',status:'未取得'};
+  }
+
+  const runs=(h.runs||[]).filter(r=>r&&r.jockey);
+  const last=runs.length?normJockeyV113(runs[0].jockey):'';
+  const sameRuns=runs.filter(r=>normJockeyV113(r.jockey)===cur);
+  const exactFirst=!!h.jockeyFirstRide;
+
+  // Netkeiba explicitly marks "初騎乗": treat as uncertainty only.
+  // Do not punish a horse heavily just because the combination is new.
+  if(exactFirst){
+    return {bonus:-0.15,reason:`${h.jockey}・初騎乗（相性データなし）`,status:'初騎乗'};
+  }
+
+  // Same jockey as the most recent start = continuity/familiarity.
+  if(last && last===cur){
+    let bonus=0.18;
+    let extra='';
+    if(sameRuns.length>=2){
+      const avg=sameRuns.reduce((s,r)=>s+Number(r.pos||99),0)/sameRuns.length;
+      if(avg<=3){bonus+=0.16;extra=`・近5走同騎手平均${avg.toFixed(1)}着`;}
+      else if(avg<=5){bonus+=0.08;extra=`・近5走同騎手平均${avg.toFixed(1)}着`;}
+      else if(avg>=9){bonus-=0.08;extra=`・近5走同騎手平均${avg.toFixed(1)}着`;}
+    }
+    return {bonus:Math.max(-0.35,Math.min(0.45,bonus)),reason:`${h.jockey}・継続騎乗${extra}`,status:'継続'};
+  }
+
+  // Different from previous jockey.
+  if(last && last!==cur){
+    if(sameRuns.length){
+      const avg=sameRuns.reduce((s,r)=>s+Number(r.pos||99),0)/sameRuns.length;
+      let bonus=0;
+      if(avg<=3)bonus=0.22;
+      else if(avg<=5)bonus=0.10;
+      else if(avg>=9)bonus=-0.10;
+      return {
+        bonus,
+        reason:`${h.jockey}へ乗替・近5走で同騎手${sameRuns.length}回（平均${avg.toFixed(1)}着）`,
+        status:'乗替'
+      };
+    }
+    return {
+      bonus:-0.05,
+      reason:`${h.jockey}へ乗替・近5走では初コンビ`,
+      status:'乗替'
+    };
+  }
+
+  // No previous jockey row was available. Keep it neutral.
+  return {bonus:0,reason:`${h.jockey}・前走騎手データ不足`,status:'判定保留'};
+}
+function jockeyFitV113(h){return jockeyDetailV113(h).bonus;}
+
 function marketDetailV101(h){
   const odds=Number(h.odds||0);
   if(!odds || odds<=0)return {bonus:0,reason:'オッズ未取得'};
@@ -1962,6 +2026,7 @@ function totalBreakdownV86(h){
   const blood=Number(bloodFitV94(h)||0)*0.80;
   const age=Number(ageFitV99(h)||0);
   const market=Number(marketFitV101(h)||0);
+  const jockey=Number(jockeyFitV113(h)||0);
   const memory=Number(memoryBonus(h)||0)*0.70;
 
   // Recent-five evidence gets more influence, but still cannot overwhelm the model.
@@ -1976,7 +2041,7 @@ function totalBreakdownV86(h){
   const stabilityExtra = Math.max(-1.2, Math.min(1.2, Number(p5.stability||0)*0.45));
 
   const total =
-    base + paceAdj + goingAdj + distance + frame + weight + body + blood + age + market + memory +
+    base + paceAdj + goingAdj + distance + frame + weight + body + blood + age + market + jockey + memory +
     past5 + last3Extra + trendExtra + distExtra + stabilityExtra;
 
   return {
@@ -1994,6 +2059,7 @@ function totalBreakdownV86(h){
     blood,
     age,
     market,
+    jockey,
     memory,
     past5,
     last3Extra,
@@ -2013,6 +2079,7 @@ function totalBreakdownTextV86(h){
     `血統 ${signedV85(b.blood)}`,
     `馬齢 ${h.age?`${h.age}歳 ${signedV85(b.age)}`:'未取得'}`,
     `市場 ${signedV85(b.market)}`,
+    `騎手 ${signedV85(b.jockey)}（${jockeyDetailV113(h).status}）`,
     `馬場 ${signedV85(b.going)}`,
     `脚質×ペース ${signedV85(b.pace)}`,
     `5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)}→反映 ${signedV85(b.past5)}`,
@@ -2034,6 +2101,7 @@ function totalBreakdownHtmlV86(h){
     血統 ${signedV85(b.blood)}　<span style="opacity:.72">血統理由: ${bloodDetailV94(h).reason}</span><br>
     馬齢 ${h.age?`${h.age}歳 ${signedV85(b.age)}`:'未取得'}　<span style="opacity:.72">馬齢理由: ${ageDetailV99(h).reason}</span><br>
     市場 ${signedV85(b.market)}　<span style="opacity:.72">市場理由: ${marketDetailV101(h).reason}</span><br>
+    騎手 ${signedV85(b.jockey)}　<span style="opacity:.72">騎手理由: ${jockeyDetailV113(h).reason}</span><br>
     5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)} → 最終反映 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
     距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
   </div>`;
@@ -2123,7 +2191,7 @@ function renderPaceAutoStatus(){
  }
 }
 
-function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>{const h=horses[q.i],d=diagnosis100V97(h);return '<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+h.no+' '+h.name+'</td><td><b>'+d.toFixed(1)+'</b><span class="small">/'+100+' '+diagnosisLabelV97(d)+'</span></td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>'}).join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペースに加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを重視して評価します。基礎能力は土台として残しつつ、近走データで順位が動くように調整しています。1回ごとにペース・前後有利・内外有利・出遅れ・位置取り不利・当日の出来を変えてレースシナリオを作ります。能力差は残しつつ、同じ条件でも毎回まったく同じ結果にならないようにします。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()
+function renderStats(){renderPaceAutoStatus();const r=lastStats||batch(300);E.ranking.innerHTML=r.map((q,i)=>{const h=horses[q.i],d=diagnosis100V97(h);return '<tr><td>'+(['◎','○','▲','☆'][i]||'△')+'</td><td>'+h.no+' '+h.name+'</td><td><b>'+d.toFixed(1)+'</b><span class="small">/'+100+' '+diagnosisLabelV97(d)+'</span></td><td>'+q.win.toFixed(1)+'%</td><td>'+q.quin.toFixed(1)+'%</td><td>'+q.show.toFixed(1)+'%</td></tr>'}).join('');E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();const pd=autoPaceDetail();E.analysis.innerHTML='想定ペース: '+paceName()+(E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+'<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+'頭 / 先行 '+horses.filter(h=>h.style==='先行').length+'頭 / 差し '+horses.filter(h=>h.style==='差し').length+'頭 / 追込 '+horses.filter(h=>h.style==='追込').length+'頭<br>枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手（継続騎乗／乗替／初騎乗）に加え、netkeiba過去5走の着順・上がり3F・距離適性・芝ダート適性・馬場適性・安定度・近走トレンドを重視して評価します。基礎能力は土台として残しつつ、近走データで順位が動くように調整しています。1回ごとにペース・前後有利・内外有利・出遅れ・位置取り不利・当日の出来を変えてレースシナリオを作ります。能力差は残しつつ、同じ条件でも毎回まったく同じ結果にならないようにします。オッズがあれば期待値も計算します。過去に保存した同一馬の競馬場・距離・馬場適性も評価へ反映します。';renderAISummary()
 renderAllFiveBreakdownV85();
 
 renderAllTotalBreakdownV86();
@@ -3792,6 +3860,7 @@ function extractNetkeibaPrimaryV111(text, parsed){
     if(!block)continue;
 
     let sex='',age=0,body=0,bodyDiff=null,odds=0,pop=0,carried=0,jockey='',sire='',damsire='',style='';
+    let jockeyFirstRide=/初騎乗/.test(block), jockeyChange=/乗替|乗り替わり/.test(block);
 
     // Current header example:
     // 牡6 454kg (-12) 10人気 26.0倍 国分優 57.0
@@ -3828,6 +3897,23 @@ function extractNetkeibaPrimaryV111(text, parsed){
       }
     }
 
+    // v113: Prefer the actual jockey link when netkeiba/Jina preserved it.
+    // This prevents labels such as "初騎乗" from being mistaken for a jockey name.
+    const jockeyLinkPatterns=[
+      /\[([^\]\n]{2,30})\]\((?:https?:\/\/)?[^)]*(?:\/jockey\/|\/kishu\/)[^)]*\)/i,
+      /\[([^\]\n]{2,30})\]\([^)]*[?&](?:jockey_id|kishu_id)=\d+[^)]*\)/i
+    ];
+    for(const jr of jockeyLinkPatterns){
+      const jm=block.match(jr);
+      if(jm){
+        const cand=String(jm[1]||'').replace(/^[△▲☆★◇]\s*/,'').trim();
+        if(cand && !/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(cand)){
+          jockey=cand;
+          break;
+        }
+      }
+    }
+
     // IMPORTANT: never accept a bare 40–69 number as carried weight.
     // It must be paired with a jockey-like name in the current header.
     const weightPatterns=[
@@ -3841,9 +3927,12 @@ function extractNetkeibaPrimaryV111(text, parsed){
       if(wr===weightPatterns[0]){j=wm[1];w=Number(wm[2]);}
       else{w=Number(wm[1]);j=wm[2];}
       if(w>=48&&w<=62){
-        carried=w;
-        jockey=String(j||'').replace(/^[△▲☆★◇]\s*/,'').trim();
-        break;
+        const cand=String(j||'').replace(/^[△▲☆★◇]\s*/,'').trim();
+        if(!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(cand)){
+          carried=w;
+          if(!jockey)jockey=cand;
+          break;
+        }
       }
     }
 
@@ -3866,7 +3955,7 @@ function extractNetkeibaPrimaryV111(text, parsed){
     m=block.match(/(?:母の父|母父)\s*[:：]?\s*([ァ-ヶーぁ-ん一-龠々A-Za-z0-9・'’.\- ]{2,80}?)(?=\s+(?:馬主|生産|調教師)|$)/);
     if(m)damsire=String(m[1]||'').replace(/\*/g,'').trim();
 
-    out[String(h.no)]={sex,age,body,bodyDiff,odds,pop,carried,jockey,sire,damsire,style};
+    out[String(h.no)]={sex,age,body,bodyDiff,odds,pop,carried,jockey,jockeyFirstRide,jockeyChange,sire,damsire,style};
   }
   return out;
 }
@@ -3887,7 +3976,11 @@ function applyNetkeibaPrimaryV111(parsed, primary){
     if(Number(p.odds)>=1&&Number(p.odds)<=999.9){h.odds=Number(p.odds);any=true;}
     if(Number(p.pop)>=1&&Number(p.pop)<=18){h.popularity=Number(p.pop);any=true;}
     if(Number(p.carried)>=48&&Number(p.carried)<=62){h.carried=Number(p.carried);any=true;}
-    if(p.jockey&&String(p.jockey).length<=24){h.jockey=p.jockey;any=true;}
+    if(p.jockey&&String(p.jockey).length<=24&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(p.jockey))){
+      h.jockey=p.jockey;any=true;
+    }
+    if(p.jockeyFirstRide)h.jockeyFirstRide=true;
+    if(p.jockeyChange)h.jockeyChange=true;
     if(p.style){h.style=p.style;any=true;}
     if(p.sire){h.sire=p.sire;any=true;}
     if(p.damsire){h.damsire=p.damsire;any=true;}
@@ -4176,12 +4269,30 @@ function cleanNetkeibaMdV74(x){
    .replace(/\u00a0/g,' ')
    .trim();
 }
+
+function extractResultJockeyV113(rawLine){
+  const s=String(rawLine||'');
+  const pats=[
+    /\[([^\]\n]{2,30})\]\((?:https?:\/\/)?(?:db\.|race\.)?netkeiba\.com\/jockey\/[^)]*\)/i,
+    /\[([^\]\n]{2,30})\]\([^)]*\/jockey\/(?:result\/)?\d+[^)]*\)/i,
+    /\[([^\]\n]{2,30})\]\([^)]*[?&](?:jockey_id|kishu_id)=\d+[^)]*\)/i
+  ];
+  for(const p of pats){
+    const m=s.match(p);
+    if(!m)continue;
+    const n=String(m[1]||'').replace(/^[△▲☆★◇]\s*/,'').replace(/\s+/g,' ').trim();
+    if(n && n.length<=24 && !/^(?:騎手|調教師|初騎乗|乗替|未定)$/.test(n))return n;
+  }
+  return '';
+}
+
 function parseNetkeibaResultPageV74(text, jraUrl){
  const src=String(text||'').replace(/\r/g,'');
  const raceDate=raceDateFromJraV71(jraUrl);
  const out=[]; const seen=new Set();
  for(const rawLine of src.split('\n')){
    if(!/^\s*(?:\[[^\]]*20\d{2}\/\d{1,2}\/\d{1,2}[^\]]*\]|20\d{2}\/\d{1,2}\/\d{1,2})\s*\|/.test(rawLine))continue;
+   const jockey=extractResultJockeyV113(rawLine);
    const line=cleanNetkeibaMdV74(rawLine);
    const c=line.split('|').map(s=>s.trim());
    if(c.length<20)continue;
@@ -4222,7 +4333,7 @@ function parseNetkeibaResultPageV74(text, jraUrl){
      if(vals.length)last3=vals[vals.length-1];
    }
    seen.add(date);
-   out.push({date,pos,dist,surface,going:going||'良',last3:last3===null?34.5:last3,corners,source:'netkeiba-db'});
+   out.push({date,pos,dist,surface,going:going||'良',last3:last3===null?34.5:last3,corners,jockey,source:'netkeiba-db'});
    if(out.length>=5)break;
  }
  return out;
@@ -5196,7 +5307,9 @@ function applyNetkeibaMissingCurrentV112(parsed, sup){
       h.age=Number(p.age); any=true;
     }
     if(!h.sex&&['牡','牝','セ'].includes(p.sex)){h.sex=p.sex;any=true;}
-    if(!h.jockey&&p.jockey){h.jockey=p.jockey;any=true;}
+    if(!h.jockey&&p.jockey&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(p.jockey))){
+      h.jockey=p.jockey;any=true;
+    }
 
     if(any)changed++;
   }
@@ -5303,14 +5416,15 @@ async function importFromNetkeibaV108(url){
   const finalBodyN=horses.filter(h=>Number(h.body)>=300&&Number(h.body)<=700).length;
   const finalPedN=horses.filter(h=>h.sire&&h.damsire).length;
   const finalAgeN=horses.filter(h=>Number(h.age)>=2&&Number(h.age)<=12).length;
+  const finalJockeyN=horses.filter(h=>h.jockey&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(h.jockey))).length;
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v112：netkeiba競馬新聞を主取得＋不足項目のみ補完</b><br>'+
+    '<b>v113：騎手の継続・乗替・初騎乗を評価対象に追加</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '主取得: netkeiba競馬新聞 / 補完: netkeiba出馬表・馬DB / JRA: 最終補完用<br>'+
     '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
-    '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭</b>'+
+    '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭</b>'+
     '<br><small>補完: 今回欄 '+supplementN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統不足補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
