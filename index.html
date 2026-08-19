@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v135</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v136</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1690,6 +1690,80 @@ function raceClassInfoV133(name){
   if(/未勝利/.test(s))return {level:1.5,label:'未勝利'};
   if(/(?:新馬|新馬戦)/.test(s))return {level:1.2,label:'新馬'};
   return {level:0,label:'不明'};
+}
+
+
+function parseCurrentRaceClassStrictV136(text){
+  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+  const lines=src.split('\n').slice(0,140);
+
+  // Only title/heading-like lines are eligible.
+  // This prevents previous G1/G2/G3 races in horse rows from becoming today's grade.
+  for(const raw of lines){
+    const line=String(raw||'')
+      .replace(/\*\*/g,'')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+      .replace(/\s+/g,' ')
+      .trim();
+
+    if(!line)continue;
+
+    const titleLike=
+      /^Title\s*:/i.test(line) ||
+      /^#{1,4}\s*\S+/.test(line) ||
+      /レース情報\s*\(JRA\)/.test(line) ||
+      /^\d{1,2}R\s+/.test(line);
+
+    if(!titleLike)continue;
+
+    // Require an explicit grade token on the CURRENT title/heading line.
+    let m=line.match(/[（(]\s*(G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)\s*[）)]/i);
+    if(!m){
+      // Some netkeiba headings use "中京記念 G3" without parentheses.
+      m=line.match(/(?:^|\s)(G\s*1|G\s*2|G\s*3|GI(?!I)|GII(?!I)|GIII|GⅠ|GⅡ|GⅢ|ＧⅠ|ＧⅡ|ＧⅢ)(?=\s|$|\|)/i);
+    }
+    if(!m)continue;
+
+    const info=raceClassInfoV133(m[1]);
+    if(info.level)return {...info,titleLine:line};
+  }
+
+  // Listed/OP/conditions: only title/heading lines too.
+  for(const raw of lines){
+    const line=String(raw||'').replace(/\s+/g,' ').trim();
+    const titleLike=/^Title\s*:/i.test(line)||/^#{1,4}\s*\S+/.test(line)||/レース情報\s*\(JRA\)/.test(line);
+    if(!titleLike)continue;
+    const info=raceClassInfoV133(line);
+    if(info.level)return {...info,titleLine:line};
+  }
+
+  return {level:0,label:'不明',titleLine:''};
+}
+
+async function resolveCurrentRaceClassV136(raceId,newspaperText){
+  // First: current newspaper title/header only.
+  let info=parseCurrentRaceClassStrictV136(newspaperText);
+  if(info.level)return {...info,via:'newspaper-title'};
+
+  const base='https://race.netkeiba.com/race/';
+  const targets=[
+    'shutuba_past.html?race_id='+encodeURIComponent(raceId),
+    'shutuba.html?race_id='+encodeURIComponent(raceId)
+  ];
+
+  for(const path of targets){
+    const url='https://r.jina.ai/'+base+path+'&_grade_cb='+Date.now();
+    try{
+      const t=await fetchTextTimeoutV63(url,9000);
+      info=parseCurrentRaceClassStrictV136(t);
+      if(info.level){
+        return {...info,via:path.startsWith('shutuba_past')?'jina-shutuba-past-title':'jina-shutuba-title'};
+      }
+    }catch(e){}
+  }
+
+  // Safer to return unknown than falsely label a G3 as G1.
+  return {level:0,label:'不明',via:'unresolved',titleLine:''};
 }
 
 function detectCurrentRaceClassV133(text){
@@ -7486,10 +7560,12 @@ async function importFromNetkeibaV108(url){
     throw new Error('出走馬を正しく判定できません（'+parsed.length+'頭 / 馬DB表記 '+dbMarks+'件）。netkeiba本文取得は成功しています。');
   }
 
-  // v133: establish today's race class before deriving ability from past runs.
-  const currentClassV133=detectCurrentRaceClassV133(src.text);
-  currentRaceLevelV133=Number(currentClassV133.level||0);
-  currentRaceClassLabelV133=currentClassV133.label||'不明';
+  // v136: current grade must come from THIS race's title/header only.
+  // Never infer it from historical races embedded in the newspaper body.
+  const currentClassV136=await resolveCurrentRaceClassV136(raceId,src.text);
+  currentRaceLevelV133=Number(currentClassV136.level||0);
+  currentRaceClassLabelV133=currentClassV136.label||'不明';
+  const currentRaceClassViaV136=currentClassV136.via||'unresolved';
 
   jraEntryStatus.textContent='② netkeiba今回情報を解析中…';
 
@@ -7661,10 +7737,11 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v135：実際に使用中のv118過去79走パーサーへレース格を直接付与（相手レベル補正を実動化）</b><br>'+
+    '<b>v136：今回レース格はrace_idのタイトルだけから確定（過去レースG1の誤検出を防止）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
+    '<small>今回格取得元: '+currentRaceClassViaV136+'</small><br>'+
     '<small>格サンプル: '+classSampleV135+'</small><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
