@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v128</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v129</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -6769,7 +6769,153 @@ async function fetchHorsePedigreeFastV118(id){
   return best;
 }
 
+
+function validPedigreeValueV129(value,horseName){
+  let s=String(value||'').normalize('NFKC').trim();
+  if(!s)return '';
+
+  const hn=String(horseName||'').normalize('NFKC').trim();
+
+  // Obvious metadata / page-title contamination.
+  if(/(?:^|\s)Title\s*:/i.test(s))return '';
+  if(/競走馬データ|netkeiba|生年月日|誕生日|調教師|馬主|生産者|産地|獲得賞金|通算成績|主な勝鞍|関連ニュース|関連コラム|掲示板|写真|メモ|調教|短評|パドック/.test(s))return '';
+  if(/^(?:TOP|戦績|血統|血統詳細|血統詳細・兄弟馬|兄弟馬|Image|共有|お気に入り)/i.test(s))return '';
+
+  // A date can never be a sire/damsire.
+  if(/^(?:18|19|20)\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日$/.test(s))return '';
+  if(/^(?:18|19|20)\d{2}[\/.\-]\d{1,2}[\/.\-]\d{1,2}$/.test(s))return '';
+
+  // Header/profile contamination.
+  if(/^(?:現役|抹消|登録)\b/.test(s))return '';
+  if(/^(?:牡|牝|セ|騸)\s*\d{1,2}\s*歳?/.test(s))return '';
+  if(/\d{1,2}\s*歳/.test(s) && /(?:牡|牝|セ|騸|鹿毛|栗毛|芦毛|青毛|黒鹿毛)/.test(s))return '';
+
+  // The horse itself cannot be its own sire/damsire.
+  if(hn && (s===hn || s.startsWith(hn+' ') || s.includes('('+hn+')')))return '';
+
+  // Reject pure numeric/garbage strings.
+  if(/^[\d\s.,+\-年月日\/]+$/.test(s))return '';
+  if(s.length<2 || s.length>90)return '';
+  if(!/[ぁ-んァ-ヶ一-龠々A-Za-z]/.test(s))return '';
+
+  // Clean year/color suffix from genuine pedigree table names.
+  s=s.replace(/\s+(?:18|19|20)\d{2}\s*(?:鹿毛|栗毛|黒鹿毛|青鹿毛|芦毛|青毛|栃栗毛)?\s*$/,'').trim();
+  return s;
+}
+
+function sanitizePedigreesV129(parsed){
+  let cleared=0;
+  for(const h of (parsed||[])){
+    const sire=validPedigreeValueV129(h.sire,h.name);
+    const damsire=validPedigreeValueV129(h.damsire,h.name);
+
+    if(h.sire && !sire){h.sire='';cleared++;}
+    else if(sire)h.sire=sire;
+
+    if(h.damsire && !damsire){h.damsire='';cleared++;}
+    else if(damsire)h.damsire=damsire;
+  }
+  return cleared;
+}
+
+async function fetchHorsePedigreeV129(id,horseName){
+  const sid=String(id||'').trim();
+  const hn=String(horseName||'').trim();
+  const key='keiba_horse_profile_v129_'+sid;
+
+  // New cache only, plus older caches only when both values pass validation.
+  const keys=[
+    key,
+    'keiba_horse_profile_v128_'+sid,
+    'keiba_horse_profile_v127_'+sid,
+    'keiba_horse_profile_v112_'+sid
+  ];
+  for(const k of keys){
+    try{
+      const c=JSON.parse(localStorage.getItem(k)||'null');
+      if(!c)continue;
+      const sire=validPedigreeValueV129(c.sire,hn);
+      const damsire=validPedigreeValueV129(c.damsire,hn);
+      if(sire&&damsire){
+        return {sire,damsire,sex:c.sex||'',age:Number(c.age||0),via:'validated-cache'};
+      }
+    }catch(e){}
+  }
+
+  const stamp=Date.now();
+  const pedBase='https://db.netkeiba.com/horse/ped/'+encodeURIComponent(sid)+'/';
+  const pedFresh=pedBase+'?_cb='+stamp;
+
+  // Pedigree page first. It has a dedicated "5代血統表" and avoids
+  // profile metadata such as Title / birth date.
+  const routes=[
+    {via:'jina-ped-fresh',url:'https://r.jina.ai/'+pedFresh,ms:10000},
+    {via:'allorigins-ped-fresh',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(pedFresh),ms:9000},
+    {via:'jina-ped',url:'https://r.jina.ai/'+pedBase,ms:9000},
+    {via:'direct-ped',url:pedBase,ms:6500}
+  ];
+
+  let best={sire:'',damsire:'',sex:'',age:0,via:'',error:''};
+
+  for(let base=0;base<routes.length;base+=2){
+    const batch=routes.slice(base,base+2);
+
+    const results=await Promise.all(batch.map(async r=>{
+      try{
+        const t=await fetchTextTimeoutV63(r.url,r.ms);
+        return {r,t};
+      }catch(e){
+        return {r,t:'',error:String(e&&e.message||e)};
+      }
+    }));
+
+    for(const x of results){
+      if(!x.t || x.t.length<300){
+        if(x.error)best.error+=(best.error?' / ':'')+x.r.via+':'+x.error;
+        continue;
+      }
+
+      // Only accept pedigree parsers on a real pedigree page.
+      if(!/5代血統表|FNo\.|血統/.test(x.t))continue;
+
+      const ped=parseNetkeibaPedV98(x.t);
+      const prof=parseNetkeibaProfileV103(x.t);
+
+      const sire=validPedigreeValueV129(ped.sire||prof.sire,hn);
+      const damsire=validPedigreeValueV129(ped.damsire||prof.damsire,hn);
+
+      if(!best.sire&&sire)best.sire=sire;
+      if(!best.damsire&&damsire)best.damsire=damsire;
+      if(!best.sex&&prof.sex)best.sex=prof.sex;
+      if(!best.age&&prof.age)best.age=Number(prof.age||0);
+
+      if(sire||damsire)best.via+=(best.via?'+':'')+x.r.via;
+      if(best.sire&&best.damsire)break;
+    }
+
+    if(best.sire&&best.damsire)break;
+    if(base+2<routes.length)await sleepV79(120);
+  }
+
+  if(best.sire&&best.damsire){
+    const save={
+      sire:best.sire,damsire:best.damsire,
+      sex:best.sex||'',age:Number(best.age||0),savedAt:Date.now()
+    };
+    try{localStorage.setItem(key,JSON.stringify(save));}catch(e){}
+    return {...save,via:best.via||'netkeiba-pedigree'};
+  }
+
+  return {
+    sire:best.sire||'',damsire:best.damsire||'',
+    sex:best.sex||'',age:Number(best.age||0),
+    via:best.via||'',error:best.error||'正しい血統を取得できず'
+  };
+}
+
 async function supplementMissingPedigreeV117(parsed, newspaperText){
+  // v129: malformed strings must not count as complete pedigree.
+  sanitizePedigreesV129(parsed);
   const ids=extractNetkeibaHorseIdsV75(newspaperText,parsed);
   const targets=(parsed||[]).filter(h=>!(h.sire&&h.damsire) && ids[String(h.no)]);
   let attempted=targets.length, filled=0, timedOut=0, errors=0;
@@ -6791,7 +6937,7 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
       let timer;
       try{
         return await Promise.race([
-          fetchHorsePedigreeV128(id),
+          fetchHorsePedigreeV129(id,h.name),
           new Promise(resolve=>{
             timer=setTimeout(()=>resolve({timeout:true,sire:'',damsire:'',age:0,sex:''}),23000);
           })
@@ -6820,6 +6966,7 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
     if(base+batchSize<targets.length)await sleepV79(200);
   }
 
+  sanitizePedigreesV129(parsed);
   return {attempted,filled,timedOut,errors};
 }
 
@@ -6913,9 +7060,13 @@ async function importFromNetkeibaV108(url){
   parsed=applyNetkeibaPastOnlyV71(parsed,nkPast);
   applyNetkeibaCurrentProfileV105(parsed,styleResult);
 
-  // v120: re-apply deterministic master pedigree after all current/past mappings,
-  // then fetch horse DB only for any remainder.
+  // v129: reject metadata-contaminated pedigree before deciding "complete".
+  const invalidPedClearedV129=sanitizePedigreesV129(parsed);
+
+  // Re-apply deterministic newspaper pedigree, then validate again.
   applyNewspaperPedigreeV120(parsed,masterPedV120);
+  sanitizePedigreesV129(parsed);
+
   jraEntryStatus.textContent='④-2 血統の不足馬だけ補完中…';
   const pedSupplement=await supplementMissingPedigreeV117(parsed,src.text);
 
@@ -6961,6 +7112,9 @@ async function importFromNetkeibaV108(url){
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
 
+  // v129 final pedigree integrity check.
+  sanitizePedigreesV129(horses);
+
   const finalWeightN=horses.filter(h=>Number(h.carried)>=48&&Number(h.carried)<=62).length;
   const finalOddsN=horses.filter(h=>Number(h.odds)>=1).length;
   const finalBodyN=horses.filter(h=>Number(h.body)>=300&&Number(h.body)<=700).length;
@@ -6975,7 +7129,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v128：血統不足馬だけTOP/5代血統を複数経路で並列補完（斤量・オッズ・近走は固定）</b><br>'+
+    '<b>v129：血統値の妥当性を検証し誤取得を破棄＋5代血統ページから再取得（他項目は固定）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
@@ -6988,7 +7142,7 @@ async function importFromNetkeibaV108(url){
     '<small>不足: 斤量 '+(missingWeightV122.length?missingWeightV122.join('・'):'なし')+
     ' / 血統 '+(missingPedV122.length?missingPedV122.join('・'):'なし')+
     ' / オッズ '+(missingOddsV122.length?missingOddsV122.join('・'):'なし')+'</small>'+
-    '<br><small>補完: 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
+    '<br><small>補完: 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
     '<br><small>race_id '+raceId+' / 経路 '+src.via+'</small>';
