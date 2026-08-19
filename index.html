@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v122</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v123</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -3862,156 +3862,187 @@ function extractNetkeibaCurrentProfileV105(text, parsed){
 }
 
 
-function extractNetkeibaPrimaryV111(text, parsed){
-  const src=String(text||'').normalize('NFKC').replace(/\r/g,'\n');
+
+function cleanNkLineV123(x){
+  return String(x||'')
+    .normalize('NFKC')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g,' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\*\*/g,' ')
+    .replace(/&nbsp;|&#160;/g,' ')
+    .replace(/\u00a0/g,' ')
+    .replace(/[ \t]+/g,' ')
+    .trim();
+}
+function pedTokenV123(x){
+  let s=cleanNkLineV123(x)
+    .replace(/^(?:替|初騎乗)\s*/,'')
+    .replace(/\s+(?:18|19|20)\d{2}\b.*$/,'')
+    .trim();
+  if(!s||s.length<2||s.length>90)return '';
+  if(/^(?:競馬新聞|出馬表|データベース|レース映像|オッズ|予想|調教|厩舎コメント|血統|馬名|チェック|人気|斤量|騎手|走行|タイプ|前走|2走前|3走前|4走前|5走前|さらに5走戦績を追加|Select|Input|Image)$/.test(s))return '';
+  if(/^(?:栗東|美浦|地方)[・･]/.test(s))return '';
+  if(/^\d+(?:\.\d+)?(?:kg|倍)?$/.test(s))return '';
+  if(/^(?:逃|先|差|追)$/.test(s))return '';
+  return /[ぁ-んァ-ヶ一-龠々A-Za-z]/.test(s)?s:'';
+}
+function validCurrentJockeyV123(x){
+  let s=cleanNkLineV123(x).replace(/^[△▲☆★◇]\s*/,'').trim();
+  let change=false;
+  if(/^替\s*/.test(s)){change=true;s=s.replace(/^替\s*/,'').trim();}
+  if(!s||s.length>28)return {name:'',change};
+  if(/^(?:初騎乗|乗替|乗り替わり|騎手|未定|替)$/.test(s))return {name:'',change};
+  if(/^(?:栗東|美浦|地方)[・･]/.test(s))return {name:'',change};
+  if(/^\d+(?:-\d+){2,3}$/.test(s))return {name:'',change};
+  if(/^\d+(?:\.\d+)?$/.test(s))return {name:'',change};
+  if(/kg|人気|オッズ|Image|Select|Input/.test(s))return {name:'',change};
+  if(!/[ぁ-んァ-ヶ一-龠々A-Za-z]/.test(s))return {name:'',change};
+  return {name:s,change};
+}
+function extractNetkeibaPrimaryV123(text,parsed){
+  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+  const rawLines=src.split('\n');
+  const cleanLines=rawLines.map(cleanNkLineV123);
   const out={};
   const list=(parsed||[]).slice().sort((a,b)=>+a.no-+b.no);
 
-  function findCurrentBlock(name,nextName){
-    const key=name+'のデータベース';
-    let at=src.indexOf(key);
-    if(at<0){
-      const re=new RegExp('\\['+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'のデータベース\\]');
-      const m=src.match(re);
-      if(m)at=m.index;
+  // Find the "detail" occurrence of each horse name, not the row-heading occurrence.
+  // Strong signature: previous line is sire, next line dam, following line "(damsire)".
+  function findDetailIndex(name){
+    const target=String(name||'').normalize('NFKC').trim();
+    let fallback=-1;
+    for(let i=0;i<cleanLines.length;i++){
+      const line=cleanLines[i];
+      if(!(line===target || line.includes(target)))continue;
+      if(fallback<0)fallback=i;
+
+      const prev=pedTokenV123(cleanLines[i-1]||'');
+      const next=pedTokenV123(cleanLines[i+1]||'');
+      const ds=String(cleanLines[i+2]||'').match(/^[（(]\s*([^）)]+?)\s*[）)]$/);
+      if(prev && next && ds && pedTokenV123(ds[1]))return i;
     }
-    if(at<0){
-      // last fallback: first occurrence of horse name
-      at=src.indexOf(name);
-    }
-    if(at<0)return '';
-
-    let stop=Math.min(src.length,at+1800);
-
-    if(nextName){
-      const nk=nextName+'のデータベース';
-      const nx=src.indexOf(nk,at+name.length);
-      if(nx>at&&nx<stop)stop=nx;
-    }
-
-    let block=src.slice(at,stop);
-
-    // The first dated past-race row marks the end of the current-race header.
-    const dm=block.match(/\b20\d{2}[\/年.-]\d{1,2}[\/月.-]\d{1,2}/);
-    if(dm&&dm.index>80)block=block.slice(0,dm.index);
-
-    // Also cut at common past-race section markers if they appear earlier.
-    const marks=['前走','2走前','3走前','4走前','5走前'];
-    for(const mk of marks){
-      const p=block.indexOf(mk);
-      if(p>80)block=block.slice(0,p);
-    }
-    return block.replace(/[　\t]+/g,' ').replace(/\n+/g,' ').replace(/\s+/g,' ').trim();
+    return fallback;
   }
 
-  for(let i=0;i<list.length;i++){
-    const h=list[i];
+  for(const h of list){
     const name=String(h.name||'').normalize('NFKC').trim();
     if(!name)continue;
-    const nextName=i+1<list.length?String(list[i+1].name||'').normalize('NFKC').trim():'';
-    const block=findCurrentBlock(name,nextName);
-    if(!block)continue;
 
-    let sex='',age=0,body=0,bodyDiff=null,odds=0,pop=0,carried=0,jockey='',sire='',damsire='',style='';
-    let jockeyFirstRide=/初騎乗/.test(block),
-        jockeyChange=/乗替|乗り替わり|(?:^|[\s|｜])替(?:[\s|｜]|$)/m.test(block);
+    const idx=findDetailIndex(name);
+    if(idx<0)continue;
 
-    // Current header example:
-    // 牡6 454kg (-12) 10人気 26.0倍 国分優 57.0
-    let m=block.match(/(?:^|\s)(牡|牝|セ|騸)\s*([2-9]|1[0-2])(?:歳)?\s*(\d{3})\s*kg(?:\s*[（(]\s*([+\-−]?\d+)\s*[）)])?/);
-    if(m){
-      sex=m[1]==='騸'?'セ':m[1];
-      age=Number(m[2]);
-      body=Number(m[3]);
-      if(m[4]!=null)bodyDiff=Number(String(m[4]).replace('−','-'));
-    }else{
-      m=block.match(/(?:^|\s)(牡|牝|セ|騸)\s*([2-9]|1[0-2])(?:歳)?/);
-      if(m){sex=m[1]==='騸'?'セ':m[1];age=Number(m[2]);}
-      const bm=block.match(/(?:^|\s)(\d{3})\s*kg(?:\s*[（(]\s*([+\-−]?\d+)\s*[）)])?/);
-      if(bm){
-        const bv=Number(bm[1]);
-        if(bv>=300&&bv<=700)body=bv;
-        if(bm[2]!=null)bodyDiff=Number(String(bm[2]).replace('−','-'));
+    // Current-race information is compact: from a few lines before the detail
+    // name until the first dated historical line.
+    const from=Math.max(0,idx-3);
+    let to=Math.min(cleanLines.length,idx+28);
+    for(let j=idx+1;j<to;j++){
+      if(/(?:^|\s)\d{1,2}\/\d{1,2}(?:\s|$)/.test(cleanLines[j]) ||
+         /20\d{2}[.\/\-]\d{1,2}[.\/\-]\d{1,2}/.test(cleanLines[j])){
+        to=j;break;
+      }
+    }
+    const lines=cleanLines.slice(from,to).filter(Boolean);
+
+    let sire='',dam='',damsire='',style='';
+    let sex='',age=0,body=0,bodyDiff=null,odds=0,pop=0;
+    let jockey='',carried=0,jockeyFirstRide=false,jockeyChange=false;
+
+    // Pedigree from exact adjacent layout.
+    const localNameIdx=lines.findIndex(x=>x===name || x.includes(name));
+    if(localNameIdx>=1){
+      sire=pedTokenV123(lines[localNameIdx-1]);
+      dam=pedTokenV123(lines[localNameIdx+1]||'');
+      const dm=String(lines[localNameIdx+2]||'').match(/^[（(]\s*([^）)]+?)\s*[）)]$/);
+      if(dm)damsire=pedTokenV123(dm[1]);
+    }
+
+    // Current fields.
+    let sexIdx=-1;
+    for(let j=0;j<lines.length;j++){
+      const line=lines[j];
+
+      if(!style && /^(?:逃|先|差|追)$/.test(line)){
+        style=styleLabelV62(line);
+      }
+
+      if(!body){
+        const bm=line.match(/(\d{3})\s*kg\s*[（(]\s*([+\-−]?\d+)\s*[）)]/);
+        if(bm){
+          const bw=Number(bm[1]),bd=Number(String(bm[2]).replace('−','-'));
+          if(bw>=300&&bw<=700)body=bw;
+          if(Number.isFinite(bd)&&Math.abs(bd)<=50)bodyDiff=bd;
+        }
+      }
+
+      // Actual newspaper format: 48.9(12人気), no "倍".
+      if(!odds){
+        const om=line.match(/(\d{1,3}(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*人気\s*[）)]/);
+        if(om){
+          const o=Number(om[1]),p=Number(om[2]);
+          if(o>=1&&o<=999.9)odds=o;
+          if(p>=1&&p<=18)pop=p;
+        }
+      }
+
+      if(!sex){
+        const sm=line.match(/(?:^|\s)(牡|牝|セ|騸)\s*([2-9]|1[0-2])(?:歳)?/);
+        if(sm){
+          sex=sm[1]==='騸'?'セ':sm[1];
+          age=Number(sm[2]);
+          sexIdx=j;
+        }
       }
     }
 
-    // Current popularity / odds only from header.
-    m=block.match(/(\d{1,2})\s*人気\s+(\d+(?:\.\d+)?)\s*倍/);
-    if(m){
-      const pp=Number(m[1]), oo=Number(m[2]);
-      if(pp>=1&&pp<=18)pop=pp;
-      if(oo>=1.0&&oo<=999.9)odds=oo;
-    }
-    if(!odds){
-      m=block.match(/(\d+(?:\.\d+)?)\s*倍\s*[（(]?\s*(\d{1,2})\s*人気/);
-      if(m){
-        const oo=Number(m[1]),pp=Number(m[2]);
-        if(pp>=1&&pp<=18)pop=pp;
-        if(oo>=1.0&&oo<=999.9)odds=oo;
+    // Jockey and carried weight are after sex-age and before historical runs.
+    // Examples:
+    //   替 菱田
+    //   0-0-0-1
+    //   58.0
+    // or
+    //   替 酒井
+    //   初騎乗
+    //   56.0
+    const searchStart=sexIdx>=0?sexIdx+1:Math.max(0,localNameIdx+3);
+    for(let j=searchStart;j<Math.min(lines.length,searchStart+8);j++){
+      const line=lines[j];
+
+      if(/初騎乗/.test(line)){jockeyFirstRide=true;continue;}
+      if(/乗替|乗り替わり/.test(line)){jockeyChange=true;continue;}
+
+      if(!carried){
+        const wm=line.match(/^[△▲☆★◇]?\s*((?:4[8-9]|5\d|6[0-2])(?:\.\d)?)\s*(?:kg)?$/);
+        if(wm){
+          const w=Number(wm[1]);
+          if(w>=48&&w<=62)carried=w;
+          continue;
+        }
+      }
+
+      if(!jockey){
+        const jc=validCurrentJockeyV123(line);
+        if(jc.name){
+          jockey=jc.name;
+          if(jc.change)jockeyChange=true;
+        }
       }
     }
 
-    // v113: Prefer the actual jockey link when netkeiba/Jina preserved it.
-    // This prevents labels such as "初騎乗" from being mistaken for a jockey name.
-    const jockeyLinkPatterns=[
-      /\[([^\]\n]{2,30})\]\((?:https?:\/\/)?[^)]*(?:\/jockey\/|\/kishu\/)[^)]*\)/i,
-      /\[([^\]\n]{2,30})\]\([^)]*[?&](?:jockey_id|kishu_id)=\d+[^)]*\)/i
-    ];
-    for(const jr of jockeyLinkPatterns){
-      const jm=block.match(jr);
+    // Extra safe fallback: raw current block may preserve a jockey DB markdown link.
+    if(!jockey){
+      const rawBlock=rawLines.slice(from,to).join('\n');
+      const jm=rawBlock.match(/\[([^\]\n]{1,30})\]\((?:https?:\/\/)?[^)]*db\.netkeiba\.com\/jockey\/[^)]*\)/i);
       if(jm){
-        const cand=String(jm[1]||'').replace(/^[△▲☆★◇]\s*/,'').trim();
-        if(cand && !/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(cand)){
-          if(/^替\s*/.test(cand))jockeyChange=true;
-          jockey=cand.replace(/^替\s*/,'').trim();
-          break;
-        }
+        const jc=validCurrentJockeyV123(jm[1]);
+        if(jc.name){jockey=jc.name;if(jc.change)jockeyChange=true;}
       }
     }
 
-    // IMPORTANT: never accept a bare 40–69 number as carried weight.
-    // It must be paired with a jockey-like name in the current header.
-    const weightPatterns=[
-      /(?:騎手\s*[:：]?\s*)?([△▲☆★◇]?\s*[ぁ-んァ-ヶ一-龠々A-Za-z・ー.]{2,20})\s+((?:4[8-9]|5\d|6[0-2])(?:\.\d)?)\b/,
-      /((?:4[8-9]|5\d|6[0-2])(?:\.\d)?)\s*(?:kg)?\s+([△▲☆★◇]?\s*[ぁ-んァ-ヶ一-龠々A-Za-z・ー.]{2,20})/
-    ];
-    for(const wr of weightPatterns){
-      const wm=block.match(wr);
-      if(!wm)continue;
-      let w=0,j='';
-      if(wr===weightPatterns[0]){j=wm[1];w=Number(wm[2]);}
-      else{w=Number(wm[1]);j=wm[2];}
-      if(w>=48&&w<=62){
-        let cand=String(j||'').replace(/^[△▲☆★◇]\s*/,'').trim();
-        if(/^替\s*/.test(cand)){jockeyChange=true;cand=cand.replace(/^替\s*/,'').trim();}
-        if(!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(cand)){
-          carried=w;
-          if(!jockey)jockey=cand;
-          break;
-        }
-      }
-    }
-
-    // Explicit labelled carried weight is also safe.
-    if(!carried){
-      m=block.match(/斤量\s*[:：]?\s*((?:4[8-9]|5\d|6[0-2])(?:\.\d)?)/);
-      if(m){
-        const w=Number(m[1]);
-        if(w>=48&&w<=62)carried=w;
-      }
-    }
-
-    // Style only if explicitly present in current header.
-    m=block.match(/(?:脚質|タイプ)\s*[:：]?\s*(逃|先|差|追)/);
-    if(m)style=styleLabelV62(m[1]);
-
-    // Bloodline in current horse block.
-    m=block.match(/父\s*[:：]?\s*([ァ-ヶーぁ-ん一-龠々A-Za-z0-9・'’.\- ]{2,80}?)(?=\s+(?:母|母父|母の父|馬主|生産|調教師)|$)/);
-    if(m)sire=String(m[1]||'').replace(/\*/g,'').trim();
-    m=block.match(/(?:母の父|母父)\s*[:：]?\s*([ァ-ヶーぁ-ん一-龠々A-Za-z0-9・'’.\- ]{2,80}?)(?=\s+(?:馬主|生産|調教師)|$)/);
-    if(m)damsire=String(m[1]||'').replace(/\*/g,'').trim();
-
-    out[String(h.no)]={sex,age,body,bodyDiff,odds,pop,carried,jockey,jockeyFirstRide,jockeyChange,sire,damsire,style};
+    out[String(h.no)]={
+      sex,age,body,bodyDiff,odds,pop,carried,jockey,
+      jockeyFirstRide,jockeyChange,sire,damsire,style
+    };
   }
   return out;
 }
@@ -6009,7 +6040,7 @@ async function importFromNetkeibaV108(url){
   }
 
   jraEntryStatus.textContent='② netkeiba今回情報を解析中…';
-  const primary=extractNetkeibaPrimaryV111(src.text,parsed);
+  const primary=extractNetkeibaPrimaryV123(src.text,parsed);
   const currentN=applyNetkeibaPrimaryV111(parsed,primary);
 
   // v120: pedigree is printed directly in newspaper_master.
@@ -6019,23 +6050,32 @@ async function importFromNetkeibaV108(url){
 
   // One lightweight server-rendered shutuba_past fetch for current fields.
   // Only missing current-race fields are filled; valid newspaper values are never overwritten.
-  jraEntryStatus.textContent='②-2 netkeiba出馬表から不足項目を補完中…';
-  const shutuba=await fetchNetkeibaShutubaTextV120(raceId);
+  let shutuba={text:'',via:'newspaper-complete'};
   let supplementN=0, shutubaStructN=0, shutubaPedN=0;
-  if(shutuba.text){
-    const sup=extractNetkeibaShutubaSupplementV112(shutuba.text,parsed);
-    supplementN=applyNetkeibaMissingCurrentV112(parsed,sup);
-
-    // v121: table-structure parser is authoritative for missing current fields/pedigree.
-    const structuredV121=extractShutubaPastStructuredV122(shutuba.text,parsed);
-    const appliedV121=applyShutubaPastStructuredV121(parsed,structuredV121);
-    shutubaStructN=appliedV121.currentFilled;
-    shutubaPedN=appliedV121.pedFilled;
+  const primaryMissingV123=parsed.some(h=>
+    !(Number(h.carried)>=48&&Number(h.carried)<=62) ||
+    !(Number(h.body)>=300&&Number(h.body)<=700) ||
+    !(Number(h.odds)>=1) ||
+    !(h.sire&&h.damsire)
+  );
+  if(primaryMissingV123){
+    jraEntryStatus.textContent='②-2 競馬新聞で不足した項目だけ補完中…';
+    shutuba=await fetchNetkeibaShutubaTextV120(raceId);
+    if(shutuba.text){
+      const sup=extractNetkeibaShutubaSupplementV112(shutuba.text,parsed);
+      supplementN=applyNetkeibaMissingCurrentV112(parsed,sup);
+      const structuredV121=extractShutubaPastStructuredV122(shutuba.text,parsed);
+      const appliedV121=applyShutubaPastStructuredV121(parsed,structuredV121);
+      shutubaStructN=appliedV121.currentFilled;
+      shutubaPedN=appliedV121.pedFilled;
+    }
   }
 
   const primaryWeightN=parsed.filter(h=>Number(h.carried)>=48&&Number(h.carried)<=62).length;
   const primaryOddsN=parsed.filter(h=>Number(h.odds)>=1).length;
   const primaryBodyN=parsed.filter(h=>Number(h.body)>=300&&Number(h.body)<=700).length;
+  const primaryPedN=parsed.filter(h=>h.sire&&h.damsire).length;
+  const primaryJockeyN=parsed.filter(h=>h.jockey).length;
 
   const styles=extractNetkeibaStylesV63(src.text,parsed);
   const styleResult={styles,profileByNo:extractNetkeibaCurrentProfileV105(src.text,parsed),rawText:src.text,via:src.via,raceId};
@@ -6117,9 +6157,10 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v122：shutuba_past実表構造に合わせ血統・斤量を再解析＋結果表からオッズ補完（近走79走維持）</b><br>'+
+    '<b>v123：netkeiba競馬新聞の1頭ブロックから血統・馬体重・オッズ・騎手・斤量を直接取得（近走79走維持）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
+    '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
     '主取得: netkeiba競馬新聞 / 補完: netkeiba出馬表・馬DB / JRA: 最終補完用<br>'+
     '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
     '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭 / 過去騎手: '+pastJockeyN+'/'+horses.length+'頭（'+pastJockeyRuns+'走）</b><br>'+
