@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v144</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v145</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1752,29 +1752,84 @@ function parseCurrentRaceClassStrictV136(text){
   return {level:0,label:'不明',titleLine:''};
 }
 
-async function resolveCurrentRaceClassV136(raceId,newspaperText){
-  // First: current newspaper title/header only.
-  let info=parseCurrentRaceClassStrictV136(newspaperText);
-  if(info.level)return {...info,via:'newspaper-title'};
 
-  const base='https://race.netkeiba.com/race/';
+function currentRaceClassCacheKeyV145(raceId){
+  return 'keiba_current_race_class_v145_'+String(raceId||'');
+}
+function loadCurrentRaceClassCacheV145(raceId){
+  try{
+    const x=JSON.parse(localStorage.getItem(currentRaceClassCacheKeyV145(raceId))||'null');
+    if(x&&Number(x.level)>0&&x.label){
+      return {level:Number(x.level),label:String(x.label),via:'v145-grade-cache',titleLine:x.titleLine||''};
+    }
+  }catch(e){}
+  return null;
+}
+function saveCurrentRaceClassCacheV145(raceId,info){
+  if(!info||!(Number(info.level)>0))return;
+  try{
+    localStorage.setItem(currentRaceClassCacheKeyV145(raceId),JSON.stringify({
+      level:Number(info.level),label:info.label||'不明',titleLine:info.titleLine||'',savedAt:Date.now()
+    }));
+  }catch(e){}
+}
+
+async function resolveCurrentRaceClassV136(raceId,newspaperText){
+  // 1) Current newspaper header only. Safe because strict parser ignores horse-history rows.
+  let info=parseCurrentRaceClassStrictV136(newspaperText);
+  if(info.level){
+    const out={...info,via:'newspaper-title'};
+    saveCurrentRaceClassCacheV145(raceId,out);
+    return out;
+  }
+
+  // 2) Use a previously verified grade for the exact same race_id.
+  //    Race class cannot change for the same race_id, so this is safe and much more stable on iPhone.
+  const cached=loadCurrentRaceClassCacheV145(raceId);
+  if(cached)return cached;
+
+  // 3) Query only pages for THIS race_id. Since each page is a single race,
+  //    a broader page-head parser is safe as a fallback.
   const targets=[
-    'shutuba_past.html?race_id='+encodeURIComponent(raceId),
-    'shutuba.html?race_id='+encodeURIComponent(raceId)
+    {
+      via:'jina-shutuba-past-title',
+      url:'https://r.jina.ai/https://race.netkeiba.com/race/shutuba_past.html?race_id='+encodeURIComponent(raceId)
+    },
+    {
+      via:'jina-shutuba-title',
+      url:'https://r.jina.ai/https://race.netkeiba.com/race/shutuba.html?race_id='+encodeURIComponent(raceId)
+    },
+    {
+      via:'jina-result-title',
+      url:'https://r.jina.ai/https://race.netkeiba.com/race/result.html?race_id='+encodeURIComponent(raceId)
+    },
+    {
+      via:'jina-db-race-title',
+      url:'https://r.jina.ai/https://db.netkeiba.com/race/'+encodeURIComponent(raceId)+'/'
+    }
   ];
 
-  for(const path of targets){
-    const url='https://r.jina.ai/'+base+path+'&_grade_cb='+Date.now();
+  for(const t of targets){
     try{
-      const t=await fetchTextTimeoutV63(url,9000);
-      info=parseCurrentRaceClassStrictV136(t);
-      if(info.level){
-        return {...info,via:path.startsWith('shutuba_past')?'jina-shutuba-past-title':'jina-shutuba-title'};
+      const page=await fetchTextTimeoutV63(t.url+'&_grade_cb='+Date.now(),9000);
+      if(!page||page.length<300)continue;
+
+      info=parseCurrentRaceClassStrictV136(page);
+      if(!info.level && typeof parsePastRaceClassPageV138==='function'){
+        // Safe here: the fetched page belongs to exactly one race_id.
+        const broad=parsePastRaceClassPageV138(page);
+        if(broad&&Number(broad.level)>0){
+          info={...broad,titleLine:broad.sourceLine||''};
+        }
+      }
+      if(info&&Number(info.level)>0){
+        const out={...info,via:t.via};
+        saveCurrentRaceClassCacheV145(raceId,out);
+        return out;
       }
     }catch(e){}
   }
 
-  // Safer to return unknown than falsely label a G3 as G1.
   return {level:0,label:'不明',via:'unresolved',titleLine:''};
 }
 
@@ -8559,9 +8614,10 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v144：過去5走の一時取得失敗をnetkeiba専用キャッシュで救済＋0走時の能力崩壊を防止</b><br>'+
+    '<b>v145：今回レース格をrace_id単位で固定・キャッシュ化し、取得失敗で相手レベル補正が消える問題を修正</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
+    (!currentRaceLevelV133?' <span style="color:#ffb020">※今回格が未取得のため順位は暫定</span>':'')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
     '<small>今回格取得元: '+currentRaceClassViaV136+' / v138格補完 '+classSupplementedV138+'走 / 地方・Jpn格 '+narClassRunsV139+'走</small><br>'+
     (classUnknownListV138.length
