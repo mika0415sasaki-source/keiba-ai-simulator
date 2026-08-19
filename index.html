@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v130</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v131</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -7041,12 +7041,115 @@ async function fetchHorsePedigreeV129(id,horseName){
   };
 }
 
+
+function parseMobileHorseProfileV131(text,horseName){
+  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+  const clean=x=>String(x||'')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g,' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\*\*/g,' ')
+    .replace(/&nbsp;|&#160;/g,' ')
+    .replace(/\u00a0/g,' ')
+    .replace(/[ \t]+/g,' ')
+    .trim();
+
+  let sire='',dam='',damsire='';
+
+  // Best case: Jina markdown table.
+  for(const raw of src.split('\n')){
+    const line=clean(raw);
+    if(!line)continue;
+
+    let m=line.match(/^父\s*\|\s*(.+?)\s*$/);
+    if(m && !sire){
+      sire=validPedigreeValueV129(m[1],horseName);
+      continue;
+    }
+
+    m=line.match(/^母\s*\|\s*(.+?)\s+母父\s*[:：]\s*(.+?)\s*$/);
+    if(m){
+      dam=validPedigreeValueV129(m[1],horseName);
+      damsire=validPedigreeValueV129(m[2],horseName);
+      continue;
+    }
+  }
+
+  // Raw/flattened HTML fallback.
+  if(!sire){
+    const flat=clean(src).replace(/\s+/g,' ');
+    let m=flat.match(/(?:^|\s)父\s*(?:\||[:：])\s*([^|]{2,80}?)(?=\s+(?:母|馬主|調教師|生産者)\s*(?:\||[:：]))/);
+    if(m)sire=validPedigreeValueV129(m[1],horseName);
+  }
+
+  if(!damsire){
+    const flat=clean(src).replace(/\s+/g,' ');
+    let m=flat.match(/(?:^|\s)母\s*(?:\||[:：])\s*(.{2,100}?)\s+母父\s*[:：]\s*([^|]{2,80}?)(?=\s+(?:馬主|調教師|生産者|産地|中央獲得賞金|地方獲得賞金)\b)/);
+    if(m){
+      dam=validPedigreeValueV129(m[1],horseName);
+      damsire=validPedigreeValueV129(m[2],horseName);
+    }
+  }
+
+  return {sire,dam,damsire};
+}
+
+async function fetchHorseMobilePedigreeV131(id,horseName){
+  const sid=String(id||'').trim();
+  const hn=String(horseName||'').trim();
+  const key='keiba_horse_mobile_profile_v131_'+sid;
+
+  try{
+    const c=JSON.parse(localStorage.getItem(key)||'null');
+    if(c){
+      const sire=validPedigreeValueV129(c.sire,hn);
+      const damsire=validPedigreeValueV129(c.damsire,hn);
+      if(sire&&damsire)return {sire,damsire,via:'mobile-cache'};
+    }
+  }catch(e){}
+
+  const base='https://db.sp.netkeiba.com/horse/'+encodeURIComponent(sid)+'/';
+  const routes=[
+    {via:'jina-mobile-db',url:'https://r.jina.ai/'+base+'?rf=shutuba_db',ms:10000},
+    {via:'jina-mobile-db-plain',url:'https://r.jina.ai/'+base,ms:10000},
+    {via:'allorigins-mobile-db',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(base+'?rf=shutuba_db'),ms:9000},
+    {via:'direct-mobile-db',url:base+'?rf=shutuba_db',ms:6500}
+  ];
+
+  let errors=[];
+  for(const r of routes){
+    try{
+      const t=await fetchTextTimeoutV63(r.url,r.ms);
+      if(!t||t.length<200){
+        errors.push(r.via+':空');
+        continue;
+      }
+
+      const p=parseMobileHorseProfileV131(t,hn);
+      const sire=validPedigreeValueV129(p.sire,hn);
+      const damsire=validPedigreeValueV129(p.damsire,hn);
+
+      if(sire&&damsire){
+        const save={sire,damsire,savedAt:Date.now()};
+        try{localStorage.setItem(key,JSON.stringify(save));}catch(e){}
+        return {...save,via:r.via};
+      }
+
+      errors.push(r.via+':血統形式不一致');
+    }catch(e){
+      errors.push(r.via+':'+String(e&&e.message||e));
+    }
+  }
+
+  return {sire:'',damsire:'',via:'',error:errors.join(' / ')};
+}
+
 async function supplementMissingPedigreeV117(parsed, newspaperText){
   // v129: malformed strings must not count as complete pedigree.
   sanitizePedigreesV129(parsed);
   const ids=extractNetkeibaHorseIdsV75(newspaperText,parsed);
   const targets=(parsed||[]).filter(h=>!(h.sire&&h.damsire) && ids[String(h.no)]);
-  let attempted=targets.length, filled=0, timedOut=0, errors=0;
+  let attempted=targets.length, filled=0, timedOut=0, errors=0, mobileFilled=0;
 
   if(!targets.length)return {attempted:0,filled:0,timedOut:0};
 
@@ -7065,9 +7168,13 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
       let timer;
       try{
         return await Promise.race([
-          fetchHorsePedigreeV129(id,h.name),
+          (async()=>{
+            const mobile=await fetchHorseMobilePedigreeV131(id,h.name);
+            if(mobile&&mobile.sire&&mobile.damsire)return mobile;
+            return fetchHorsePedigreeV129(id,h.name);
+          })(),
           new Promise(resolve=>{
-            timer=setTimeout(()=>resolve({timeout:true,sire:'',damsire:'',age:0,sex:''}),23000);
+            timer=setTimeout(()=>resolve({timeout:true,sire:'',damsire:'',age:0,sex:''}),30000);
           })
         ]);
       }catch(e){
@@ -7081,6 +7188,7 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
       const h=batch[i];
       if(p&&p.timeout){timedOut++;return;}
       if(p&&p.error&&!p.sire&&!p.damsire)errors++;
+      if(p&&String(p.via||'').includes('mobile'))mobileFilled++;
       let any=false;
       if(p){
         if(!h.sire&&p.sire){h.sire=p.sire;any=true;}
@@ -7095,7 +7203,7 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
   }
 
   sanitizePedigreesV129(parsed);
-  return {attempted,filled,timedOut,errors};
+  return {attempted,filled,timedOut,errors,mobileFilled};
 }
 
 async function importFromNetkeibaV108(url){
@@ -7268,7 +7376,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v130：shutuba_past本文の父→馬名→母→母父を直接取得（斤量・オッズ・近走等は固定）</b><br>'+
+    '<b>v131：血統不足馬はスマホ版馬DBの『父｜母｜母父』を最優先取得（他項目は固定）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
@@ -7281,7 +7389,7 @@ async function importFromNetkeibaV108(url){
     '<small>不足: 斤量 '+(missingWeightV122.length?missingWeightV122.join('・'):'なし')+
     ' / 血統 '+(missingPedV122.length?missingPedV122.join('・'):'なし')+
     ' / オッズ '+(missingOddsV122.length?missingOddsV122.join('・'):'なし')+'</small>'+
-    '<br><small>補完: shutuba本文血統 '+plainPedV130.complete+'/'+plainPedV130.matched+'頭 / 適用 '+plainPedAppliedV130.filled+'頭 / 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
+    '<br><small>補完: shutuba本文血統 '+plainPedV130.complete+'/'+plainPedV130.matched+'頭 / 適用 '+plainPedAppliedV130.filled+'頭 / 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / mobile血統 '+(pedSupplement.mobileFilled||0)+'頭 / 血統timeout '+(pedSupplement.timedOut||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
     '<br><small>race_id '+raceId+' / 経路 '+src.via+'</small>';
