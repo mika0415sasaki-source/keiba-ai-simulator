@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v124</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v125</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -4183,6 +4183,194 @@ function applyNetkeibaMarkerOverlayV124(parsed,map){
   return changed;
 }
 
+
+function plainNewspaperV125(x){
+  return String(x||'')
+    .normalize('NFKC')
+    .replace(/\r/g,'')
+    .replace(/!\[[^\]]*\]\([^)]+\)/g,' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\*\*/g,'')
+    .replace(/&nbsp;|&#160;/g,' ')
+    .replace(/\u00a0/g,' ');
+}
+
+function extractNetkeibaExactBlocksV125(text,parsed){
+  const plain=plainNewspaperV125(text);
+  const out={};
+  let matched=0, withPed=0, withWeight=0, withOdds=0, withJockey=0;
+
+  for(let idx=0;idx<(parsed||[]).length;idx++){
+    const h=parsed[idx];
+    const name=String(h.name||'').normalize('NFKC').trim();
+    if(!name)continue;
+
+    const marker=name+'のデータベース';
+    let at=plain.indexOf(marker);
+    if(at<0)continue;
+    matched++;
+
+    let end=Math.min(plain.length,at+2600);
+    // Stop at next runner's DB marker.
+    for(const other of (parsed||[])){
+      if(other===h)continue;
+      const om=String(other.name||'').normalize('NFKC').trim()+'のデータベース';
+      const nx=plain.indexOf(om,at+marker.length);
+      if(nx>at && nx<end)end=nx;
+    }
+
+    let block=plain.slice(at+marker.length,end);
+    // Current data only: cut before first historical date.
+    const hist=block.search(/(?:^|\n|\s)(?:20\d{2}[.\/\-])?\d{1,2}[.\/\-]\d{1,2}(?:\s|$)/m);
+    if(hist>80)block=block.slice(0,hist);
+
+    const lines=block.split('\n')
+      .map(s=>s.replace(/[ \t]+/g,' ').trim())
+      .filter(Boolean);
+
+    let sire='',dam='',damsire='',style='',sex='',age=0;
+    let body=0,bodyDiff=null,odds=0,pop=0,jockey='',carried=0;
+    let jockeyFirstRide=false,jockeyChange=false;
+
+    // Strongest pedigree rule:
+    // first meaningful lines after marker are sire / horse / dam / (damsire).
+    let horseLine=-1;
+    for(let i=0;i<Math.min(lines.length,12);i++){
+      if(lines[i]===name || lines[i].includes(name)){horseLine=i;break;}
+    }
+    if(horseLine>=1){
+      sire=pedTokenV123(lines[horseLine-1]);
+      dam=pedTokenV123(lines[horseLine+1]||'');
+      const dm=String(lines[horseLine+2]||'').match(/^[（(]\s*([^）)]+?)\s*[）)]$/);
+      if(dm)damsire=pedTokenV123(dm[1]);
+    }
+
+    // If line boundaries were folded, regex the exact visible sequence.
+    if(!sire || !damsire){
+      const esc=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      const seq=new RegExp(
+        '(?:^|\\n)\\s*([^\\n]{2,100})\\s*\\n\\s*'+esc+
+        '\\s*\\n\\s*([^\\n]{2,100})\\s*\\n\\s*[（(]\\s*([^）)\\n]{2,100})\\s*[）)]',
+        'm'
+      );
+      const m=block.match(seq);
+      if(m){
+        if(!sire)sire=pedTokenV123(m[1]);
+        if(!dam)dam=pedTokenV123(m[2]);
+        if(!damsire)damsire=pedTokenV123(m[3]);
+      }
+    }
+
+    // Current-race values exactly as displayed by newspaper:
+    // 460kg(+2), 48.9(12人気), 牡5, 替 菱田, 初騎乗, 58.0
+    for(let i=0;i<lines.length;i++){
+      const line=lines[i];
+
+      if(!style && /^(?:逃|先|差|追)$/.test(line))style=styleLabelV62(line);
+
+      if(!body){
+        const bm=line.match(/(\d{3})\s*kg\s*[（(]\s*([+\-−]?\d+)\s*[）)]/);
+        if(bm){
+          const bw=Number(bm[1]);
+          const bd=Number(String(bm[2]).replace('−','-'));
+          if(bw>=300&&bw<=700)body=bw;
+          if(Number.isFinite(bd)&&Math.abs(bd)<=50)bodyDiff=bd;
+        }
+      }
+
+      if(!odds){
+        const om=line.match(/(\d{1,3}(?:\.\d+)?)\s*[（(]\s*(\d{1,2})\s*人気\s*[）)]/);
+        if(om){
+          const o=Number(om[1]),p=Number(om[2]);
+          if(o>=1&&o<=999.9)odds=o;
+          if(p>=1&&p<=18)pop=p;
+        }
+      }
+
+      if(!sex){
+        const sm=line.match(/(?:^|\s)(牡|牝|セ|騸)\s*([2-9]|1[0-2])(?:歳)?/);
+        if(sm){
+          sex=sm[1]==='騸'?'セ':sm[1];
+          age=Number(sm[2]);
+        }
+      }
+
+      if(/初騎乗/.test(line))jockeyFirstRide=true;
+      if(/乗替|乗り替わり|^替/.test(line))jockeyChange=true;
+
+      // Bare current weight; historical block is already cut off.
+      if(!carried){
+        const wm=line.match(/^[△▲☆★◇]?\s*((?:4[8-9]|5\d|6[0-2])(?:\.\d)?)\s*(?:kg)?$/);
+        if(wm){
+          const w=Number(wm[1]);
+          if(w>=48&&w<=62)carried=w;
+        }
+      }
+    }
+
+    // Jockey: look for a name in the few lines just before weight.
+    let wi=-1;
+    for(let i=0;i<lines.length;i++){
+      if(/^[△▲☆★◇]?\s*(?:4[8-9]|5\d|6[0-2])(?:\.\d)?\s*(?:kg)?$/.test(lines[i])){
+        wi=i;break;
+      }
+    }
+    if(wi>=0){
+      for(let i=wi-1;i>=Math.max(0,wi-5);i--){
+        const z=lines[i];
+        if(/初騎乗/.test(z)||/^\d+(?:-\d+){2,3}$/.test(z))continue;
+        const jc=validCurrentJockeyV123(z);
+        if(jc.name){
+          jockey=jc.name;
+          if(jc.change)jockeyChange=true;
+          break;
+        }
+      }
+    }
+
+    if(sire&&damsire)withPed++;
+    if(carried)withWeight++;
+    if(odds)withOdds++;
+    if(jockey)withJockey++;
+
+    out[String(h.no)]={
+      sire,dam,damsire,style,sex,age,body,bodyDiff,odds,pop,
+      jockey,carried,jockeyFirstRide,jockeyChange
+    };
+  }
+
+  return {map:out,matched,withPed,withWeight,withOdds,withJockey};
+}
+
+function applyNetkeibaExactBlocksV125(parsed,result){
+  const map=(result&&result.map)||{};
+  let changed=0;
+  for(const h of (parsed||[])){
+    const p=map[String(h.no)];
+    if(!p)continue;
+    let any=false;
+
+    // Exact newspaper block is the primary truth for current-race information.
+    if(p.sire){h.sire=p.sire;any=true;}
+    if(p.damsire){h.damsire=p.damsire;any=true;}
+    if(p.style){h.style=p.style;any=true;}
+    if(p.sex){h.sex=p.sex;any=true;}
+    if(p.age>=2&&p.age<=12){h.age=p.age;any=true;}
+    if(p.body>=300&&p.body<=700){h.body=p.body;any=true;}
+    if(p.bodyDiff!=null&&Number.isFinite(Number(p.bodyDiff))){h.bodyDiff=Number(p.bodyDiff);any=true;}
+    if(p.odds>=1&&p.odds<=999.9){h.odds=p.odds;any=true;}
+    if(p.pop>=1&&p.pop<=18){h.popularity=p.pop;any=true;}
+    if(p.carried>=48&&p.carried<=62){h.carried=p.carried;any=true;}
+    if(p.jockey){h.jockey=p.jockey;any=true;}
+    if(p.jockeyFirstRide)h.jockeyFirstRide=true;
+    if(p.jockeyChange)h.jockeyChange=true;
+
+    if(any)changed++;
+  }
+  return changed;
+}
+
 function applyNetkeibaPrimaryV111(parsed, primary){
   let changed=0;
   for(const h of (parsed||[])){
@@ -4190,23 +4378,23 @@ function applyNetkeibaPrimaryV111(parsed, primary){
     if(!p)continue;
     let any=false;
 
-    if(['牡','牝','セ'].includes(p.sex)){h.sex=p.sex;any=true;}
-    if(Number(p.age)>=2&&Number(p.age)<=12){h.age=Number(p.age);any=true;}
-    if(Number(p.body)>=300&&Number(p.body)<=700){h.body=Number(p.body);any=true;}
+    if(!h.sex&&['牡','牝','セ'].includes(p.sex)){h.sex=p.sex;any=true;}
+    if(!(Number(h.age)>=2&&Number(h.age)<=12)&&Number(p.age)>=2&&Number(p.age)<=12){h.age=Number(p.age);any=true;}
+    if(!(Number(h.body)>=300&&Number(h.body)<=700)&&Number(p.body)>=300&&Number(p.body)<=700){h.body=Number(p.body);any=true;}
     if(p.bodyDiff!=null&&Number.isFinite(Number(p.bodyDiff))&&Math.abs(Number(p.bodyDiff))<=50){
       h.bodyDiff=Number(p.bodyDiff);any=true;
     }
-    if(Number(p.odds)>=1&&Number(p.odds)<=999.9){h.odds=Number(p.odds);any=true;}
-    if(Number(p.pop)>=1&&Number(p.pop)<=18){h.popularity=Number(p.pop);any=true;}
-    if(Number(p.carried)>=48&&Number(p.carried)<=62){h.carried=Number(p.carried);any=true;}
-    if(p.jockey&&String(p.jockey).length<=24&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(p.jockey))){
+    if(!(Number(h.odds)>=1)&&Number(p.odds)>=1&&Number(p.odds)<=999.9){h.odds=Number(p.odds);any=true;}
+    if(!(Number(h.popularity)>=1)&&Number(p.pop)>=1&&Number(p.pop)<=18){h.popularity=Number(p.pop);any=true;}
+    if(!(Number(h.carried)>=48&&Number(h.carried)<=62)&&Number(p.carried)>=48&&Number(p.carried)<=62){h.carried=Number(p.carried);any=true;}
+    if(!h.jockey&&p.jockey&&String(p.jockey).length<=24&&!/^(?:初騎乗|乗替|乗り替わり|騎手|替|未定)$/.test(String(p.jockey))){
       h.jockey=p.jockey;any=true;
     }
     if(p.jockeyFirstRide)h.jockeyFirstRide=true;
     if(p.jockeyChange)h.jockeyChange=true;
     if(p.style){h.style=p.style;any=true;}
-    if(p.sire){h.sire=p.sire;any=true;}
-    if(p.damsire){h.damsire=p.damsire;any=true;}
+    if(!h.sire&&p.sire){h.sire=p.sire;any=true;}
+    if(!h.damsire&&p.damsire){h.damsire=p.damsire;any=true;}
     if(any)changed++;
   }
   return changed;
@@ -5436,23 +5624,54 @@ function netkeibaRaceIdFromUrlV108(url){
     return /^\d{12}$/.test(id)?id:'';
   }catch(e){return ''}
 }
-async function fetchNetkeibaMasterTextV108(raceId){
-  const master='https://race.sp.netkeiba.com/race/newspaper_master.html?race_id='+raceId+'&rf=rs';
+async function fetchNetkeibaMasterTextV125(raceId){
+  const base='https://race.sp.netkeiba.com/race/newspaper_master.html?race_id='+raceId+'&rf=rs';
   const shell='https://race.sp.netkeiba.com/race/newspaper.html?race_id='+raceId+'&rf=rs';
+  // Important: Jina may keep an old pre-odds snapshot for the canonical URL.
+  // A harmless cache-buster gives the proxy a fresh URL while netkeiba returns the same race.
+  const cb='&_cb='+(Date.now());
+  const fresh=base+cb;
+
   const routes=[
-    {via:'jina-master',url:'https://r.jina.ai/'+master,ms:15000},
-    {via:'allorigins-master',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(master),ms:10000},
-    {via:'direct-master',url:master,ms:8000},
-    {via:'jina-shell',url:'https://r.jina.ai/'+shell,ms:12000}
+    {via:'jina-fresh-master',url:'https://r.jina.ai/'+fresh,ms:15000},
+    {via:'allorigins-fresh-master',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fresh),ms:11000},
+    {via:'jina-master',url:'https://r.jina.ai/'+base,ms:12000},
+    {via:'allorigins-master',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(base),ms:9000},
+    {via:'direct-master',url:base,ms:7000},
+    {via:'jina-shell',url:'https://r.jina.ai/'+shell+cb,ms:11000}
   ];
+
   const errs=[];
+  let fallback=null;
+
   for(const r of routes){
     try{
       const t=await fetchTextTimeoutV63(r.url,r.ms);
-      if(t&&t.length>1000)return {text:t,via:r.via,master,shell};
-      errs.push(r.via+':本文が空です');
-    }catch(e){errs.push(r.via+':'+(e&&e.name==='AbortError'?'timeout':String(e.message||e)))}
+      if(!t||t.length<1000){
+        errs.push(r.via+':本文が空です');
+        continue;
+      }
+
+      const horseMarks=(t.match(/のデータベース/g)||[]).length;
+      const oddsMarks=(t.normalize('NFKC').match(/\d{1,3}(?:\.\d+)?\s*[（(]\s*\d{1,2}\s*人気\s*[）)]/g)||[]).length;
+
+      // Prefer a route that actually contains the runner blocks and current odds.
+      if(horseMarks>=5 && oddsMarks>=Math.min(5,horseMarks)){
+        return {text:t,via:r.via,master:base,shell,horseMarks,oddsMarks,fresh:true};
+      }
+
+      // Keep the first structurally valid page as fallback so import never fails
+      // just because odds are not published yet.
+      if(!fallback && horseMarks>=5){
+        fallback={text:t,via:r.via,master:base,shell,horseMarks,oddsMarks,fresh:false};
+      }
+      errs.push(r.via+':馬DB'+horseMarks+'件/オッズ'+oddsMarks+'件');
+    }catch(e){
+      errs.push(r.via+':'+(e&&e.name==='AbortError'?'timeout':String(e.message||e)));
+    }
   }
+
+  if(fallback)return fallback;
   throw new Error('netkeiba競馬新聞を取得できません: '+errs.join(' / '));
 }
 function frameByNoCountV108(no,n){
@@ -6158,7 +6377,7 @@ async function importFromNetkeibaV108(url){
   if(!raceId)throw new Error('netkeiba競馬新聞URLのrace_idを確認できません');
 
   jraEntryStatus.textContent='① netkeiba競馬新聞を取得中…';
-  const src=await fetchNetkeibaMasterTextV108(raceId);
+  const src=await fetchNetkeibaMasterTextV125(raceId);
   let parsed=parseNetkeibaRunnerListV110(src.text);
   if(parsed.length<5||parsed.length>18){
     const dbMarks=(String(src.text||'').match(/のデータベース/g)||[]).length;
@@ -6166,6 +6385,12 @@ async function importFromNetkeibaV108(url){
   }
 
   jraEntryStatus.textContent='② netkeiba今回情報を解析中…';
+
+  // v125: exact newspaper block parser is first and authoritative.
+  const exactV125=extractNetkeibaExactBlocksV125(src.text,parsed);
+  const exactN=applyNetkeibaExactBlocksV125(parsed,exactV125);
+
+  // Older tolerant parser remains as fallback only.
   const primary=extractNetkeibaPrimaryV123(src.text,parsed);
   const currentN=applyNetkeibaPrimaryV111(parsed,primary);
   const markerV124=extractNetkeibaMarkerOverlayV124(src.text,parsed);
@@ -6285,10 +6510,12 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v124：競馬新聞DBマーカー基準で血統・斤量を確定＋結果表の人気/単勝列からオッズ取得（近走79走維持）</b><br>'+
+    '<b>v125：競馬新聞をキャッシュ回避で最新取得＋1頭DBブロックを直接解析（近走79走維持）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
+    '<b>v125直接解析: DBブロック '+exactV125.matched+'/'+horses.length+' / 血統 '+exactV125.withPed+'/'+horses.length+' / 斤量 '+exactV125.withWeight+'/'+horses.length+' / オッズ '+exactV125.withOdds+'/'+horses.length+' / 騎手 '+exactV125.withJockey+'/'+horses.length+'</b><br>'+
+    '<small>競馬新聞取得経路: '+src.via+' / 本文DB '+(src.horseMarks||0)+'件 / 本文オッズ '+(src.oddsMarks||0)+'件</small><br>'+
     '主取得: netkeiba競馬新聞 / 補完: netkeiba出馬表・馬DB / JRA: 最終補完用<br>'+
     '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
     '<b>血統: '+finalPedN+'/'+horses.length+'頭 / 馬齢: '+finalAgeN+'/'+horses.length+'頭 / 騎手: '+finalJockeyN+'/'+horses.length+'頭 / 過去騎手: '+pastJockeyN+'/'+horses.length+'頭（'+pastJockeyRuns+'走）</b><br>'+
