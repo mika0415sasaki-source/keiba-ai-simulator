@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v108</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v109</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -4858,8 +4858,9 @@ function applyNetkeibaCurrentProfileV105(parsed,nkStyle){
 function isNetkeibaNewspaperUrlV108(url){
   try{
     const u=new URL(String(url||'').trim());
+    const path=String(u.pathname||'').replace(/\/{2,}/g,'/');
     return /(^|\.)netkeiba\.com$/i.test(u.hostname) &&
-      /\/race\/newspaper(?:_master)?\.html$/i.test(u.pathname) &&
+      /\/race\/newspaper(?:_master)?\.html$/i.test(path) &&
       /^\d{12}$/.test(String(u.searchParams.get('race_id')||''));
   }catch(e){return false}
 }
@@ -4901,37 +4902,92 @@ function frameByNoCountV108(no,n){
   }
   return 8;
 }
-function parseNetkeibaRunnerListV108(text){
+function parseNetkeibaRunnerListV109(text){
   const src=String(text||'').normalize('NFKC').replace(/\r/g,'\n');
-  const found=[];
-  const seenId=new Set(), seenName=new Set();
+  const lines=src.split('\n').map(x=>String(x||'').replace(/\s+/g,' ').trim());
+  const found=[], usedNo=new Set(), usedName=new Set();
 
-  // Jina markdown normally keeps each horse name as a link to its horse DB page.
-  const link=/\[([^\]\n]{2,40})\]\((?:https?:\/\/)?(?:db\.)?netkeiba\.com\/horse\/(?:result\/)?(\d{10})\/?\)/g;
-  let m;
-  while((m=link.exec(src))){
-    const name=String(m[1]||'').trim();
-    const id=m[2];
-    if(!name||seenId.has(id)||seenName.has(name))continue;
-    if(/^(?:データベース|騎手|調教師|馬主|生産者|血統|レース結果)$/.test(name))continue;
-
-    const around=src.slice(Math.max(0,m.index-500),Math.min(src.length,m.index+900));
-    if(!/(?:牡|牝|セ|騸)\s*[2-9]|kg|人気|オッズ|斤量/.test(around))continue;
-
-    seenId.add(id);seenName.add(name);
-    found.push({name,id,at:m.index});
-    if(found.length>=18)break;
+  function cleanName(x){
+    return String(x||'')
+      .replace(/^\[[^\]]*\]\s*/,'')
+      .replace(/\s*のデータベース\s*$/,'')
+      .replace(/^\d{1,2}\s+/,'')
+      .trim();
+  }
+  function plausibleName(name){
+    if(!name||name.length<2||name.length>35)return false;
+    if(/^(?:競馬新聞|出馬表|データベース|レース映像|オッズ|予想|調教|厩舎コメント|血統|馬名|チェック|人気|斤量|騎手|走行|タイプ|前走|2走前|3走前|4走前|5走前)$/.test(name))return false;
+    if(/^(?:芝|ダート)\d{3,4}m/.test(name))return false;
+    return /[ぁ-んァ-ヶ一-龠々A-Za-z]/.test(name);
   }
 
-  // Current race list appears in horse-number order in the newspaper.
-  found.sort((a,b)=>a.at-b.at);
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    if(!/のデータベース$/.test(line))continue;
+    const name=cleanName(line);
+    if(!plausibleName(name)||usedName.has(name))continue;
+
+    let no=0;
+    for(let j=i-1;j>=Math.max(0,i-14);j--){
+      const mm=lines[j].match(/^(?:\*\s*)?(\d{1,2})$/);
+      if(mm){
+        const n=+mm[1];
+        if(n>=1&&n<=18&&!usedNo.has(n)){no=n;break;}
+      }
+    }
+    if(!no){
+      for(let n=1;n<=18;n++)if(!usedNo.has(n)){no=n;break;}
+    }
+    if(!no)continue;
+
+    usedNo.add(no);usedName.add(name);
+    found.push({no,name,at:i});
+  }
+
+  const link=/\[([^\]\n]{2,40})\]\((?:https?:\/\/)?(?:db\.|db\.sp\.)?netkeiba\.com\/horse\/(?:result\/)?(\d{10})\/?\)/g;
+  let m;
+  while((m=link.exec(src))){
+    const name=cleanName(m[1]);
+    if(!plausibleName(name)||usedName.has(name))continue;
+    let no=0;
+    const before=src.slice(Math.max(0,m.index-500),m.index);
+    const nums=[...before.matchAll(/(?:^|\n)\s*(\d{1,2})\s*(?:\n|$)/g)];
+    for(let k=nums.length-1;k>=0;k--){
+      const n=+nums[k][1];
+      if(n>=1&&n<=18&&!usedNo.has(n)){no=n;break;}
+    }
+    if(!no)for(let n=1;n<=18;n++)if(!usedNo.has(n)){no=n;break;}
+    if(!no)continue;
+    usedNo.add(no);usedName.add(name);
+    found.push({no,name,horseId:m[2],at:m.index});
+  }
+
+  if(found.length<5){
+    for(let i=0;i<lines.length-1;i++){
+      const mm=lines[i].match(/^(\d{1,2})$/);
+      if(!mm)continue;
+      const no=+mm[1];
+      if(no<1||no>18||usedNo.has(no))continue;
+      for(let j=i+1;j<=Math.min(lines.length-1,i+5);j++){
+        const name=cleanName(lines[j]);
+        if(!plausibleName(name))continue;
+        if(/^\[?Input|^\[?Select/.test(name))continue;
+        usedNo.add(no);usedName.add(name);
+        found.push({no,name,at:i});
+        break;
+      }
+    }
+  }
+
+  found.sort((a,b)=>a.no-b.no);
   const n=found.length;
-  return found.map((x,i)=>({
-    frame:frameByNoCountV108(i+1,n),
-    no:i+1,name:x.name,horseId:x.id,
+  return found.map(x=>({
+    frame:frameByNoCountV108(x.no,n),
+    no:x.no,name:x.name,horseId:x.horseId||'',
     style:'差し',jockey:'',carried:0,body:0,odds:0,runs:[]
   }));
 }
+
 function dateFromNetkeibaTextV108(text){
   const src=String(text||'').normalize('NFKC');
   let m=src.match(/(20\d{2})[\/年.-](\d{1,2})[\/月.-](\d{1,2})日?/);
@@ -4950,8 +5006,11 @@ async function importFromNetkeibaV108(url){
 
   jraEntryStatus.textContent='① netkeiba競馬新聞を取得中…';
   const src=await fetchNetkeibaMasterTextV108(raceId);
-  let parsed=parseNetkeibaRunnerListV108(src.text);
-  if(parsed.length<5||parsed.length>18)throw new Error('出走馬を正しく判定できません（'+parsed.length+'頭）');
+  let parsed=parseNetkeibaRunnerListV109(src.text);
+  if(parsed.length<5||parsed.length>18){
+    const dbMarks=(String(src.text||'').match(/のデータベース/g)||[]).length;
+    throw new Error('出走馬を正しく判定できません（'+parsed.length+'頭 / 馬DB表記 '+dbMarks+'件）。netkeiba本文取得は成功しています。');
+  }
 
   jraEntryStatus.textContent='② netkeiba今回情報を解析中…';
   const primary=extractNetkeibaPrimaryV107(src.text,parsed);
@@ -4995,7 +5054,7 @@ async function importFromNetkeibaV108(url){
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v108：netkeiba競馬新聞URLを直接取込</b><br>'+
+    '<b>v109：netkeiba競馬新聞URLを直接取込</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '主取得: netkeiba競馬新聞 / JRA: 補完用<br>'+
     '近走データ: '+histN+'頭取得（5走取得 '+hist5+'頭）<br>'+
