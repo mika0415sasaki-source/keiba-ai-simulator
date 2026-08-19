@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v133</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v134</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -4990,13 +4990,35 @@ function parseNetkeibaResultPageV74(text, jraUrl){
      const vals=[...line.matchAll(/(?:^|\s)((?:3\d|4[0-9])\.\d)(?=\s|\||$)/g)].map(m=>+m[1]);
      if(vals.length)last3=vals[vals.length-1];
    }
-   const raceName=String(c[4]||'').trim();
-   const classInfoV133=raceClassInfoV133(raceName);
+   // v134: do NOT trust one fixed race-name column.
+   // netkeiba/Jina table shape can shift when optional image/index columns differ.
+   // The full row always contains the class marker somewhere in the race-name cell.
+   let raceName=String(c[4]||'').trim();
+
+   // Prefer whichever early cell actually contains a recognized class marker.
+   let classInfoV134=raceClassInfoV133(raceName);
+   if(!classInfoV134.level){
+     for(const cell of c.slice(0,12)){
+       const ci=raceClassInfoV133(cell);
+       if(ci.level){
+         classInfoV134=ci;
+         if(!raceName || raceClassInfoV133(raceName).level===0)raceName=String(cell||'').trim();
+         break;
+       }
+     }
+   }
+
+   // Final robust fallback: inspect the entire cleaned result row.
+   // Example: パラダイスS(L), 湘南S(3勝クラス), 葵S(GIII).
+   if(!classInfoV134.level){
+     classInfoV134=raceClassInfoV133(line);
+   }
+
    seen.add(date);
    out.push({
      date,pos,dist,surface,going:going||'良',last3:last3===null?34.5:last3,
      corners,jockey,raceName,
-     classLevel:classInfoV133.level,classLabel:classInfoV133.label,
+     classLevel:classInfoV134.level,classLabel:classInfoV134.label,
      source:'netkeiba-db'
    });
    if(out.length>=5)break;
@@ -7572,6 +7594,8 @@ async function importFromNetkeibaV108(url){
   const histN=horses.filter(h=>(h.runs||[]).length>0).length;
   const hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
+  const classKnownRunsV134=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>Number(r.classLevel)>0).length,0);
+  const classKnownHorsesV134=horses.filter(h=>(h.runs||[]).slice(0,5).some(r=>Number(r.classLevel)>0)).length;
   const missing5=horses.filter(h=>(h.runs||[]).length<5).map(h=>h.no+' '+h.name+'('+((h.runs||[]).length)+'走)').join('・');
 
   // v129 final pedigree integrity check.
@@ -7591,9 +7615,10 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v133：過去5走のレース格・相手レベルを評価へ追加（G1/G2/G3/L/OP/条件戦を区別）</b><br>'+
+    '<b>v134：過去走のレース格を固定列ではなく結果1行全体から検出（相手レベル補正を正常化）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
-    '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+'</b><br>'+
+    '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
+    ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
     '<b>v125直接解析: DBブロック '+exactV125.matched+'/'+horses.length+' / 血統 '+exactV125.withPed+'/'+horses.length+' / 斤量 '+exactV125.withWeight+'/'+horses.length+' / オッズ '+exactV125.withOdds+'/'+horses.length+' / 騎手 '+exactV125.withJockey+'/'+horses.length+'</b><br>'+
