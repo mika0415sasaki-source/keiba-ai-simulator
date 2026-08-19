@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v137</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v138</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1684,9 +1684,9 @@ function raceClassInfoV133(name){
   if(/(?:G\s*3|GIII|GⅢ|ＧⅢ|J・?GⅢ)/i.test(s))return {level:7.0,label:'G3'};
   if(/(?:\(\s*L\s*\)|Listed|リステッド)/i.test(s))return {level:6.0,label:'L'};
   if(/(?:\(\s*OP\s*\)|オープン特別|オープン\b|\bOP\b)/i.test(s))return {level:5.5,label:'OP'};
-  if(/(?:3勝クラス|1600万下|1600万)/.test(s))return {level:4.5,label:'3勝'};
-  if(/(?:2勝クラス|1000万下|1000万)/.test(s))return {level:3.5,label:'2勝'};
-  if(/(?:1勝クラス|500万下|500万)/.test(s))return {level:2.5,label:'1勝'};
+  if(/(?:3勝クラス|3歳以上3勝|4歳以上3勝|1600万下|1600万|(?:^|[（(\s])3勝(?:[）)\s]|$))/.test(s))return {level:4.5,label:'3勝'};
+  if(/(?:2勝クラス|3歳以上2勝|4歳以上2勝|1000万下|1000万|(?:^|[（(\s])2勝(?:[）)\s]|$))/.test(s))return {level:3.5,label:'2勝'};
+  if(/(?:1勝クラス|3歳以上1勝|4歳以上1勝|500万下|500万|(?:^|[（(\s])1勝(?:[）)\s]|$))/.test(s))return {level:2.5,label:'1勝'};
   if(/未勝利/.test(s))return {level:1.5,label:'未勝利'};
   if(/(?:新馬|新馬戦)/.test(s))return {level:1.2,label:'新馬'};
   return {level:0,label:'不明'};
@@ -2486,7 +2486,7 @@ E.apply.onclick=()=>{
       h.runs.forEach((r,i)=>{
         const o=(old.runs||[])[i];
         if(!o)return;
-        for(const k of ['date','surface','jockey','raceName','classLevel','classLabel']){
+        for(const k of ['date','surface','jockey','raceName','raceId','classLevel','classLabel','classVia']){
           if(o[k]!=null && o[k]!=='')r[k]=o[k];
         }
       });
@@ -5401,6 +5401,123 @@ function validJockeyNameV114(x){
   return n;
 }
 
+
+function extractPastRaceIdV138(raw){
+  const s=String(raw||'').normalize('NFKC');
+
+  // netkeiba horse-result Markdown race link:
+  // .../race/202508030811/ or result.html?race_id=202508030811
+  let m=s.match(/(?:db\.netkeiba\.com\/race\/|\/race\/)(\d{12})(?:\/|[?#)])/i);
+  if(m)return m[1];
+
+  m=s.match(/[?&]race_id=(\d{12})\b/i);
+  if(m)return m[1];
+
+  return '';
+}
+
+function parsePastRaceClassPageV138(text){
+  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+  const lines=src.split('\n').slice(0,260);
+
+  // A race page represents only one race, so the race title/header area
+  // is safe to inspect for grade/class markers.
+  for(const raw of lines){
+    const line=String(raw||'')
+      .replace(/\*\*/g,'')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+      .replace(/\s+/g,' ')
+      .trim();
+    if(!line)continue;
+
+    const ci=raceClassInfoV133(line);
+    if(ci.level){
+      // Prefer race/header looking lines.
+      if(
+        /^Title\s*:/i.test(line) ||
+        /^#{1,5}\s*/.test(raw) ||
+        /(?:レース|クラス|G1|G2|G3|GI|GII|GIII|GⅠ|GⅡ|GⅢ|L|OP|勝クラス|万下)/i.test(line)
+      ){
+        return {...ci,sourceLine:line};
+      }
+    }
+  }
+
+  // Fallback: first part of a single-race page only.
+  const head=lines.join(' ');
+  const ci=raceClassInfoV133(head);
+  if(ci.level)return {...ci,sourceLine:'page-head'};
+
+  return {level:0,label:'不明',sourceLine:''};
+}
+
+async function resolvePastRaceClassV138(run){
+  if(Number(run&&run.classLevel)>0)return {
+    level:Number(run.classLevel),label:run.classLabel||'不明',via:'already'
+  };
+
+  const fromName=raceClassInfoV133(run&&run.raceName);
+  if(fromName.level)return {...fromName,via:'race-name'};
+
+  const raceId=String((run&&run.raceId)||'').trim();
+  if(!/^\d{12}$/.test(raceId)){
+    return {level:0,label:'不明',via:'no-race-id'};
+  }
+
+  const key='keiba_past_race_class_v138_'+raceId;
+  try{
+    const c=JSON.parse(localStorage.getItem(key)||'null');
+    if(c&&Number(c.level)>0){
+      return {level:Number(c.level),label:c.label||'不明',via:'v138-cache'};
+    }
+  }catch(e){}
+
+  const urls=[
+    'https://r.jina.ai/https://db.netkeiba.com/race/'+raceId+'/',
+    'https://r.jina.ai/https://race.netkeiba.com/race/result.html?race_id='+raceId
+  ];
+
+  for(let i=0;i<urls.length;i++){
+    try{
+      const t=await fetchTextTimeoutV63(urls[i],8500);
+      if(!t||t.length<300)continue;
+
+      const ci=parsePastRaceClassPageV138(t);
+      if(ci.level){
+        const save={level:ci.level,label:ci.label,savedAt:Date.now()};
+        try{localStorage.setItem(key,JSON.stringify(save));}catch(e){}
+        return {...ci,via:i===0?'v138-db-race':'v138-race-result'};
+      }
+    }catch(e){}
+  }
+
+  return {level:0,label:'不明',via:'v138-unresolved'};
+}
+
+async function supplementUnknownRunClassesV138(runs){
+  const unknown=(runs||[]).filter(r=>!Number(r.classLevel));
+  if(!unknown.length)return {attempted:0,filled:0};
+
+  let filled=0;
+  const results=await Promise.all(
+    unknown.map(r=>resolvePastRaceClassV138(r))
+  );
+
+  results.forEach((ci,i)=>{
+    const r=unknown[i];
+    if(ci&&Number(ci.level)>0){
+      r.classLevel=Number(ci.level);
+      r.classLabel=ci.label||'不明';
+      r.classVia=ci.via||'v138';
+      filled++;
+    }else{
+      r.classVia=(ci&&ci.via)||'v138-unresolved';
+    }
+  });
+
+  return {attempted:unknown.length,filled};
+}
+
 function parseHorseResultV118(text){
  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
  const runs=[];
@@ -5509,6 +5626,7 @@ function parseHorseResultV118(text){
    }
 
    const d=String(cells[dateIdx]).replace(/\//g,'-');
+   const pastRaceIdV138=extractPastRaceIdV138(raw);
 
    // v135: THIS is the parser actually used by the current 79-run path.
    // Locate the race-name/class cell between date and distance.
@@ -5545,8 +5663,10 @@ function parseHorseResultV118(text){
    runs.push({
      date:d,pos,last3,dist,surface,going,corners,body,bodyDiff,jockey,course,
      raceName,
+     raceId:pastRaceIdV138,
      classLevel:Number(classInfoV135.level||0),
      classLabel:classInfoV135.label||'不明',
+     classVia:classInfoV135.level?'v135-row':'',
      source:'netkeiba-horse-db-v118'
    });
  }
@@ -5818,6 +5938,10 @@ async function fetchHorseRunsV79(h,raceDate){
    // Newest valid historical race first, including races from prior calendar years.
    runs.sort((a,b)=>(dateKeyV92(b.date)||0)-(dateKeyV92(a.date)||0));
    runs=runs.slice(0,5);
+
+   // v138: only unresolved classes are looked up from their individual race pages.
+   await supplementUnknownRunClassesV138(runs);
+
    if(runs.length)return {
      no:h.no,name:h.name,id:resolved.id,runs,
      sire:h.sire||profile.sire||'',damsire:h.damsire||profile.damsire||'',
@@ -7823,6 +7947,18 @@ async function importFromNetkeibaV108(url){
   const total5=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).length,0);
   const classKnownRunsV134=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>Number(r.classLevel)>0).length,0);
   const classKnownHorsesV134=horses.filter(h=>(h.runs||[]).slice(0,5).some(r=>Number(r.classLevel)>0)).length;
+  const classSupplementedV138=horses.reduce((z,h)=>z+(h.runs||[]).slice(0,5).filter(r=>String(r.classVia||'').startsWith('v138')).length,0);
+  const classUnknownListV138=[];
+  for(const h of horses){
+    for(const r of (h.runs||[]).slice(0,5)){
+      if(!Number(r.classLevel)){
+        classUnknownListV138.push(
+          h.no+' '+h.name+' '+(r.date||'?')+' '+(r.raceName||'レース名不明')+
+          (r.raceId?' ['+r.raceId+']':' [raceIdなし]')
+        );
+      }
+    }
+  }
 
   const classSampleHorseV135=
     horses.find(h=>String(h.name||'').includes('カンシン')) ||
@@ -7855,11 +7991,14 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v137：今回G3/過去格ロジック維持＋血統をVercelで全頭再検証し旧誤キャッシュを無効化</b><br>'+
+    '<b>v138：過去格不明走だけrace_idのレース本体を再照会して79/79を補完</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
-    '<small>今回格取得元: '+currentRaceClassViaV136+'</small><br>'+
+    '<small>今回格取得元: '+currentRaceClassViaV136+' / v138格補完 '+classSupplementedV138+'走</small><br>'+
+    (classUnknownListV138.length
+      ? '<small class="warn">格未取得: '+classUnknownListV138.join('・')+'</small><br>'
+      : '<small class="ok">過去レース格: 全走取得完了</small><br>')+
     '<small>格サンプル: '+classSampleV135+'</small><br>'+
     '斤量 '+finalWeightN+'/'+horses.length+'頭 / 馬体重 '+finalBodyN+'/'+horses.length+'頭 / オッズ '+finalOddsN+'/'+horses.length+'頭<br>'+
     '<b>競馬新聞一次取得: 血統 '+primaryPedN+'/'+horses.length+' / 斤量 '+primaryWeightN+'/'+horses.length+' / 馬体重 '+primaryBodyN+'/'+horses.length+' / オッズ '+primaryOddsN+'/'+horses.length+' / 騎手 '+primaryJockeyN+'/'+horses.length+'</b><br>'+
