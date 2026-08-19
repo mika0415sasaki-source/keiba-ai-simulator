@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v141</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v142</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1967,130 +1967,86 @@ function medianV140(a){
 
 function calibratedWinBundleV140(stats){
   const rows=(stats||[]).map(q=>{
-    const h=horses[q.i];
-    const b=totalBreakdownV86(h);
-
-    // Remove the market factor here so the diagnosis signal is
-    // as independent as possible from the market prior used below.
-    const coreDiagnosis=Number(b.total||0)-Number(b.market||0);
-
+    const h=horses[q.i],b=totalBreakdownV86(h);
     return {
       i:q.i,h,
       simRaw:Math.max(0,Number(q.win||0))/100,
-      coreDiagnosis,
+      coreDiagnosis:Number(b.total||0)-Number(b.market||0),
       classBonus:Number(pastFiveMetricsV81(h).classLevel||0),
       odds:Number(h.odds||0)
     };
   });
 
-  const n=rows.length||1;
-  const eps=1e-7;
+  const n=rows.length||1,eps=1e-7;
 
-  // --- Raw simulation probability, normalized ---
   let simSum=rows.reduce((z,r)=>z+r.simRaw,0);
   if(!(simSum>0))simSum=1;
   rows.forEach(r=>r.pSim=r.simRaw/simSum);
 
-  // --- Diagnosis probability via softmax ---
-  // Temperature prevents tiny diagnosis-score differences from
-  // becoming unrealistically huge probability differences.
-  const maxCore=Math.max(...rows.map(r=>r.coreDiagnosis),0);
-  const diagTemp=5.4;
+  const maxCore=Math.max(...rows.map(r=>r.coreDiagnosis),0),diagTemp=5.4;
   rows.forEach(r=>r.diagWeight=Math.exp((r.coreDiagnosis-maxCore)/diagTemp));
-  let diagSum=rows.reduce((z,r)=>z+r.diagWeight,0)||1;
+  const diagSum=rows.reduce((z,r)=>z+r.diagWeight,0)||1;
   rows.forEach(r=>r.pDiag=r.diagWeight/diagSum);
 
-  // --- Market prior: normalize implied probability to remove overround ---
+  // v142: no fake market. All runners must have valid odds.
   rows.forEach(r=>r.marketRaw=r.odds>0?1/r.odds:0);
+  const marketComplete=rows.length>0&&rows.every(r=>r.marketRaw>0);
   const knownMarketSum=rows.reduce((z,r)=>z+r.marketRaw,0);
   rows.forEach(r=>{
-    r.pMarket=knownMarketSum>0 && r.marketRaw>0
-      ? r.marketRaw/knownMarketSum
-      : 1/n;
+    r.marketComplete=marketComplete;
+    r.pMarket=(marketComplete&&knownMarketSum>0)?r.marketRaw/knownMarketSum:0;
   });
-  let marketSum=rows.reduce((z,r)=>z+r.pMarket,0)||1;
-  rows.forEach(r=>r.pMarket/=marketSum);
 
   const simRank=rankMapV140(rows,r=>r.pSim,true);
   const diagRank=rankMapV140(rows,r=>r.pDiag,true);
-  const marketRank=rankMapV140(rows,r=>r.odds>0?r.odds:99999,false);
+  const marketRank=marketComplete?rankMapV140(rows,r=>r.odds,false):new Map();
   const medianCore=medianV140(rows.map(r=>r.coreDiagnosis));
 
   rows.forEach(r=>{
     r.simRank=simRank.get(r.i)||n;
     r.diagRank=diagRank.get(r.i)||n;
-    r.marketRank=marketRank.get(r.i)||n;
-
-    // Agreement between the race simulation and the independent diagnosis.
-    r.consensus=clampV81(
-      1-Math.abs(r.simRank-r.diagRank)/Math.max(1,n-1),
-      0,1
-    );
-
+    r.marketRank=marketComplete?(marketRank.get(r.i)||n):0;
+    r.consensus=clampV81(1-Math.abs(r.simRank-r.diagRank)/Math.max(1,n-1),0,1);
     r.quality=calibrationDataQualityV140(r.h);
-
-    // Stronger-class evidence lets the model keep more of its own opinion;
-    // sharp class rises make the final probability more conservative.
     r.classTrust=clampV81((r.classBonus+3.2)/5.4,0,1);
+    r.pModel=.46*r.pSim+.54*r.pDiag;
 
-    // The internal model signal intentionally gives diagnosis slightly
-    // more weight than raw Monte-Carlo win frequency.
-    r.pModel=.46*r.pSim + .54*r.pDiag;
+    if(!marketComplete){
+      r.marketGapRatio=0;
+      r.trust=1;
+      r.preCal=r.pModel;
+      return;
+    }
 
-    // Base confidence in the internal model.
-    let trust=
-      .46 +
-      .10*r.quality +
-      .08*r.consensus +
-      .07*r.classTrust;
-
-    // When model and market disagree massively, shrink the edge.
-    // This is the key guardrail against "55倍だからEV 5.4" type explosions.
+    let trust=.46+.10*r.quality+.08*r.consensus+.07*r.classTrust;
     const ratio=(r.pModel+eps)/(r.pMarket+eps);
     r.marketGapRatio=ratio;
     let gapPenalty=Math.min(.22,Math.abs(Math.log(ratio))*.10);
 
-    // High diagnosis + non-negative class evidence earns back part
-    // of the disagreement penalty.
-    if(r.coreDiagnosis>=medianCore+3.5 && r.classBonus>=0){
-      gapPenalty*=.62;
-    }
-
+    if(r.coreDiagnosis>=medianCore+3.5&&r.classBonus>=0)gapPenalty*=.62;
     trust=clampV81(trust-gapPenalty,.34,.70);
 
-    // v141: sharp class rises + long prices need stronger shrinkage.
-    const longshot = r.odds>=30;
-    const extremeLongshot = r.odds>=60;
-    const sharpRise = r.classBonus<=-1.5;
-    const verySharpRise = r.classBonus<=-2.0;
+    const longshot=r.odds>=30,extremeLongshot=r.odds>=60;
+    const sharpRise=r.classBonus<=-1.5,verySharpRise=r.classBonus<=-2.0;
 
-    if(longshot && sharpRise) trust=Math.min(trust,.42);
-    if(extremeLongshot && verySharpRise) trust=Math.min(trust,.34);
+    if(longshot&&sharpRise)trust=Math.min(trust,.42);
+    if(extremeLongshot&&verySharpRise)trust=Math.min(trust,.34);
 
     r.trust=trust;
-
     r.preCal=trust*r.pModel+(1-trust)*r.pMarket;
 
-    // Additional guardrail only for severe longshot + class-rise cases.
-    if(extremeLongshot && verySharpRise){
-      const maxMultiple=2.35;
-      r.preCal=Math.min(r.preCal,r.pMarket*maxMultiple);
-    }else if(longshot && sharpRise){
-      const maxMultiple=3.00;
-      r.preCal=Math.min(r.preCal,r.pMarket*maxMultiple);
-    }
+    if(extremeLongshot&&verySharpRise)r.preCal=Math.min(r.preCal,r.pMarket*2.35);
+    else if(longshot&&sharpRise)r.preCal=Math.min(r.preCal,r.pMarket*3.00);
   });
 
-  // Different trust values make the preliminary sum drift;
-  // renormalize to a proper 100% field probability.
-  let calSum=rows.reduce((z,r)=>z+r.preCal,0)||1;
+  const calSum=rows.reduce((z,r)=>z+r.preCal,0)||1;
   rows.forEach(r=>{
     r.pCal=r.preCal/calSum;
     r.calWin=100*r.pCal;
-    r.marketWin=100*r.pMarket;
+    r.marketWin=r.marketComplete?100*r.pMarket:null;
     r.diagWin=100*r.pDiag;
-    r.rawEv=r.odds>0?r.odds*r.pSim:null;
-    r.ev=r.odds>0?r.odds*r.pCal:null;
+    r.rawEv=(r.marketComplete&&r.odds>0)?r.odds*r.pSim:null;
+    r.ev=(r.marketComplete&&r.odds>0)?r.odds*r.pCal:null;
   });
 
   return new Map(rows.map(r=>[r.i,r]));
@@ -2099,6 +2055,9 @@ function calibratedWinBundleV140(stats){
 function calibrationNoteV140(q){
   const c=q.calibration;
   if(!c)return '';
+  if(!c.marketComplete||c.marketWin==null){
+    return `校正 ${q.calWin.toFixed(1)}% / 生 ${q.win.toFixed(1)}% / 市場 未取得 / 市場校正停止`;
+  }
   const gap=c.marketWin>0?c.calWin/c.marketWin:0;
   return `校正 ${q.calWin.toFixed(1)}% / 生 ${q.win.toFixed(1)}% / 市場 ${c.marketWin.toFixed(1)}% / 信頼 ${(c.trust*100).toFixed(0)}% / 市場比 ${gap.toFixed(2)}倍`;
 }
@@ -2246,6 +2205,9 @@ function renderAISummary(){
     ${fiveBreakdownHtmlV85(q.h)}${totalBreakdownHtmlV86(q.h)}`;
   }).join('');
 
+  const marketReadyV142=r.length>0&&r.every(q=>
+    q.calibration&&q.calibration.marketComplete&&Number(q.h.odds)>=1
+  );
   const value=r.filter(q=>q.ev!=null).sort((a,b)=>b.ev-a.ev);
   const cores=r.map(q=>q.calibration?Number(q.calibration.coreDiagnosis||0):0);
   const medianCore=medianV140(cores);
@@ -2276,6 +2238,13 @@ function renderAISummary(){
 
   let txt=
     `<span style="opacity:.75">校正方式: シミュレーション＋総合診断（市場補正を除外）＋相手レベル＋市場確率。市場との乖離が大きいほど保守化。</span><br><br>`;
+
+  if(!marketReadyV142){
+    E.valueSummary.innerHTML=txt+
+      '<b>オッズ未取得または一部不足のため、妙味・期待値判定を停止しています。</b><br>'+
+      '<span style="opacity:.75">市場確率を均等配分などで仮置きしません。オッズ取得後に自動再計算します。</span>';
+    return;
+  }
 
   if(hole){
     const c=hole.calibration;
@@ -2739,7 +2708,7 @@ function renderStats(){
     '頭<br>'+
     '枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手・血統・馬齢・市場・過去5走・レース格/相手レベルを評価。'+
     'シミュレーションの生勝率はレースシナリオ集計として保持し、馬券期待値には総合診断と市場確率を組み合わせた校正AI勝率を使用します。'+
-    '市場とAIの乖離が極端な場合は自動的に保守化し、さらに30倍以上かつ大幅な格上挑戦では追加縮小します。単に高オッズという理由だけで穴馬判定しません。';
+    '市場とAIの乖離が極端な場合は自動的に保守化し、さらに30倍以上かつ大幅な格上挑戦では追加縮小します。オッズが全頭揃わない場合は市場校正と期待値判定を停止し、仮の市場確率は作りません。';
 
   renderAISummary();
   renderAllFiveBreakdownV85();
@@ -6953,6 +6922,118 @@ function extractResultMarketV124(text,parsed){
 }
 
 
+function raceMarketCacheKeyV142(raceId){
+  return 'keiba_race_market_v142_'+String(raceId||'');
+}
+function loadRaceMarketCacheV142(raceId,raceDate){
+  try{
+    const x=JSON.parse(localStorage.getItem(raceMarketCacheKeyV142(raceId))||'null');
+    if(!x||!x.rows||!x.savedAt)return {};
+    const t=new Date();
+    const todayKey=String(t.getFullYear())+
+      String(t.getMonth()+1).padStart(2,'0')+
+      String(t.getDate()).padStart(2,'0');
+    const pastRace=String(raceDate||'').length===8 && String(raceDate)<todayKey;
+    const age=Date.now()-Number(x.savedAt||0);
+    if(!pastRace && age>10*60*1000)return {};
+    return x.rows||{};
+  }catch(e){ return {}; }
+}
+function applyRaceMarketCacheV142(parsed,map){
+  let filled=0;
+  for(const h of (parsed||[])){
+    if(Number(h.odds)>=1)continue;
+    const p=map&&map[String(h.no)];
+    if(!p||normName(p.name)!==normName(h.name))continue;
+    const o=Number(p.odds||0),pop=Number(p.pop||0);
+    if(o>=1&&o<=999.9){
+      h.odds=o;
+      if(pop>=1&&pop<=18)h.popularity=pop;
+      filled++;
+    }
+  }
+  return filled;
+}
+function saveRaceMarketCacheV142(raceId,parsed){
+  const rows={}; let n=0;
+  for(const h of (parsed||[])){
+    const o=Number(h.odds||0);
+    if(!(o>=1&&o<=999.9))continue;
+    rows[String(h.no)]={name:h.name||'',odds:o,pop:Number(h.popularity||h.pop||0)};
+    n++;
+  }
+  if(!n)return 0;
+  try{
+    localStorage.setItem(raceMarketCacheKeyV142(raceId),JSON.stringify({savedAt:Date.now(),rows}));
+  }catch(e){}
+  return n;
+}
+async function fetchNetkeibaDailyMarketV142(raceDate){
+  const d=String(raceDate||'').replace(/\D/g,'');
+  if(d.length!==8)return {text:'',via:''};
+  const page='https://race.netkeiba.com/top/payback_list.html?kaisai_date='+d;
+  const routes=[
+    {via:'jina-daily-result',url:'https://r.jina.ai/'+page,ms:9000},
+    {via:'allorigins-daily-result',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(page),ms:8000},
+    {via:'direct-daily-result',url:page,ms:6500}
+  ];
+  for(const r of routes){
+    try{
+      const t=await fetchTextTimeoutV63(r.url,r.ms);
+      if(t&&t.length>1000&&/\|/.test(t))return {text:t,via:r.via};
+    }catch(e){}
+  }
+  return {text:'',via:''};
+}
+function extractDailyMarketV142(text,parsed){
+  const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+  const out={};
+  for(const raw of src.split('\n')){
+    if(!raw.includes('|'))continue;
+    const clean=raw
+      .replace(/!\[[^\]]*\]\([^)]+\)/g,' ')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+      .replace(/\*\*/g,' ');
+    const cells=clean.split('|').map(x=>cleanNkCellV121(x));
+
+    for(const h of (parsed||[])){
+      const ni=cells.findIndex(c=>normName(c)===normName(h.name));
+      if(ni<0)continue;
+
+      let bodyIndex=-1,odds=0,pop=0,body=0,bodyDiff=null;
+      for(let k=ni+1;k<Math.min(cells.length,ni+14);k++){
+        const s=String(cells[k]||'').replace(/\s/g,'');
+        const bm=s.match(/^(\d{3})(?:[（(]([+\-−]?\d+)[）)])?$/);
+        if(!bm)continue;
+        const bw=Number(bm[1]);
+        if(bw>=300&&bw<=700){
+          body=bw; bodyIndex=k;
+          if(bm[2]!=null)bodyDiff=Number(String(bm[2]).replace('−','-'));
+          break;
+        }
+      }
+      if(bodyIndex>=0){
+        for(let k=bodyIndex+1;k<Math.min(cells.length,bodyIndex+5);k++){
+          const a=String(cells[k]||'').trim();
+          const o=Number(a.replace(/[^\d.]/g,''));
+          if(/\d+\.\d+/.test(a)&&o>=1&&o<=999.9){
+            odds=o;
+            for(let j=k+1;j<Math.min(cells.length,k+3);j++){
+              const p=Number(String(cells[j]||'').replace(/[^\d]/g,''));
+              if(p>=1&&p<=18){pop=p;break;}
+            }
+            break;
+          }
+        }
+      }
+      if(odds)out[String(h.no)]={odds,pop,body,bodyDiff};
+      break;
+    }
+  }
+  return out;
+}
+
+
 
 function cleanShutubaPlainLineV130(x){
   return String(x||'')
@@ -8220,22 +8301,35 @@ async function importFromNetkeibaV108(url){
     vercelFilled:pedRefreshV137.filled
   };
 
-  // v121: For an already-run test race, archived shutuba may no longer expose odds.
-  // Result page is used only as a fallback for missing market/current fields.
+  // v142 market recovery:
+  // cache -> result page -> daily result list.
   let resultMarketVia='',resultMarketN=0;
+  let marketCacheN=0,dailyMarketN=0,dailyMarketVia='';
+
   if(parsed.some(h=>!(Number(h.odds)>=1))){
-    jraEntryStatus.textContent='④-3 オッズ不足分を結果/出馬表から補完中…';
+    marketCacheN=applyRaceMarketCacheV142(parsed,loadRaceMarketCacheV142(raceId,raceDate));
+  }
+
+  if(parsed.some(h=>!(Number(h.odds)>=1))){
+    jraEntryStatus.textContent='④-3 オッズ不足分を結果ページから補完中…';
     const rm=await fetchNetkeibaResultMarketV121(raceId);
     resultMarketVia=rm.via||'';
     if(rm.text){
-      const marketMap=extractResultMarketV124(rm.text,parsed);
-      resultMarketN=applyNetkeibaMissingCurrentV112(parsed,marketMap);
-
-      // v126: exact-name fallback only for any horse still missing odds.
-      const nameMarketV126=extractMissingMarketByNameV126(rm.text,parsed);
-      resultMarketN+=applyMissingMarketV126(parsed,nameMarketV126);
+      resultMarketN=applyNetkeibaMissingCurrentV112(parsed,extractResultMarketV124(rm.text,parsed));
+      resultMarketN+=applyMissingMarketV126(parsed,extractMissingMarketByNameV126(rm.text,parsed));
     }
   }
+
+  if(parsed.some(h=>!(Number(h.odds)>=1))&&raceDate){
+    jraEntryStatus.textContent='④-4 オッズ不足分を開催日結果一覧から補完中…';
+    const dm=await fetchNetkeibaDailyMarketV142(raceDate);
+    dailyMarketVia=dm.via||'';
+    if(dm.text){
+      dailyMarketN=applyNetkeibaMissingCurrentV112(parsed,extractDailyMarketV142(dm.text,parsed));
+    }
+  }
+
+  const marketCacheSavedV142=saveRaceMarketCacheV142(raceId,parsed);
 
   // Race-course identity can be inferred from race_id. Surface/distance stay on current controls
   // unless the newspaper gives a clear value.
@@ -8307,7 +8401,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v141：一覧と詳細を同一1000回結果へ統一＋大幅格上挑戦の大穴EVを追加保守化</b><br>'+
+    '<b>v142：過去レースのオッズを結果一覧から補完＋オッズ不足時は市場確率を仮置きしない</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
@@ -8327,7 +8421,7 @@ async function importFromNetkeibaV108(url){
     '<small>不足: 斤量 '+(missingWeightV122.length?missingWeightV122.join('・'):'なし')+
     ' / 血統 '+(missingPedV122.length?missingPedV122.join('・'):'なし')+
     ' / オッズ '+(missingOddsV122.length?missingOddsV122.join('・'):'なし')+'</small>'+
-    '<br><small>補完: shutuba本文血統 '+plainPedV130.complete+'/'+plainPedV130.matched+'頭 / 適用 '+plainPedAppliedV130.filled+'頭 / 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / Vercel血統 '+(pedSupplement.vercelFilled||0)+'頭 / v137 live '+(pedRefreshV137.live||0)+'頭 / cache '+(pedRefreshV137.cache||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+'</small>'+
+    '<br><small>補完: shutuba本文血統 '+plainPedV130.complete+'/'+plainPedV130.matched+'頭 / 適用 '+plainPedAppliedV130.filled+'頭 / 血統不正値除去 '+invalidPedClearedV129+'件 / 騎手基準斤量 '+weightNearJockeyN+'頭 / 新聞DBマーカー '+markerN+'頭 / 新聞血統 '+masterPedN+'頭 / shutuba血統 '+shutubaPedN+'頭 / pipe血統 '+pipePedV126.pedN+'/'+pipePedV126.matched+'頭 / 今回欄 '+supplementN+'頭 / 表構造補完 '+shutubaStructN+'頭 / 出馬表 '+(shutuba.via||'取得失敗')+' / 血統DB補完 '+pedSupplement.filled+'/'+pedSupplement.attempted+'頭 / Vercel血統 '+(pedSupplement.vercelFilled||0)+'頭 / v137 live '+(pedRefreshV137.live||0)+'頭 / cache '+(pedRefreshV137.cache||0)+'頭 / 血統error '+(pedSupplement.errors||0)+'頭 / 市場補完 '+resultMarketN+'頭 '+(resultMarketVia||'')+' / 市場cache '+marketCacheN+'頭 / 開催日結果 '+dailyMarketN+'頭 '+(dailyMarketVia||'')+' / 市場cache保存 '+marketCacheSavedV142+'頭</small>'+
     (missing5?'<br><span class="warn">5走未満: '+missing5+'</span>':'')+
     (nkPast.error?'<br><span class="warn">'+nkPast.error+'</span>':'')+
     '<br><small>race_id '+raceId+' / 経路 '+src.via+'</small>';
