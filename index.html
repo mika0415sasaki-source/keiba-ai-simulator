@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v165</title>
+<title>KEIBA AI Simulator v166</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v165 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v166 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -21,12 +21,14 @@
       src=src.replace(oldText,newText);
     }
 
+    // v164: 3連複フォーメーションを表示どおり全点生成。
     required(
       'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28',
       'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),Infinity',
       'trifecta full formation'
     );
 
+    // v164: 妙味判定の基準外理由を数値で表示。
     const valueAnchor=[
       'best.calibration.coreDiagnosis>=medianCore-1.0;',
       '',
@@ -56,6 +58,8 @@
       'value exclusion reason'
     );
 
+    // v165: netkeiba出馬表で「枠順が本当に掲載されている」証拠を確認。
+    // 仮の馬番→自動枠換算は表示用に残すが、採点には使わない。
     required(
       "const raceDate=targetRaceDateV118(raceId,src.text,shutuba.text||'');",
       [
@@ -76,24 +80,36 @@
       'frame confirmation'
     );
 
+    // v166: 後続の補完処理で馬オブジェクトが作り直されても、枠確定状態を最終parsedへ再付与。
+    required(
+      "setCurrentRaceContextV152(raceId,raceDate,raceMetaV147);\n\n  E.bulk.value=compactHorseCsv(parsed);\n  horses=parsed.slice(0,18).filter(h=>h&&h.name);",
+      "setCurrentRaceContextV152(raceId,raceDate,raceMetaV147);\n\n  (parsed||[]).forEach(h=>{h.frameConfirmedV165=frameConfirmedV165;});\n  window.__keibaFrameConfirmedV166=frameConfirmedV165;\n  E.bulk.value=compactHorseCsv(parsed);\n  horses=parsed.slice(0,18).filter(h=>h&&h.name);",
+      'final frame-state propagation'
+    );
+
+    // v165: 枠未確定ならシミュレーションのランダム内外バイアスも停止。
     required(
       "const frame=Number(h.frame||1);\n  const frameNorm=(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
-      "const frame=Number(h.frame||1);\n  const frameNorm=(h&&h.frameConfirmedV165===false)?0:(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
+      "const frame=Number(h.frame||1);\n  const frameNorm=((h&&h.frameConfirmedV165===false)||((!h||h.frameConfirmedV165!==true)&&window.__keibaFrameConfirmedV166===false))?0:(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
       'simulation frame bias'
     );
 
+    // v165: コース専用補正内の内/外枠項目も、未確定時だけ無効化。
     required(
       "const f=Number(h&&h.frame||1);\n  const inside=f<=3, outer=f>=6;",
-      "const f=Number(h&&h.frame||1);\n  const frameKnownV165=!(h&&h.frameConfirmedV165===false);\n  const inside=frameKnownV165&&f<=3, outer=frameKnownV165&&f>=6;",
+      "const f=Number(h&&h.frame||1);\n  const frameKnownV165=!((h&&h.frameConfirmedV165===false)||((!h||h.frameConfirmedV165!==true)&&window.__keibaFrameConfirmedV166===false));\n  const inside=frameKnownV165&&f<=3, outer=frameKnownV165&&f>=6;",
       'course frame bias'
     );
 
+    // v165: 手動で枠を変更した場合は、その入力を確定枠として扱う。
     required(
       "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   lastStats=null;renderStats();draw();",
       "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   if(k==='frame')h.frameConfirmedV165=true;\n   lastStats=null;renderStats();draw();",
       'manual frame confirmation'
     );
 
+    // v165: 近5走が不足した馬の校正勝率は、データ量に応じてフィールド平均へ縮小。
+    // 0走=35%, 1走=48%, 2走=61%, 3走=74%, 4走=87%, 5走=100%の履歴信頼度。
     required(
       "if(extremeLongshot&&verySharpRise)r.preCal=Math.min(r.preCal,r.pMarket*2.35);\n    else if(longshot&&sharpRise)r.preCal=Math.min(r.preCal,r.pMarket*3.00);\n  });",
       [
@@ -115,24 +131,30 @@
       'history confidence shrink'
     );
 
+    // v165: 診断欄にも枠確定状態を表示。
     required(
       "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '",
       "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 枠順: '+(frameConfirmedV165?'確定・枠補正ON':'未確定・枠補正OFF')+' / 馬場方針: '",
       'frame status diagnostic'
     );
 
+    // v165の更新内容を取込診断の先頭へ表示。
     required(
       "'<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
-      "'<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
+      "'<b>v166：枠未確定フラグを最終出走馬へ再付与し、補完処理後に枠補正が復活する不具合を修正。</b><br>'+\n    '<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
       'v165 changelog'
     );
 
+    // v165 runtime hooks:
+    // 1) 枠補正0.0
+    // 2) 近5走の不足馬だけ自動再試行
+    // 3) AI表示に履歴信頼度を明示
     const runtimeV165=[
       '',
       '// ---- v165 runtime hooks ----',
       'const __frameDetailV89_v165=frameDetailV89;',
       'frameDetailV89=function(h){',
-      "  if(h&&h.frameConfirmedV165===false)return {bonus:0,reason:'枠順未確定のため評価対象外（枠補正0.0）'};",
+      "  if((h&&h.frameConfirmedV165===false)||((!h||h.frameConfirmedV165!==true)&&window.__keibaFrameConfirmedV166===false))return {bonus:0,reason:'枠順未確定のため評価対象外（枠補正0.0）'};",
       '  return __frameDetailV89_v165(h);',
       '};',
       '',
@@ -161,12 +183,12 @@
       '  if(second){',
       "    for(const key of ['byNo','historyByNo']){",
       '      const a=first[key],b=second[key];',
-      "      if(a&&b&&typeof b.forEach==='function')b.forEach((v,k)=>{",
+      '      if(a&&b&&typeof b.forEach===\'function\')b.forEach((v,k)=>{',
       '        const old=a.get(k)||[];',
       '        if((v||[]).length>old.length)a.set(k,v);',
       '      });',
       '    }',
-      "    if(first.pedByNo&&second.pedByNo&&typeof second.pedByNo.forEach==='function')second.pedByNo.forEach((v,k)=>{",
+      '    if(first.pedByNo&&second.pedByNo&&typeof second.pedByNo.forEach===\'function\')second.pedByNo.forEach((v,k)=>{',
       '      const old=first.pedByNo.get(k)||{};',
       "      first.pedByNo.set(k,{sire:old.sire||v.sire||'',damsire:old.damsire||v.damsire||'',sex:old.sex||v.sex||'',age:Number(old.age||v.age||0),via:old.via||v.via||''});",
       '    });',
@@ -182,7 +204,7 @@
       '    if(rs.length>oldN)first.retryRecovered++;',
       '    if(oldN<5&&rs.length>=5)first.retryCompleted++;',
       '  }',
-      "  first.withPed=first.pedByNo&&typeof first.pedByNo.forEach==='function'?Array.from(first.pedByNo.values()).filter(v=>v&&(v.sire||v.damsire)).length:(first.withPed||0);",
+      '  first.withPed=first.pedByNo&&typeof first.pedByNo.forEach===\'function\'?Array.from(first.pedByNo.values()).filter(v=>v&&(v.sire||v.damsire)).length:(first.withPed||0);',
       '  const still=all.filter(h=>((first.byNo&&first.byNo.get(String(h.no)))||[]).length<5);',
       "  first.via=(first.via||'newspaper-id>horse-db-v118')+' / v165-retry '+first.retryRecovered+'/'+first.retryAttempted+'改善';",
       "  first.error=still.length?'5走未満/未取得: '+still.map(h=>{const n=((first.byNo&&first.byNo.get(String(h.no)))||[]).length;return h.no+' '+h.name+'('+n+'走・再試行済)';}).join('・'):'';",
@@ -196,14 +218,14 @@
     if(closeScript<0)throw new Error('main script end not found');
     src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);
 
-    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v165</h1>');
-    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v165</title>');
+    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v166</h1>');
+    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v166</title>');
 
     document.open();
     document.write(src);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v165の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v166の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
