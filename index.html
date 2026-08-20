@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v154</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v155</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -3187,6 +3187,75 @@ function paceStaticAdjV147(style,pace){
   return 0;
 }
 
+function courseProfileV155(){
+  const course=String(E.course&&E.course.value||'');
+  const surface=String(E.surface&&E.surface.value||'');
+  const d=Number(E.distance&&E.distance.value||0);
+  if(course!=='福島競馬場')return {active:false,label:'標準',note:'専用補正なし'};
+
+  if(surface==='芝'){
+    if(d===1200)return {active:true,label:'福島芝1200m',note:'直線300m・小回り。前目の位置取りを重視しつつ、開催後半の差し余地を残すため補正は小幅。'};
+    if(d===1800)return {active:true,label:'福島芝1800m',note:'直線300m・小回り。内前のロスの少なさと好位差しを小幅評価。'};
+    if(d===2000)return {active:true,label:'福島芝2000m',note:'1角まで約505mで序盤の枠差は限定的。小回り対応・好位差し・持続力を小幅評価。'};
+    if(d===2600)return {active:true,label:'福島芝2600m',note:'1角まで約210m。内枠とスタミナを重視し、外枠の距離損を小幅減点。'};
+  }
+  if(surface==='ダート'){
+    if(d===1150)return {active:true,label:'福島ダ1150m',note:'芝スタート・外枠有利傾向。短い直線と急コーナーを踏まえ、先行力とスピードを小幅評価。'};
+    if(d===1700)return {active:true,label:'福島ダ1700m',note:'オールダート・直線296m・急コーナー。先行持続力とパワー/スタミナを小幅評価。'};
+    if(d===2400)return {active:true,label:'福島ダ2400m',note:'オールダートの長距離。急コーナー対応に加え、スタミナと持続力を小幅評価。'};
+  }
+  return {active:true,label:'福島',note:'距離別専用補正の対象外'};
+}
+
+function courseSpecificDetailV155(h){
+  const p=courseProfileV155();
+  if(!p.active)return {bonus:0,reason:p.note};
+  const surface=String(E.surface&&E.surface.value||'');
+  const d=Number(E.distance&&E.distance.value||0);
+  const style=String(h&&h.style||'差し');
+  const f=Number(h&&h.frame||1);
+  const inside=f<=3, outer=f>=6;
+  const sp=Number(h&&h.sp||80), st=Number(h&&h.st||80), pw=Number(h&&h.pw||80);
+  let z=0;
+
+  // User-supplied Fukushima course notes are applied conservatively.
+  // This factor is deliberately small so course geometry cannot overpower base ability / recent form.
+  if(surface==='芝'){
+    if(d===1200){
+      if(style==='逃げ')z+=0.45; else if(style==='先行')z+=0.35; else if(style==='追込')z-=0.20;
+      if(inside)z+=0.18; else if(outer)z-=0.08;
+      z+=clampV81((sp-80)*0.025,-0.22,0.22);
+    }else if(d===1800){
+      if(style==='逃げ')z+=0.25; else if(style==='先行')z+=0.30; else if(style==='差し')z+=0.10; else z-=0.10;
+      if(inside)z+=0.18; else if(outer)z-=0.08;
+      z+=clampV81((pw-80)*0.018,-0.16,0.16);
+    }else if(d===2000){
+      if(style==='先行')z+=0.20; else if(style==='差し')z+=0.12; else if(style==='追込')z-=0.08;
+      if(inside)z+=0.10; else if(outer)z-=0.04;
+      z+=clampV81((st-80)*0.022+(pw-80)*0.012,-0.24,0.24);
+    }else if(d===2600){
+      if(inside)z+=0.28; else if(outer)z-=0.24;
+      z+=clampV81((st-80)*0.045,-0.42,0.42);
+      if(style==='先行'||style==='差し')z+=0.10;
+    }
+  }else if(surface==='ダート'){
+    if(d===1150){
+      if(outer)z+=0.28; else if(inside)z-=0.08;
+      if(style==='逃げ')z+=0.38; else if(style==='先行')z+=0.30; else if(style==='追込')z-=0.18;
+      z+=clampV81((sp-80)*0.030,-0.26,0.26);
+    }else if(d===1700){
+      if(style==='逃げ')z+=0.12; else if(style==='先行')z+=0.28; else if(style==='追込')z-=0.12;
+      z+=clampV81((pw-80)*0.025+(st-80)*0.020,-0.34,0.34);
+    }else if(d===2400){
+      z+=clampV81((st-80)*0.050+(pw-80)*0.012,-0.48,0.48);
+      if(style==='先行'||style==='差し')z+=0.08;
+    }
+  }
+  z=clampV81(z,-1.20,1.20);
+  return {bonus:z,reason:p.label+'：'+p.note};
+}
+function courseSpecificFitV155(h){return courseSpecificDetailV155(h).bonus;}
+
 function paceStyleDiagnosticV147(){
   const pd=autoPaceDetail();
   const p=paceName();
@@ -3240,6 +3309,7 @@ function totalBreakdownV86(h){
   const market=Number(marketFitV101(h)||0);
   const jockey=Number(jockeyFitV115(h)||0);
   const memory=Number(memoryBonus(h)||0)*0.70;
+  const courseSpecific=Number(courseSpecificFitV155(h)||0);
 
   // Recent-five evidence gets more influence, but still cannot overwhelm the model.
   const p5 = pastFiveMetricsV81(h);
@@ -3253,7 +3323,7 @@ function totalBreakdownV86(h){
   const stabilityExtra = Math.max(-1.2, Math.min(1.2, Number(p5.stability||0)*0.45));
 
   const total =
-    base + paceAdj + goingAdj + distance + frame + weight + body + blood + age + market + jockey + memory +
+    base + paceAdj + goingAdj + distance + frame + weight + body + blood + age + market + jockey + memory + courseSpecific +
     past5 + last3Extra + trendExtra + distExtra + stabilityExtra;
 
   return {
@@ -3273,6 +3343,7 @@ function totalBreakdownV86(h){
     market,
     jockey,
     memory,
+    courseSpecific,
     past5,
     last3Extra,
     trendExtra,
@@ -3294,6 +3365,7 @@ function totalBreakdownTextV86(h){
     `騎手 ${signedV85(b.jockey)}（${jockeyDetailV115(h).status}）`,
     `馬場 ${signedV85(b.going)}`,
     `脚質×ペース ${signedV85(b.pace)}`,
+    `コース特性 ${signedV85(b.courseSpecific)}`,
     `5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)}→反映 ${signedV85(b.past5)}`,
     `上がり補正 ${signedV85(b.last3Extra)}`,
     `傾向補正 ${signedV85(b.trendExtra)}`,
@@ -3309,6 +3381,7 @@ function totalBreakdownHtmlV86(h){
     基礎 ${signedV85(b.base)}　距離 ${signedV85(b.distance)}　枠 ${signedV85(b.frame)}　斤量 ${signedV85(b.weight)}<br>
     <span style="opacity:.72">枠理由: ${frameDetailV89(h).reason}</span><br>
     馬体 ${bodyDetailV89(h).available?signedV85(b.body):'未発表'}　馬場 ${signedV85(b.going)}　脚質×ペース ${signedV85(b.pace)}<br>
+    コース特性 ${signedV85(b.courseSpecific)}　<span style="opacity:.72">${courseSpecificDetailV155(h).reason}</span><br>
     <span style="opacity:.72">馬体理由: ${bodyDetailV89(h).reason}</span><br>
     血統 ${signedV85(b.blood)}　<span style="opacity:.72">血統理由: ${bloodDetailV94(h).reason}</span><br>
     馬齢 ${h.age?`${h.age}歳 ${signedV85(b.age)}`:'未取得'}　<span style="opacity:.72">馬齢理由: ${ageDetailV99(h).reason}</span><br>
@@ -3457,7 +3530,8 @@ function renderStats(){
     '頭 / 追込 '+horses.filter(h=>h.style==='追込').length+
     '頭<br><b>展開補正診断: '+pdiagV146.level+'</b>（脚質間差 '+pdiagV146.spread.toFixed(1)+'pt'+pdiagV146.scoreText+'）'+
     '<br><span style="opacity:.78">基準補正: '+pdiagV146.detail+'</span><br>'+ 
-    '枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手・血統・馬齢・市場・過去5走・レース格/相手レベルを評価。'+
+    (courseProfileV155().active?'<b>コース特性: '+courseProfileV155().label+'</b><br><span style="opacity:.78">'+courseProfileV155().note+'</span><br>':'')+
+    '枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手・血統・馬齢・市場・過去5走・レース格/相手レベル・コース特性を評価。'+
     'シミュレーションの生勝率はレースシナリオ集計として保持し、馬券期待値には総合診断と市場確率を組み合わせた校正AI勝率を使用します。'+
     '市場とAIの乖離が極端な場合は自動的に保守化し、さらに30倍以上かつ大幅な格上挑戦では追加縮小します。オッズが全頭揃わない場合は市場校正と期待値判定を停止し、仮の市場確率は作りません。';
 
@@ -9419,6 +9493,8 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
+    '<b>v155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
+    '<small>短い直線・小回り・1角までの距離・内外枠・芝スタート・スタミナ/持続力を距離別に評価（最大±1.2pt）</small><br>'+
     '<b>v152：同一race_idの結果学習をそのレース自身の予測から完全除外（結果は次回以降だけ使用）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     (migratedSameRaceV152?'<small class="ok">同一レース学習ID移行 '+migratedSameRaceV152+'件 → 今回予測から除外</small><br>':'')+
