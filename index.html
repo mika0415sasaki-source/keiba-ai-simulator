@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v151</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v152</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -91,6 +91,7 @@ const C={
 const FC={1:['#fff','#111'],2:['#222','#fff'],3:['#e53935','#fff'],4:['#1976d2','#fff'],5:['#fdd835','#111'],6:['#2e7d32','#fff'],7:['#ef6c00','#fff'],8:['#ec407a','#fff']};
 let horses=[],mode='2d',running=false,progress=0,lastTs=0,raf=0,finishTimes=[],raceOrder=[],startReaction=[],lastStats=null;
 let simulationRunSeqV83=0,lastSimulationCountV83=0,lastSimulationLabelV83='未実行';
+let currentRaceContextV152={raceId:'',date:'',course:'',surface:'',distance:0,raceNo:0};
 const ctx=E.canvas.getContext('2d');
 
 const MEMKEY='keiba_ai_memory_v19';
@@ -136,22 +137,112 @@ function profileBonus(st){
  const confidence=st.n/(st.n+4);
  return raw*confidence;
 }
+function normalizeRaceDateV152(v){
+ return String(v||'').replace(/\D/g,'').slice(0,8);
+}
+function normalizeCourseV152(v){
+ return String(v||'').replace(/競馬場/g,'').replace(/\s+/g,'').trim();
+}
+function setCurrentRaceContextV152(raceId,raceDate,meta={}){
+ const rid=String(raceId||'').trim();
+ currentRaceContextV152={
+   raceId:rid,
+   date:normalizeRaceDateV152(raceDate||meta.date||''),
+   course:String(meta.course||E.course.value||''),
+   surface:String(meta.surface||E.surface.value||''),
+   distance:Number(meta.distance||E.distance.value||0),
+   raceNo:/^\d{12}$/.test(rid)?Number(rid.slice(-2)):Number(meta.raceNo||0)
+ };
+}
+function learnedResultIsCurrentRaceV152(x){
+ const c=currentRaceContextV152||{};
+ if(!x||!c.raceId)return false;
+ if(x.raceId&&String(x.raceId)===String(c.raceId))return true;
+ const xd=normalizeRaceDateV152(x.date);
+ const cd=normalizeRaceDateV152(c.date);
+ const xc=normalizeCourseV152(x.course);
+ const cc=normalizeCourseV152(c.course);
+ const xr=Number(x.raceNo||0),cr=Number(c.raceNo||0);
+ // Strong signature only: calendar date + course + race number.
+ // This avoids excluding a different race merely because conditions match.
+ return !!(xd&&cd&&xd===cd&&xc&&cc&&xc===cc&&xr&&cr&&xr===cr);
+}
+function learnedStatV152(rows){
+ const st={n:0,sum:0,top3:0,wins:0};
+ for(const x of rows||[]){
+   const pos=Number(x&&x.pos||0);
+   if(!(pos>=1&&pos<=18))continue;
+   st.n++;st.sum+=pos;if(pos<=3)st.top3++;if(pos===1)st.wins++;
+ }
+ return st.n?st:null;
+}
 function memoryDetailV87(h){
  const m=loadMem()[normName(h.name)];
- if(!m)return {bonus:0,course:0,going:0,distance:0,nCourse:0,nGoing:0,nDistance:0};
- const p=ensureProfile(m);
- const c=p.course[E.course.value+'|'+E.surface.value];
- const g=p.going[E.going.value];
- const d=p.distance[distBucket(E.distance.value)];
- const cb=profileBonus(c),gb=profileBonus(g),db=profileBonus(d);
+ if(!m)return {bonus:0,course:0,going:0,distance:0,nCourse:0,nGoing:0,nDistance:0,excludedSame:0};
 
- // Correlated dimensions are blended instead of simply added.
+ const learned=Array.isArray(m.learnedResults)?m.learnedResults.filter(Boolean):[];
+ let c=null,g=null,d=null,excludedSame=0;
+
+ if(learned.length){
+   excludedSame=learned.filter(learnedResultIsCurrentRaceV152).length;
+   const usable=learned.filter(x=>!learnedResultIsCurrentRaceV152(x));
+   c=learnedStatV152(usable.filter(x=>
+     normalizeCourseV152(x.course)===normalizeCourseV152(E.course.value) &&
+     String(x.surface||'')===String(E.surface.value||'')
+   ));
+   g=learnedStatV152(usable.filter(x=>String(x.going||'')===String(E.going.value||'')));
+   d=learnedStatV152(usable.filter(x=>distBucket(Number(x.distance||0))===distBucket(E.distance.value)));
+ }else{
+   // Legacy/manual learning had only aggregated profile data.
+   // Keep it only when no per-race result records exist.
+   const p=ensureProfile(m);
+   c=p.course[E.course.value+'|'+E.surface.value];
+   g=p.going[E.going.value];
+   d=p.distance[distBucket(E.distance.value)];
+ }
+
+ const cb=profileBonus(c),gb=profileBonus(g),db=profileBonus(d);
  const bonus=Math.max(-3,Math.min(3,cb*.40+gb*.25+db*.35));
  return {
    bonus,course:cb,going:gb,distance:db,
-   nCourse:c?.n||0,nGoing:g?.n||0,nDistance:d?.n||0
+   nCourse:c?.n||0,nGoing:g?.n||0,nDistance:d?.n||0,
+   excludedSame
  };
 }
+
+function migrateCurrentRaceResultIdsV152(){
+ const c=currentRaceContextV152||{};
+ if(!c.raceId||!horses.length)return 0;
+ const mem=loadMem(),counts=new Map();
+ for(const h of horses){
+   const m=mem[normName(h.name)];
+   for(const x of (m&&Array.isArray(m.learnedResults)?m.learnedResults:[])){
+     if(!x||x.raceId||!x.raceKey)continue;
+     // Conditions must agree with the currently loaded race.
+     if(normalizeCourseV152(x.course)!==normalizeCourseV152(c.course))continue;
+     if(String(x.surface||'')!==String(c.surface||''))continue;
+     if(Number(x.distance||0)!==Number(c.distance||0))continue;
+     counts.set(x.raceKey,(counts.get(x.raceKey)||0)+1);
+   }
+ }
+ const threshold=Math.min(horses.length,Math.max(3,Math.ceil(horses.length*.60)));
+ const sameKeys=new Set([...counts.entries()].filter(([_,n])=>n>=threshold).map(([k])=>k));
+ if(!sameKeys.size)return 0;
+ let changed=0;
+ for(const h of horses){
+   const m=mem[normName(h.name)];
+   if(!m||!Array.isArray(m.learnedResults))continue;
+   for(const x of m.learnedResults){
+     if(x&&!x.raceId&&sameKeys.has(x.raceKey)){
+       x.raceId=c.raceId;
+       changed++;
+     }
+   }
+ }
+ if(changed)saveMemObject(mem);
+ return changed;
+}
+
 function memoryBonus(h){
  return memoryDetailV87(h).bonus;
 }
@@ -405,8 +496,17 @@ function learnParsedResult(rows,meta={},resultUrl=''){
    if(course&&surface)addProfile(p.course,course+'|'+surface,row.pos);
    if(going)addProfile(p.going,going,row.pos);
    if(distance)addProfile(p.distance,distBucket(distance),row.pos);
+   const fullCurrentFieldV152=!!(currentRaceContextV152&&currentRaceContextV152.raceId&&
+     matched.matches.length===horses.length&&rows.length===horses.length);
+   const strongMetaMatchV152=!!(currentRaceContextV152&&currentRaceContextV152.raceId&&
+     normalizeRaceDateV152(meta.date)&&normalizeRaceDateV152(currentRaceContextV152.date)&&
+     normalizeRaceDateV152(meta.date)===normalizeRaceDateV152(currentRaceContextV152.date)&&
+     normalizeCourseV152(meta.course)===normalizeCourseV152(currentRaceContextV152.course)&&
+     Number(meta.raceNo||0)===Number(currentRaceContextV152.raceNo||0));
+   const learnedRaceIdV152=(fullCurrentFieldV152||strongMetaMatchV152)
+       ? currentRaceContextV152.raceId : '';
    m.learnedResults.push({
-     raceKey,date:meta.date||'',raceName:meta.raceName||'',raceNo:Number(meta.raceNo||0),
+     raceKey,raceId:learnedRaceIdV152,date:meta.date||'',raceName:meta.raceName||'',raceNo:Number(meta.raceNo||0),
      classLevel:Number(meta.classLevel||0),classLabel:meta.classLabel||'不明',
      course,surface,distance,going,pos:Number(row.pos),no:String(row.no||''),
      last3:Number(row.last3||0)||0,body:Number(row.body||0)||0,jockey:row.jockey||'',
@@ -2973,7 +3073,7 @@ function totalBreakdownTextV86(h){
     `傾向補正 ${signedV85(b.trendExtra)}`,
     `距離履歴 ${signedV85(b.distExtra)}`,
     `安定補正 ${signedV85(b.stabilityExtra)}`,
-    `学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`(${n}件)` : ''})()}`
+    `学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`(${n}件)`:(m.excludedSame?`(同一レース${m.excludedSame}件除外)`:``)})()}`
   ].join(' / ');
 }
 function totalBreakdownHtmlV86(h){
@@ -2991,7 +3091,7 @@ function totalBreakdownHtmlV86(h){
     <span style="opacity:.65">騎手内訳: 継続 ${signedV85(jockeyDetailV115(h).continuity)} / 同馬相性 ${signedV85(jockeyDetailV115(h).combo)} / 条件適性 ${signedV85(jockeyDetailV115(h).condition)} / 乗替比較 ${signedV85(jockeyDetailV115(h).change)}</span><br>
     5走評価 ${signedV85(pastFiveMetricsV81(h).bonus||0)} → 最終反映 ${signedV85(b.past5)}　上がり補正 ${signedV85(b.last3Extra)}　傾向補正 ${signedV85(b.trendExtra)}<br>
     <span style="opacity:.72">相手レベル ${signedV85(pastFiveMetricsV81(h).classLevel||0)}：${pastFiveMetricsV81(h).classReason||'未取得'}</span><br>
-    距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:''})()}
+    距離履歴 ${signedV85(b.distExtra)}　安定補正 ${signedV85(b.stabilityExtra)}　学習 ${signedV85(b.memory)}${(()=>{const m=memoryDetailV87(h);const n=Math.max(m.nCourse,m.nGoing,m.nDistance);return n?`（最大${n}件）`:(m.excludedSame?`（同一レース${m.excludedSame}件を除外）`:'')})()}
   </div>`;
 }
 
@@ -9032,9 +9132,16 @@ async function importFromNetkeibaV108(url){
   const raceMetaV147=resolvedMetaV147.meta||{};
   const raceMetaAppliedV147=resolvedMetaV147.applied||{};
 
+  // v152: remember exactly which race is being predicted.
+  // JRA result learning for this same race is stored for the future,
+  // but excluded from this race's own scoring.
+  setCurrentRaceContextV152(raceId,raceDate,raceMetaV147);
+
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name);
-  horses.forEach(rememberHorse);updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
+  horses.forEach(rememberHorse);
+  const migratedSameRaceV152=migrateCurrentRaceResultIdsV152();
+  updateMemoryCount();lastStats=null;renderRunners();renderStats();draw();
 
   const histN=horses.filter(h=>(h.runs||[]).length>0).length;
   const hist5=horses.filter(h=>(h.runs||[]).length>=5).length;
@@ -9086,8 +9193,9 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v150：JRA確定結果URLから実着順を取込み・重複防止・次回以降へ学習（v149予測ロジックは維持）</b><br>'+
+    '<b>v152：同一race_idの結果学習をそのレース自身の予測から完全除外（結果は次回以降だけ使用）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
+    (migratedSameRaceV152?'<small class="ok">同一レース学習ID移行 '+migratedSameRaceV152+'件 → 今回予測から除外</small><br>':'')+
     '<b>条件自動反映: '+(raceMetaV147.course||'競馬場未取得')+' / '+(raceMetaV147.surface||'芝ダ未取得')+' '+(raceMetaV147.distance?(raceMetaV147.distance+'m'):'距離未取得')+' / 馬場 '+(raceMetaAppliedV147.goingAuto?(E.going.value+'（当日自動）'):(E.going.value+'（手動保持）'))+' / ペース '+paceName()+'</b><br>'+
     '<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '+(raceMetaAppliedV147.goingReason||'手動')+' / 展開補正診断 '+paceStyleDiagnosticV147().level+'（脚質間差 '+paceStyleDiagnosticV147().spread.toFixed(1)+'pt・上限±2.2pt）</small><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
@@ -9245,7 +9353,7 @@ fetchJraResult.onclick=async()=>{
     dedupe+
     (cond?'<br>実績条件: '+cond:'')+
     resultOrderHtmlV151(rows)+
-    '<br><span class="small">※全頭の着順を次回以降の学習に保存。同じレースの予測値は後から書き換えません。取得経路: '+(data.via||'-')+'</span>'+
+    '<br><span class="small">※全頭の着順を次回以降の学習に保存。同一レースの学習効果はそのレース自身の再計算から自動除外します。取得経路: '+(data.via||'-')+'</span>'+
     (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭: '+r.unmatched.map(x=>x.no+' '+x.name).join('・')+'</span>':'');
  }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraResult.disabled=false}
@@ -9268,7 +9376,7 @@ E.autoLearnResult.onclick=()=>{
  if(r.blocked){E.autoLearnStatus.innerHTML='<span class="warn">'+r.error+'</span>';return}
  updateMemoryCount();
  E.autoLearnStatus.innerHTML='<span class="ok">結果取込み完了：新規 '+r.learned+'頭 / 重複 '+r.duplicates+'頭 / 照合 '+r.matched+'頭</span>'+
-   '<br><span class="small">次回以降の学習へ保存しました。現在の同レース予測は再計算しません。</span>'+
+   '<br><span class="small">次回以降の学習へ保存しました。同一レースを再計算しても、この結果学習は自動除外されます。</span>'+
    (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭</span>':'');
 };
 E.saveMemory.onclick=rememberAll;
