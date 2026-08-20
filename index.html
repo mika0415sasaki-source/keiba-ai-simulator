@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v168</title>
+<title>KEIBA AI Simulator v169</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v168 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v169 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -66,6 +66,25 @@
       '<input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin-top:6px">',
       '<div style="display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px;margin-top:6px"><input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin:0"><button id="clearJraResultUrl" type="button" class="secondary" style="margin:0;padding-left:6px;padding-right:6px" onclick="document.getElementById(\'jraResultUrl\').value=\'\';document.getElementById(\'jraResultUrl\').focus();">✕ クリア</button></div>',
       'result url clear button'
+    );
+
+    required(
+      "let v=(meta.variant&&vs.includes(meta.variant))?meta.variant:(vs.includes(E.variant.value)?E.variant.value:vs[0]);\n    if(vs.length===1)v=vs[0];",
+      [
+        "let v=(meta.variant&&vs.includes(meta.variant))?meta.variant:(vs.includes(E.variant.value)?E.variant.value:vs[0]);",
+        "    if(vs.length===1)v=vs[0];",
+        "    const targetDistV169=Number(meta.distance||0);",
+        "    if(!meta.variant&&targetDistV169){",
+        "      const matchesV169=vs.filter(x=>(surfaceCfg[x]||[]).includes(targetDistV169));",
+        "      if(matchesV169.length===1)v=matchesV169[0];",
+        "      else if(matchesV169.length>1){",
+        "        const hintV169=String(meta.header||meta.courseText||meta.raw||'');",
+        "        if(/外(?:回り)?|外回/.test(hintV169)&&matchesV169.includes('外回り'))v='外回り';",
+        "        else if(/内(?:回り)?|内回/.test(hintV169)&&matchesV169.includes('内回り'))v='内回り';",
+        "      }",
+        "    }"
+      ].join('\n'),
+      'distance based variant inference'
     );
 
     required(
@@ -148,8 +167,8 @@
 
     required(
       "'<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
-      "'<b>v167：枠補正本体をグローバル枠確定状態で直接ガード。補完後に個別フラグが消えても未確定なら必ず0.0。</b><br>'+\n    '<b>v166：枠未確定フラグを最終出走馬へ再付与し、補完処理後に枠補正が復活する不具合を修正。</b><br>'+\n    '<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
-      'v165 changelog'
+      "'<b>v169：距離からコース区分を自動推定。新潟芝1600mなど距離が一意に属する場合、前レースの直線/内外回り設定を引き継がない。</b><br>'+\n    '<b>v167：枠補正本体をグローバル枠確定状態で直接ガード。補完後に個別フラグが消えても未確定なら必ず0.0。</b><br>'+\n    '<b>v166：枠未確定フラグを最終出走馬へ再付与し、補完処理後に枠補正が復活する不具合を修正。</b><br>'+\n    '<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
+      'v169 changelog'
     );
 
     const runtimeV165=[
@@ -221,14 +240,14 @@
     if(closeScript<0)throw new Error('main script end not found');
     src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);
 
-    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v168</h1>');
-    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v168</title>');
+    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v169</h1>');
+    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v169</title>');
 
     document.open();
     document.write(src);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v168の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v169の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
