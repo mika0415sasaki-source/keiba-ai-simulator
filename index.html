@@ -9,13 +9,13 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v152</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v153</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
 <div class="card small" style="margin-top:0">
 保存馬数: <b id="memoryCount">0</b>頭<br>
-<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA確定結果URLから実着順を取り込み、次回以降へ学習できます。</span>
+<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA / netkeiba の確定結果URLから全頭の実着順を取り込み、次回以降へ学習できます。</span>
 <div class="grid2" style="margin-top:6px">
 <button id="saveMemory" type="button">💾 現在の馬を保存</button>
 <button id="clearMemory" type="button" class="secondary">🗑 メモリ初期化</button>
@@ -42,7 +42,7 @@ JRA出馬表テキストの貼り付けにも対応"></textarea><div class="grid
 <button id="learnResult" class="secondary" style="margin-top:5px">🧠 結果を学習</button>
 <div id="learnStatus" class="small"></div></div>
 <div class="g" style="margin-top:10px"><label>JRA確定結果を取込み・学習</label>
-<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRA確定結果URLから結果取込み</b><br><input id="jraResultUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">🌐 確定結果を取込み・学習</button><div id="jraResultStatus" class="small" style="margin-top:5px">確定結果URLを貼って押すだけで、着順を取り込み次回以降の学習メモリへ保存します。二重取込みは自動防止します。</div></div>
+<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRA / netkeiba 確定結果URLから結果取込み</b><br><input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">🌐 確定結果を取込み・学習</button><div id="jraResultStatus" class="small" style="margin-top:5px">JRA結果URL、netkeiba結果URL、またはnetkeibaのrace_id付きURLを貼って押すだけ。全頭着順を取り込み、次回以降の学習へ保存します。二重取込みは自動防止します。</div></div>
 <details class="card small" style="margin-top:8px">
 <summary><b>手動貼り付け・解析（必要なときだけ）</b></summary>
 <textarea id="resultText" placeholder="JRAのレース結果ページをコピーして、ここに貼り付け" style="margin-top:8px"></textarea>
@@ -357,6 +357,173 @@ function resultHorseNameV150(cell){
  ok.sort((a,b)=>b.length-a.length);
  return ok[0];
 }
+
+function resultSourceKindV153(url){
+ const u=String(url||'').trim();
+ try{
+   const host=new URL(u).hostname.toLowerCase();
+   if(host==='netkeiba.com'||host.endsWith('.netkeiba.com'))return 'netkeiba';
+   if(host==='jra.go.jp'||host.endsWith('.jra.go.jp')||host==='sp.jra.jp')return 'jra';
+ }catch(e){}
+ return '';
+}
+function netkeibaRaceIdFromAnyUrlV153(url){
+ const s=String(url||'').trim();
+ let m=s.match(/[?&]race_id=(\d{12})(?:&|$)/i);
+ if(m)return m[1];
+ m=s.match(/\/race\/(\d{12})(?:\/|$|\?)/i);
+ if(m)return m[1];
+ m=s.match(/\b(\d{12})\b/);
+ return m?m[1]:'';
+}
+function normalizeNetkeibaResultUrlV153(url){
+ const id=netkeibaRaceIdFromAnyUrlV153(url);
+ if(!id)throw new Error('netkeiba URLから12桁のrace_idを確認できません');
+ return 'https://race.netkeiba.com/race/result.html?mode=result&race_id='+id;
+}
+async function fetchNetkeibaResultPageV153(url){
+ const normalized=normalizeNetkeibaResultUrlV153(url);
+ const routes=[
+   {name:'jina',url:'https://r.jina.ai/'+normalized,ms:16000},
+   {name:'direct',url:normalized,ms:12000},
+   {name:'allorigins',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(normalized),ms:12000}
+ ];
+ const errors=[];
+ for(const rt of routes){
+   try{
+     let body='';
+     if(typeof fetchTextTimeoutV63==='function'){
+       body=await fetchTextTimeoutV63(rt.url,rt.ms);
+     }else{
+       const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),rt.ms);
+       try{
+         const r=await fetch(rt.url,{cache:'no-store',signal:ctl.signal});
+         if(!r.ok)throw new Error('HTTP '+r.status);
+         body=await r.text();
+       }finally{clearTimeout(tm)}
+     }
+     if(body&&body.length>500){
+       // Do not accept a generic shell or another race.
+       const rid=netkeibaRaceIdFromAnyUrlV153(url);
+       const hasResult=/着\s*\|?\s*順|着順|結果・払戻|レース結果/.test(body);
+       const hasRows=(body.match(/(?:^|\n)\s*\|?\s*\d{1,2}\s*\|/g)||[]).length>=3;
+       if(hasResult||hasRows)return {ok:true,text:body,html:'',via:rt.name,url:normalized,raceId:rid,source:'netkeiba'};
+     }
+     throw new Error('結果本文を確認できません');
+   }catch(e){
+     errors.push(rt.name+':'+(e&&e.name==='AbortError'?'timeout':String(e.message||e)));
+   }
+ }
+ throw new Error('netkeiba結果ページを自動取得できませんでした。 '+errors.join(' / '));
+}
+async function fetchResultPageV153(url){
+ const kind=resultSourceKindV153(url);
+ if(kind==='jra'){
+   const x=await fetchJraPage(url);
+   return {...x,url:String(url||''),raceId:'',source:'jra'};
+ }
+ if(kind==='netkeiba')return await fetchNetkeibaResultPageV153(url);
+ throw new Error('JRAまたはnetkeibaのURLを指定してください');
+}
+function parseNetkeibaResultTextV153(txt){
+ const text=String(txt||'').normalize('NFKC').replace(/\r/g,'');
+ const rows=[];
+ for(const line of text.split('\n')){
+   if(!line.includes('|'))continue;
+   let c=line.split('|').map(x=>x.trim());
+   if(c.length&&c[0]==='')c=c.slice(1);
+   if(c.length&&c[c.length-1]==='')c=c.slice(0,-1);
+   if(c.length<4)continue;
+
+   const p=stripMarkdownV150(c[0]).match(/^(\d{1,2})(?:\s*着)?$/);
+   const f=stripMarkdownV150(c[1]).match(/^(?:枠)?([1-8])$/);
+   const n=stripMarkdownV150(c[2]).match(/^(\d{1,2})$/);
+   if(!p||!n)continue;
+
+   const pos=Number(p[1]),no=Number(n[1]);
+   if(!(pos>=1&&pos<=18&&no>=1&&no<=18))continue;
+   const name=resultHorseNameV150(c[3]);
+   if(!name)continue;
+
+   const row={pos,frame:f?Number(f[1]):null,no:String(no),name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
+   if(c[6])row.jockey=stripMarkdownV150(c[6]).replace(/\s+/g,' ').trim();
+
+   const whole=c.map(stripMarkdownV150).join(' | ');
+   const bm=whole.match(/\b(\d{3})\s*\(([+\-]?\d+|0)\)/);
+   if(bm){row.body=Number(bm[1]);row.bodyDiff=Number(bm[2]);}
+
+   // netkeiba has several table variants. Only use values that are strongly identifiable.
+   const last3=[...whole.matchAll(/(?:^|\||\s)((?:3\d|4[0-9])\.\d)(?=\s|\||$)/g)]
+     .map(m=>Number(m[1])).filter(v=>v>=30&&v<50);
+   if(last3.length)row.last3=last3[last3.length-1];
+
+   rows.push(row);
+ }
+ const seenNo=new Set(),seenPos=new Set(),out=[];
+ rows.sort((a,b)=>a.pos-b.pos).forEach(r=>{
+   if(seenNo.has(r.no)||seenPos.has(r.pos))return;
+   seenNo.add(r.no);seenPos.add(r.pos);out.push(r);
+ });
+ return out.slice(0,18);
+}
+function parseNetkeibaResultMetaV153(txt,url){
+ const t=String(txt||'').normalize('NFKC').replace(/\r/g,'');
+ const head=t.slice(0,22000);
+ const meta={date:'',course:'',surface:'',distance:0,going:'',raceNo:0,raceName:'',classLevel:0,classLabel:'不明',url:String(url||'')};
+
+ let m=head.match(/(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+ if(!m)m=head.match(/(20\d{2})\/(\d{1,2})\/(\d{1,2})(?:\([^)]*\))?/);
+ if(m)meta.date=m[1]+String(m[2]).padStart(2,'0')+String(m[3]).padStart(2,'0');
+
+ m=head.match(/(?:\d+回\s*)?(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\s*\d+日目/);
+ if(!m)m=head.match(/\b(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\s*(\d{1,2})R\b/);
+ if(m)meta.course=m[1]+'競馬場';
+
+ m=head.match(/(芝|ダート|ダ|障害|障)\s*([\d,]{3,5})\s*m/i);
+ if(m){
+   meta.surface=(m[1]==='ダ'||m[1]==='ダート')?'ダート':(m[1].startsWith('障')?'障害':'芝');
+   meta.distance=Number(m[2].replace(/,/g,''));
+ }
+
+ m=head.match(/馬場\s*[:：]\s*(良|稍重|稍|重|不良|不)/);
+ if(!m)m=head.match(/(?:芝|ダート|ダ|障害|障)[^\\n]{0,30}\s(良|稍重|稍|重|不良|不)(?:\s|$|\/)/);
+ if(m)meta.going=normalizeGoingV71(m[1])||m[1];
+
+ m=head.match(/(?:^|\s)(\d{1,2})R(?:\s|$)/m);
+ if(m)meta.raceNo=Number(m[1]);
+ if(!meta.raceNo){
+   const rid=netkeibaRaceIdFromAnyUrlV153(url);
+   if(rid)meta.raceNo=Number(rid.slice(-2));
+ }
+
+ const lines=head.split('\n').map(x=>stripMarkdownV150(x)).filter(Boolean);
+ const title=lines.find(x=>
+   /(ステークス|記念|カップ|賞|杯|特別|S$|Ｓ$)/.test(x) &&
+   !/過去のレース結果|メニュー|本賞金|払戻|コースレコード/.test(x)
+ );
+ if(title)meta.raceName=title.replace(/^#+\s*/,'').trim();
+
+ const ci=raceClassInfoV133(head);
+ meta.classLevel=Number(ci.level||0);meta.classLabel=ci.label||'不明';
+ return meta;
+}
+function parseResultRowsV153(txt,sourceHint){
+ if(sourceHint==='netkeiba'){
+   const n=parseNetkeibaResultTextV153(txt);
+   if(n.length)return n;
+ }
+ const j=parseJraResultText(txt);
+ if(j.length)return j;
+ return parseNetkeibaResultTextV153(txt);
+}
+function parseResultMetaV153(txt,url,sourceHint){
+ if(sourceHint==='netkeiba')return parseNetkeibaResultMetaV153(txt,url);
+ if(sourceHint==='jra')return parseJraResultMetaV150(txt,url);
+ // Manual-paste path: identify source from text shape.
+ if(/netkeiba|結果・払戻|レース結果/.test(String(txt||'')))return parseNetkeibaResultMetaV153(txt,url);
+ return parseJraResultMetaV150(txt,url);
+}
+
 function parseJraResultMetaV150(txt,url){
  const t=String(txt||'').normalize('NFKC').replace(/\r/g,'');
  const head=t.slice(0,26000);
@@ -9337,12 +9504,12 @@ fetchJraResult.onclick=async()=>{
  jraResultStatus.textContent='確定結果を取得中…';fetchJraResult.disabled=true;
  try{
   const u=await urlFromInputOrClipboard(jraResultUrl);
-  const data=await fetchJraPage(u);
+  const data=await fetchResultPageV153(u);
   E.resultText.value=data.text||'';
-  const rows=parseJraResultText(E.resultText.value);
+  const rows=parseResultRowsV153(E.resultText.value,data.source);
   if(!rows.length)throw new Error('ページは取得できましたが確定着順を解析できませんでした');
-  const meta=parseJraResultMetaV150(E.resultText.value,u);
-  const r=learnParsedResult(rows,meta,u);
+  const meta=parseResultMetaV153(E.resultText.value,data.url||u,data.source);
+  const r=learnParsedResult(rows,meta,data.url||u);
   if(r.blocked)throw new Error(r.error);
   updateMemoryCount();
   const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
@@ -9350,6 +9517,7 @@ fetchJraResult.onclick=async()=>{
     ?'<br><span class="ok">✓ 二重取込み防止：このレースは学習済みです。再加算していません。</span>'
     :(r.duplicates?'<br>重複済み '+r.duplicates+'頭は再加算していません。':'');
   jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規学習 '+r.learned+'頭</span>'+
+    '<br>取得元: <b>'+(data.source==='netkeiba'?'netkeiba':'JRA')+'</b>'+
     dedupe+
     (cond?'<br>実績条件: '+cond:'')+
     resultOrderHtmlV151(rows)+
@@ -9359,9 +9527,9 @@ fetchJraResult.onclick=async()=>{
  finally{fetchJraResult.disabled=false}
 };
 E.previewResult.onclick=()=>{
- const rows=parseJraResultText(E.resultText.value);
+ const rows=parseResultRowsV153(E.resultText.value,'');
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">着順を解析できませんでした。</span>';return}
- const meta=parseJraResultMetaV150(E.resultText.value,'');
+ const meta=parseResultMetaV153(E.resultText.value,'','');
  const m=matchResultToHorses(rows);
  const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
  E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span>'+
@@ -9369,9 +9537,9 @@ E.previewResult.onclick=()=>{
    (m.unmatched.length?'<br><span class="warn">未照合 '+m.unmatched.length+'頭</span>':'');
 };
 E.autoLearnResult.onclick=()=>{
- const rows=parseJraResultText(E.resultText.value);
+ const rows=parseResultRowsV153(E.resultText.value,'');
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">確定結果を解析できませんでした。</span>';return}
- const meta=parseJraResultMetaV150(E.resultText.value,'');
+ const meta=parseResultMetaV153(E.resultText.value,'','');
  const r=learnParsedResult(rows,meta,'');
  if(r.blocked){E.autoLearnStatus.innerHTML='<span class="warn">'+r.error+'</span>';return}
  updateMemoryCount();
