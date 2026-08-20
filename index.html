@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v161</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v162</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2030,19 +2030,20 @@ function frameDetailV89(h){
   const course=String(E.course.value||'');
   const style=String(h.style||'差し');
 
-  // v161: 新潟芝・直線1000mは通常の周回コースと別物として外枠優位を専用評価。
-  // JRAの過去10年傾向でも5〜8枠の3着内が多い。ただし枠だけで能力差を覆さないよう上限は約±1.2pt。
+  // v162: 新潟芝・直線1000mは外枠傾向を評価するが、同条件の実績がある馬では枠差を弱める。
+  // 「外枠だから強い」を避け、千直で既に走れている馬は内外どちらでも能力を優先する。
   if(isNiigataStraight1000V159()){
-    const byFrame={1:-0.72,2:-0.54,3:-0.32,4:-0.12,5:0.12,6:0.44,7:0.78,8:1.06};
+    const byFrame={1:-0.68,2:-0.50,3:-0.28,4:-0.10,5:0.10,6:0.38,7:0.68,8:0.92};
     let z=Number(byFrame[f]??0);
-    if((style==='逃げ'||style==='先行') && f>=7)z+=0.10;
-    if((style==='逃げ'||style==='先行') && f<=2)z-=0.06;
-    // 既に新潟芝1000mで3着内実績がある馬は内枠でも適性で相殺できるため、内枠減点を少し緩和。
-    const m=niigataStraight1000MetricsV161(h);
-    if(m.exactTop3>0 && z<0)z*=0.65;
-    z=clampV81(z,-1.15,1.18);
+    if((style==='逃げ'||style==='先行') && f>=7)z+=0.08;
+    if((style==='逃げ'||style==='先行') && f<=2)z-=0.04;
+    const m=niigataStraight1000MetricsV162(h);
+    // 同条件3着内があるなら枠の有利不利を約25%圧縮、勝利実績なら約40%圧縮。
+    if(m.exactWins>0)z*=0.60;
+    else if(m.exactTop3>0)z*=0.75;
+    z=clampV81(z,-0.95,1.00);
     const side=f<=3?'内':f>=6?'外':'中';
-    return {bonus:z,reason:`新潟 直線1000m・${style}・${side}枠（v161千直専用枠補正）`};
+    return {bonus:z,reason:`新潟 直線1000m・${style}・${side}枠（v162千直専用枠補正）`};
   }
 
   // frame 1 = -1 (inside), frame 8 = +1 (outside)
@@ -3254,70 +3255,83 @@ function paceStaticAdjV147(style,pace){
   return 0;
 }
 
-function niigataStraight1000MetricsV161(h){
+function niigataStraight1000MetricsV162(h){
   const runs=(h&&h.runs||[]).slice(0,5);
   const style=String(h&&h.style||'差し');
   const sp=Number(h&&h.sp||80), pw=Number(h&&h.pw||80);
-  const recency=[1.00,0.86,0.74,0.63,0.54];
+  const recency=[1.00,0.88,0.77,0.68,0.60];
   let exactN=0,exactWins=0,exactTop3=0,exactTop5=0;
-  let exactScore=0,sprintProxy=0,bestExact=0;
+  let exactScore=0,sprintProxy=0,bestExact=0,gradedSprint=0;
 
   runs.forEach((r,i)=>{
-    const w=recency[i]||0.54;
+    const w=recency[i]||0.60;
     const dist=Number(r&&r.dist||0);
     const surf=String(r&&r.surface||'芝');
     const course=String(r&&r.course||'');
     const pos=Number(r&&r.pos||0);
+    const cls=Number(r&&r.classLevel||0);
     const isExact=(surf==='芝' && dist===1000 && (!course || course.includes('新潟')));
 
     if(isExact){
       exactN++;
       let q=0.10;
-      if(pos===1){q=1.70;exactWins++;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,1.70);}
-      else if(pos===2){q=1.20;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,1.20);}
-      else if(pos===3){q=0.95;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,0.95);}
-      else if(pos>=4&&pos<=5){q=0.50;exactTop5++;bestExact=Math.max(bestExact,0.50);}
-      else if(pos>=6&&pos<=8){q=0.18;bestExact=Math.max(bestExact,0.18);}
-      else if(pos>=13){q=-0.30;}
-      exactScore+=q*w;
+      if(pos===1){q=2.25;exactWins++;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,2.25);}
+      else if(pos===2){q=1.72;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,1.72);}
+      else if(pos===3){q=1.38;exactTop3++;exactTop5++;bestExact=Math.max(bestExact,1.38);}
+      else if(pos>=4&&pos<=5){q=0.68;exactTop5++;bestExact=Math.max(bestExact,0.68);}
+      else if(pos>=6&&pos<=8){q=0.22;bestExact=Math.max(bestExact,0.22);}
+      else if(pos>=13){q=-0.24;}
+      // 千直はクラス差より同条件で走れた事実を重視。ただし重賞/OP実績はごく小さく上積み。
+      const clsAdj=cls>=7?0.22:cls>=5.5?0.12:cls>=4.5?0.05:0;
+      exactScore+=(q+clsAdj)*w;
       return;
     }
 
-    // 千直未経験でも、芝1200m以下での近走好走をダッシュ力の補助材料にする。
+    // 芝1200m以下の近走は千直へのスピード転用材料。重賞での好走は通常3勝級より強く評価。
     if(surf==='芝' && dist>0 && dist<=1200){
-      if(pos===1)sprintProxy+=0.22*w;
-      else if(pos<=3)sprintProxy+=0.14*w;
-      else if(pos<=5)sprintProxy+=0.07*w;
-      else if(pos>=13)sprintProxy-=0.05*w;
+      let q=0;
+      if(pos===1)q=0.34;
+      else if(pos<=3)q=0.22;
+      else if(pos<=5)q=0.10;
+      else if(pos>=13)q=-0.05;
+      const classMul=cls>=9?1.55:cls>=8?1.42:cls>=7?1.32:cls>=5.5?1.15:1.0;
+      sprintProxy+=q*w*classMul;
+      if(cls>=7 && pos<=3)gradedSprint+=0.16*w;
+      if(cls>=7 && pos===1)gradedSprint+=0.18*w;
     }
   });
 
   let styleBonus=0;
-  if(style==='逃げ')styleBonus=0.58;
-  else if(style==='先行')styleBonus=0.38;
-  else if(style==='差し')styleBonus=0.06;
-  else if(style==='追込')styleBonus=-0.10;
+  if(style==='逃げ')styleBonus=0.66;
+  else if(style==='先行')styleBonus=0.42;
+  else if(style==='差し')styleBonus=0.08;
+  else if(style==='追込')styleBonus=-0.08;
 
-  const dash=clampV81((sp-80)*0.045 + (pw-80)*0.012,-0.62,0.68);
+  const dash=clampV81((sp-80)*0.050 + (pw-80)*0.014,-0.66,0.76);
   let proven=exactScore;
-  if(exactWins>0)proven+=1.55;          // 同条件勝ちは最重要の再現性情報
-  if(exactTop3>=2)proven+=0.38;
-  else if(exactTop3===1)proven+=0.18;
-  if(exactN>=2)proven+=0.20;
-  if(exactN===0)proven-=0.22;           // 未経験は軽い不確実性だけ課す
-  proven+=bestExact*0.30;                // 古い実績でもベスト適性を完全には捨てない
+  if(exactWins>0)proven+=1.95;
+  if(exactTop3>=2)proven+=0.52;
+  else if(exactTop3===1)proven+=0.34;
+  if(exactN>=2)proven+=0.24;
+  if(exactN===0)proven-=0.18;
+  proven+=bestExact*0.34;
 
-  const bonus=clampV81(styleBonus+dash+proven+clampV81(sprintProxy,-0.18,0.42),-2.10,4.60);
-  return {bonus,exactN,exactWins,exactTop3,exactTop5,dash,styleBonus,exactScore,sprintProxy};
+  const bonus=clampV81(
+    styleBonus+dash+proven+clampV81(sprintProxy,-0.20,0.72)+clampV81(gradedSprint,0,0.42),
+    -2.00,5.60
+  );
+  return {bonus,exactN,exactWins,exactTop3,exactTop5,dash,styleBonus,exactScore,sprintProxy,gradedSprint};
 }
 
+// backward-compatible alias for old call sites left in the file
+function niigataStraight1000MetricsV161(h){return niigataStraight1000MetricsV162(h);}
 function courseProfileV155(){
   const course=String(E.course&&E.course.value||'');
   const surface=String(E.surface&&E.surface.value||'');
   const d=Number(E.distance&&E.distance.value||0);
 
   if(course==='新潟競馬場' && surface==='芝' && String(E.variant&&E.variant.value||'')==='直線' && d===1000){
-    return {active:true,label:'新潟芝直線1000m',note:'v161千直専用。外枠は枠補正、新潟芝1000mの実績・ダッシュ/前進力・芝短距離適性は専用指数で強化。通常コースの地力/近5走評価は少し圧縮します。'};
+    return {active:true,label:'新潟芝直線1000m',note:'v162千直専用。同条件の勝利/3着内をさらに重視し、芝1200m以下の重賞好走もスピード転用。千直実績馬は枠補正を圧縮し、外枠だけで決めません。'};
   }
 
   if(course!=='福島競馬場')return {active:false,label:'標準',note:'専用補正なし'};
@@ -3349,7 +3363,7 @@ function courseSpecificDetailV155(h){
 
   // v161: 新潟芝直線1000m専用。枠は frameDetailV89、ここでは『千直そのものの適性』を別軸で評価。
   if(isNiigataStraight1000V159()){
-    const m=niigataStraight1000MetricsV161(h);
+    const m=niigataStraight1000MetricsV162(h);
     z=m.bonus;
     const exp=m.exactN
       ?` / 近5走の新潟芝1000m ${m.exactN}走（勝${m.exactWins}・3着内${m.exactTop3}）`
@@ -3430,7 +3444,7 @@ function totalBreakdownV86(h){
     : Number(x.sp||0)*.36 + Number(x.st||0)*.31 + Number(x.pw||0)*.23
   ) : [rawBase];
   const fieldMean = fieldRaw.reduce((a,b)=>a+b,0)/(fieldRaw.length||1);
-  const base = fieldMean + (rawBase-fieldMean)*(straight1000?0.58:0.74);
+  const base = fieldMean + (rawBase-fieldMean)*(straight1000?0.50:0.74);
 
   const paceAdj=paceStaticAdjV147(h.style,pace);
 
@@ -3454,12 +3468,12 @@ function totalBreakdownV86(h){
   // Recent-five evidence gets more influence, but still cannot overwhelm the model.
   const p5 = pastFiveMetricsV81(h);
   // v161: 千直では通常の近5走総合点を少し圧縮し、1000m専用実績を courseSpecific 側へ移す。
-  const past5Scale=straight1000?1.05:1.28;
+  const past5Scale=straight1000?0.98:1.28;
   const past5 = Math.max(-9.5, Math.min(10.5, Number(p5.bonus||0)*past5Scale));
 
   // Extra evidence from the five-run decomposition.
-  const last3Extra = Math.max(-1.8, Math.min(2.0, Number(p5.last3||0)*(straight1000?0.42:0.55)));
-  const trendExtra = Math.max(-1.6, Math.min(1.8, Number(p5.trend||0)*(straight1000?0.55:0.75)));
+  const last3Extra = Math.max(-1.8, Math.min(2.0, Number(p5.last3||0)*(straight1000?0.36:0.55)));
+  const trendExtra = Math.max(-1.6, Math.min(1.8, Number(p5.trend||0)*(straight1000?0.48:0.75)));
   const distExtra = Math.max(-1.5, Math.min(1.7, Number(p5.distance||0)*(straight1000?0.70:0.55)));
   const stabilityExtra = Math.max(-1.2, Math.min(1.2, Number(p5.stability||0)*(straight1000?0.35:0.45)));
 
@@ -9783,7 +9797,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v161：新潟芝直線1000mを専用モデル化（基礎能力をスピード/パワー寄りに再配分・通常近5走を圧縮・新潟芝1000m実績を強化・千直ペース補正を再調整）</b><br>'+    '<small>同条件の勝利/3着内、ダッシュ力、芝短距離実績、外枠傾向を別々に評価。外枠だけで決めず、内枠でも千直実績があれば減点を緩和します。</small><br>'+    '<b>v160：競馬新聞の取得が途中で切れた場合、同一レースの全頭名簿から馬番を保持して自動復元</b><br>'+
+    '<b>v162：新潟芝直線1000mを再調整（同条件勝利/3着内を強化・芝1200m以下の重賞好走を加点・千直実績馬は枠補正を圧縮・通常地力をさらに少し圧縮）</b><br>'+    '<small>結果着順は採点に使わず、レース前に存在した過去5走・クラス・同条件実績だけで再評価します。</small><br>'+    '<b>v161：新潟芝直線1000mを専用モデル化（基礎能力をスピード/パワー寄りに再配分・通常近5走を圧縮・新潟芝1000m実績を強化・千直ペース補正を再調整）</b><br>'+    '<small>同条件の勝利/3着内、ダッシュ力、芝短距離実績、外枠傾向を別々に評価。外枠だけで決めず、内枠でも千直実績があれば減点を緩和します。</small><br>'+    '<b>v160：競馬新聞の取得が途中で切れた場合、同一レースの全頭名簿から馬番を保持して自動復元</b><br>'+
     (rosterRecoveryV160.recovered?'<small class="ok">全頭復元: '+rosterRecoveryV160.from+'頭 → '+rosterRecoveryV160.to+'頭（'+rosterRecoveryV160.via+' / 着順は予測に不使用）</small><br>':'')+
     '<b>v156：netkeiba race_idの競馬場コードと本文ヘッダーを照合し、不一致時は正規race_idへ自動補正</b><br>'+
     (raceIdRepairV156.changed?'<small class="ok">race_id補正: '+raceIdRepairV156.from+' → '+raceIdRepairV156.to+'（'+raceIdRepairV156.reason+'）</small><br>':'')+
