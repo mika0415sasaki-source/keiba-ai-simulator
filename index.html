@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v158</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v159</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2030,6 +2030,18 @@ function frameDetailV89(h){
   const course=String(E.course.value||'');
   const style=String(h.style||'差し');
 
+  // v159: 新潟芝・直線1000mは通常の周回コースと逆で外枠を明確にプラス評価。
+  // 枠だけで能力差を覆さないよう最大でも約±0.8ptに抑える。
+  if(isNiigataStraight1000V159()){
+    const byFrame={1:-0.48,2:-0.36,3:-0.24,4:-0.10,5:0.10,6:0.30,7:0.52,8:0.72};
+    let z=Number(byFrame[f]??0);
+    if((style==='逃げ'||style==='先行') && f>=7)z+=0.08;
+    if((style==='逃げ'||style==='先行') && f<=2)z-=0.05;
+    z=clampV81(z,-0.85,0.85);
+    const side=f<=3?'内':f>=6?'外':'中';
+    return {bonus:z,reason:`新潟 直線1000m・${style}・${side}枠（千直専用外枠補正）`};
+  }
+
   // frame 1 = -1 (inside), frame 8 = +1 (outside)
   const pos=clampV81((f-4.5)/3.5,-1,1);
   const distFactor=d<=1400?1.15:d<=1800?1.0:d<=2200?.78:.58;
@@ -3184,7 +3196,36 @@ function marketDetailV101(h){
 }
 function marketFitV101(h){ return marketDetailV101(h).bonus; }
 
+function isNiigataStraight1000V159(){
+  return String(E.course&&E.course.value||'')==='新潟競馬場' &&
+    String(E.surface&&E.surface.value||'')==='芝' &&
+    String(E.variant&&E.variant.value||'')==='直線' &&
+    Number(E.distance&&E.distance.value||0)===1000;
+}
+
+function niigataStraight1000PaceAdjV159(style,pace){
+  const st=String(style||'差し');
+  const p=String(pace||'平均');
+  if(p==='ハイ'){
+    if(st==='逃げ')return -0.35;
+    if(st==='先行')return -0.10;
+    if(st==='差し')return +0.45;
+    if(st==='追込')return +0.70;
+  }else if(p==='スロー'){
+    if(st==='逃げ')return +0.80;
+    if(st==='先行')return +0.45;
+    if(st==='差し')return -0.15;
+    if(st==='追込')return -0.35;
+  }else{
+    if(st==='逃げ')return +0.25;
+    if(st==='先行')return +0.18;
+    if(st==='差し')return +0.05;
+  }
+  return 0;
+}
+
 function paceStaticAdjV147(style,pace){
+  if(isNiigataStraight1000V159())return niigataStraight1000PaceAdjV159(style,pace);
   const st=String(style||'差し');
   const p=String(pace||'平均');
 
@@ -3212,6 +3253,11 @@ function courseProfileV155(){
   const course=String(E.course&&E.course.value||'');
   const surface=String(E.surface&&E.surface.value||'');
   const d=Number(E.distance&&E.distance.value||0);
+
+  if(course==='新潟競馬場' && surface==='芝' && String(E.variant&&E.variant.value||'')==='直線' && d===1000){
+    return {active:true,label:'新潟芝直線1000m',note:'千直専用。外枠優位は枠補正で評価し、ここではダッシュ力・前進力・芝1000m実績を小幅加点。ハイペース時の逃げ大幅減点も弱めます。'};
+  }
+
   if(course!=='福島競馬場')return {active:false,label:'標準',note:'専用補正なし'};
 
   if(surface==='芝'){
@@ -3238,6 +3284,35 @@ function courseSpecificDetailV155(h){
   const inside=f<=3, outer=f>=6;
   const sp=Number(h&&h.sp||80), st=Number(h&&h.st||80), pw=Number(h&&h.pw||80);
   let z=0;
+
+  // v159: 新潟芝直線1000m専用。外枠の有利不利は frameDetailV89 側で処理し重複させない。
+  if(isNiigataStraight1000V159()){
+    if(style==='逃げ')z+=0.28;
+    else if(style==='先行')z+=0.18;
+    else if(style==='追込')z-=0.08;
+
+    // ダッシュ性能を小幅評価。distanceFit と二重計上しすぎない係数にする。
+    z+=clampV81((sp-80)*0.020,-0.24,0.24);
+
+    // 近5走にある芝1000mの実戦経験と好走を直接評価。
+    const runs=(h&&h.runs||[]).slice(0,5);
+    let exact=0, n1000=0;
+    runs.forEach((r,i)=>{
+      if(Number(r&&r.dist||0)!==1000 || String(r&&r.surface||'芝')!=='芝')return;
+      n1000++;
+      const pos=Number(r&&r.pos||0);
+      const w=[1.00,.82,.68,.56,.46][i]||.46;
+      exact+=0.04*w;
+      if(pos>=1&&pos<=3)exact+=0.18*w;
+      else if(pos<=5)exact+=0.10*w;
+      else if(pos<=8)exact+=0.03*w;
+      else if(pos>=13)exact-=0.08*w;
+    });
+    z+=clampV81(exact,-0.22,0.42);
+    z=clampV81(z,-0.80,0.95);
+    const exp=n1000?` / 近5走の芝1000m経験${n1000}走`:' / 近5走の芝1000m経験なし';
+    return {bonus:z,reason:p.label+'：'+p.note+exp};
+  }
 
   // User-supplied Fukushima course notes are applied conservatively.
   // This factor is deliberately small so course geometry cannot overpower base ability / recent form.
@@ -9592,8 +9667,8 @@ async function importFromNetkeibaV108(url){
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
     '<b>v156：netkeiba race_idの競馬場コードと本文ヘッダーを照合し、不一致時は正規race_idへ自動補正</b><br>'+
     (raceIdRepairV156.changed?'<small class="ok">race_id補正: '+raceIdRepairV156.from+' → '+raceIdRepairV156.to+'（'+raceIdRepairV156.reason+'）</small><br>':'')+
-    '<b>v157：小倉芝1000/1200/1700/1800/2000/2600m・芝A/B/C、ダ1000/1700/2400mに対応\nv155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
-    '<small>短い直線・小回り・1角までの距離・内外枠・芝スタート・スタミナ/持続力を距離別に評価（最大±1.2pt）</small><br>'+
+    '<b>v159：新潟芝直線1000m専用補正（外枠・ダッシュ力・千直実績・ペース補正）\nv157：小倉芝1000/1200/1700/1800/2000/2600m・芝A/B/C、ダ1000/1700/2400mに対応\nv155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
+    '<small>新潟千直は外枠・ダッシュ・芝1000m実績を専用評価。福島/小倉は短い直線・小回り・1角までの距離・内外枠・芝スタート・スタミナ/持続力を距離別に評価（専用補正は小幅）</small><br>'+
     '<b>v152：同一race_idの結果学習をそのレース自身の予測から完全除外（結果は次回以降だけ使用）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     (migratedSameRaceV152?'<small class="ok">同一レース学習ID移行 '+migratedSameRaceV152+'件 → 今回予測から除外</small><br>':'')+
