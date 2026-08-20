@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v174</title>
+<title>KEIBA AI Simulator v175</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v174 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v175 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -16,89 +16,127 @@
       return r.text();
     });
 
-    function patch(oldText,newText,label){
-      if(!src.includes(oldText))throw new Error('v174 patch target not found: '+label);
-      src=src.replace(oldText,newText);
+    const runtimeV175=`
+<script>
+(function(){
+  let diagObserverV175=null;
+  let diagTargetV175=null;
+  let busyV175=false;
+
+  function realErrorV175(s){
+    return /HTTP|429|タイムアウト|timeout|取得失敗|network|通信|rate limit/i.test(String(s||''));
+  }
+
+  function getDiagV175(){
+    let el=document.getElementById('jraEntryStatus');
+    if(el)return el;
+    const all=Array.from(document.querySelectorAll('div,section,pre'));
+    return all.find(x=>/5走未満[:：]/.test(String(x.textContent||''))&&/race_id/.test(String(x.textContent||'')))||null;
+  }
+
+  function youngRaceByCareerV175(el){
+    const txt=String(el&&el.textContent||'');
+    const hs=(typeof horses!=='undefined'&&Array.isArray(horses))?horses:[];
+    const debut=(typeof currentRaceClassLabelV133!=='undefined')&&/新馬/.test(String(currentRaceClassLabelV133||''));
+    if(debut)return true;
+    if(hs.some(h=>Number(h&&h.age||0)===2))return true;
+
+    const a=txt.search(/5走未満[:：]/);
+    if(a<0)return false;
+    let b=txt.length;
+    const rest=txt.slice(a+1);
+    const m=rest.search(/5走未満\\/未取得[:：]|race_id|拡張CSV/);
+    if(m>=0)b=a+1+m;
+    const seg=txt.slice(a,b);
+    const counts=Array.from(seg.matchAll(/[（(](\\d+)走[）)]/g)).map(x=>Number(x[1]));
+    const need=Math.max(2,Math.ceil(Math.max(1,hs.length)*0.6));
+    return counts.length>=need&&counts.every(n=>n>=0&&n<=4);
+  }
+
+  function grayParentV175(node){
+    let p=node&&node.parentElement;
+    if(!p)return;
+    if(p.tagName==='SPAN'||p.tagName==='B'||p.tagName==='SMALL')p.style.color='#8b949e';
+  }
+
+  function normalizeTextNodeV175(node){
+    let s=String(node.nodeValue||'');
+    if(!/5走未満/.test(s))return false;
+    let changed=false;
+
+    s=s.replace(/5走未満\\/未取得[:：]([^\\n\\r]*)/g,function(full,detail){
+      changed=true;
+      if(realErrorV175(detail))return '取得要確認: '+detail.trim();
+      return '若駒キャリア正常: '+detail.trim()+'（少キャリア・正常）';
+    });
+
+    s=s.replace(/5走未満[:：]([^\\n\\r]*)/g,function(full,detail){
+      changed=true;
+      return '若駒キャリア正常: '+detail.trim();
+    });
+
+    if(changed){
+      node.nodeValue=s;
+      if(!realErrorV175(s))grayParentV175(node);
     }
+    return changed;
+  }
 
-    patch(
-      "      '    const young=hs.filter(h=>Number(h&&h.age||0)===2||debut);',\n      '    if(!young.length)return;',",
-      [
-        "      \"    const bodyTextV174=String((document.body&&document.body.innerText)||'');\",",
-        "      \"    const diagTextV174=String(el.textContent||'');\",",
-        "      \"    const plainDiagV174=diagTextV174.split(/\\\\n+/).map(s=>s.trim()).filter(Boolean);\",",
-        "      \"    const shortCareerLineV174=plainDiagV174.find(t=>/^5走未満[:：]/.test(t))||'';\",",
-        "      '    const shortRunsV174=Array.from(shortCareerLineV174.matchAll(/[（(](\\\\d+)走[）)]/g)).map(m=>Number(m[1]));',",
-        "      '    const shortCareerYoungV174=shortRunsV174.length>=Math.max(2,Math.ceil(hs.length*0.6))&&shortRunsV174.every(n=>n<=4);',",
-        "      '    const allRunsV174=Array.from(diagTextV174.matchAll(/[（(](\\\\d+)走[）)]/g)).map(m=>Number(m[1]));',",
-        "      '    const youngRaceV174=debut||hs.some(h=>Number(h&&h.age||0)===2)||/馬齢\\\\s*2歳|馬齢理由[:：]?\\\\s*2歳|2歳(?:S|ステークス|戦)/.test(bodyTextV174)||shortCareerYoungV174||(allRunsV174.length>=Math.max(2,Math.ceil(hs.length*0.6))&&allRunsV174.filter(n=>n<=4).length>=Math.max(2,Math.ceil(hs.length*0.6)));',",
-        "      '    if(!youngRaceV174)return;',",
-        "      '    const young=hs;',"
-      ].join('\n'),
-      'young race detection'
-    );
+  function fixYoungDiagV175(){
+    if(busyV175)return;
+    busyV175=true;
+    try{
+      const el=getDiagV175();
+      if(!el||!youngRaceByCareerV175(el))return;
 
-    patch(
-      "      \"    const issueText=plainParts.filter(t=>/^(?:5走未満\\\\/未取得|取得要確認)[:：]/.test(t)).join(' ');\",",
-      "      \"    const issueText=plainParts.filter(t=>/^(?:5走未満\\\\/未取得|取得要確認)[:：]/.test(t)&&/HTTP|429|タイムアウト|timeout|取得失敗|network|通信|rate limit/i.test(t)).join(' ');\",",
-      'real acquisition errors only'
-    );
+      const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+      const nodes=[];
+      let n;
+      while((n=walker.nextNode()))nodes.push(n);
+      nodes.forEach(normalizeTextNodeV175);
 
-    patch(
-      "      \"      if(/^5走未満\\\\/未取得[:：]/.test(t))return p.replace(/5走未満\\\\/未取得[:：]/,'取得要確認:');\",",
-      [
-        "      '      if(/^5走未満\\\\/未取得[:：]/.test(t)){',",
-        "      '        const realErrorV174=/HTTP|429|タイムアウト|timeout|取得失敗|network|通信|rate limit/i.test(t);',",
-        "      \"        if(realErrorV174)return p.replace(/5走未満\\\\/未取得[:：]/,'取得要確認:');\",",
-        "      \"        if(/対象レース以前0走|[（(]0走[）)]/.test(t))return '<span style=\\\"color:#8b949e\\\">若駒キャリア正常: '+t.replace(/^5走未満\\\\/未取得[:：]\\\\s*/,'')+'（過去走なし・正常）</span>';\",",
-        "      \"        return p.replace(/5走未満\\\\/未取得[:：]/,'取得要確認:');\",",
-        "      '      }',"
-      ].join('\n'),
-      'zero-start is normal in young race'
-    );
+      if(!el.querySelector('[data-v175-note]')){
+        const note=document.createElement('div');
+        note.setAttribute('data-v175-note','1');
+        note.style.color='#8b949e';
+        note.style.marginBottom='4px';
+        note.innerHTML='<b>v175：2歳・新馬戦の少キャリア診断を表示DOMで直接補正。1〜4戦や対象レース以前0走は正常扱いし、HTTP 429・タイムアウト等の実取得エラーだけ警告。</b>';
+        el.insertBefore(note,el.firstChild);
+      }
+    }catch(e){
+      console.error('v175 young diagnostic fix',e);
+    }finally{
+      busyV175=false;
+    }
+  }
 
-    patch(
-      "      '// ---- /v171 runtime hooks ----',",
-      [
-        `      '',`,
-        `      '// ---- v174 post-render young-race diagnostic rescan ----',`,
-        `      'function kickYoungDiagV174(){',`,
-        `      '  [0,60,160,350,700,1200,2200].forEach(ms=>setTimeout(()=>{try{normalizeYoungCareerDiagV171();}catch(e){}},ms));',`,
-        `      '}',`,
-        `      "if(typeof MutationObserver!=='undefined'){",`,
-        `      '  setTimeout(()=>{',`,
-        `      '    const body=document.body;',`,
-        `      '    if(body){',`,
-        `      '      const obV174=new MutationObserver(()=>{',`,
-        `      "        const el=(typeof jraEntryStatus!=='undefined'&&jraEntryStatus)?jraEntryStatus:document.getElementById('jraEntryStatus');",`,
-        `      "        if(el&&/5走未満/.test(String(el.textContent||'')))kickYoungDiagV174();",`,
-        `      '      });',`,
-        `      '      obV174.observe(body,{childList:true,subtree:true,characterData:true});',`,
-        `      '    }',`,
-        `      '    kickYoungDiagV174();',`,
-        `      '  },0);',`,
-        `      '}',`,
-        `      '// ---- /v174 post-render young-race diagnostic rescan ----',`,
-        `      '// ---- /v171 runtime hooks ----',`
-      ].join('\n'),
-      'post-render young diagnostic rescan'
-    );
+  function armV175(){
+    const el=getDiagV175();
+    if(el&&el!==diagTargetV175){
+      if(diagObserverV175)diagObserverV175.disconnect();
+      diagTargetV175=el;
+      diagObserverV175=new MutationObserver(function(){setTimeout(fixYoungDiagV175,0);});
+      diagObserverV175.observe(el,{childList:true,subtree:true,characterData:true});
+    }
+    fixYoungDiagV175();
+  }
 
-    src=src.replace('KEIBA AI Simulator v171 を読み込み中…','KEIBA AI Simulator v174 を読み込み中…');
-    src=src.replace("KEIBA AI Simulator v171</h1>","KEIBA AI Simulator v174</h1>");
-    src=src.replaceAll('KEIBA AI Simulator v171</title>','KEIBA AI Simulator v174</title>');
-    src=src.replaceAll('v171の読み込みに失敗','v174の読み込みに失敗');
-    src=src.replaceAll('③-v171','③-v174');
-    src=src.replace(
-      "'<b>v171：新馬・2歳戦の診断表示を整理。",
-      "'<b>v174：若駒判定を「5走未満」行そのもののキャリア分布から判定。診断欄内の別集計（過去騎手12走など）に邪魔されず、2歳重賞の少キャリアを正常表示へ確実に置換。</b><br>'+\\n    '<b>v173：若駒診断をAI描画後にも再判定。2歳表記が後から描画された場合でも「5走未満」を正常な少キャリア表示へ置換する。</b><br>'+\\n    '<b>v172：2歳戦の診断判定を強化。馬データ年齢が空でも画面の2歳表記・少キャリア分布から若駒戦を認識し、対象レース以前0走は正常扱い。実通信エラーだけ取得要確認として残す。</b><br>'+\\n    '<b>v171：新馬・2歳戦の診断表示を整理。"
-    );
+  [0,80,200,450,900,1600,2800].forEach(ms=>setTimeout(armV175,ms));
+  document.addEventListener('click',function(){setTimeout(armV175,120);},true);
+})();
+<\/script>`;
+
+    if(src.includes('</body>'))src=src.replace('</body>',runtimeV175+'\n</body>');
+    else src+=runtimeV175;
+
+    src=src.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v175');
+    src=src.replaceAll('③-v171','③-v175');
 
     document.open();
     document.write(src);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v174の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v175の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
