@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v155</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v157</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -86,7 +86,7 @@ const C={
 '中山競馬場':{dir:'右',rx:.36,ry:142,variants:{芝:{内回り:[1800,2000,2500,3600],外回り:[1200,1600,2200]},ダート:{通常:[1200,1800,2400,2500]}}},
 '福島競馬場':{dir:'右',rx:.34,ry:138,variants:{芝:{通常:[1200,1800,2000,2600]},ダート:{通常:[1150,1700,2400]}}},
 '京都競馬場':{dir:'右',rx:.40,ry:134,variants:{芝:{内回り:[1200,1400,1600,2000],外回り:[1400,1600,1800,2000,2200,2400,3000,3200]},ダート:{通常:[1200,1400,1800,1900]}}},
-'小倉競馬場':{dir:'右',rx:.34,ry:138,variants:{芝:{通常:[1200,1800,2000,2600]},ダート:{通常:[1000,1700,2400]}}}
+'小倉競馬場':{dir:'右',rx:.34,ry:138,variants:{芝:{A:[1000,1200,1700,1800,2000,2600],B:[1000,1200,1700,1800,2000,2600],C:[1000,1200,1700,1800,2000,2600]},ダート:{通常:[1000,1700,2400]}}}
 };
 const FC={1:['#fff','#111'],2:['#222','#fff'],3:['#e53935','#fff'],4:['#1976d2','#fff'],5:['#fdd835','#111'],6:['#2e7d32','#fff'],7:['#ef6c00','#fff'],8:['#ec407a','#fff']};
 let horses=[],mode='2d',running=false,progress=0,lastTs=0,raf=0,finishTimes=[],raceOrder=[],startReaction=[],lastStats=null;
@@ -3544,8 +3544,16 @@ function renderStats(){
 
 function geom(){const w=E.canvas.clientWidth,h=E.canvas.clientHeight,c=C[E.course.value];return{cx:w/2,cy:h/2+8,rx:Math.max(145,w*c.rx),ry:Math.min(c.ry,h*.33)}}
 function straight(){return E.course.value==='新潟競馬場'&&E.surface.value==='芝'&&E.variant.value==='直線'}
-function startAngle(){const lap=E.variant.value==='外回り'?1800:E.variant.value==='内回り'?1500:1600,d=+E.distance.value,dir=C[E.course.value].dir==='左'?-1:1,rem=d%lap||lap;return-dir*2*Math.PI*(rem/lap)}
-function laps(){const lap=E.variant.value==='外回り'?1800:E.variant.value==='内回り'?1500:1600;return Math.max(1,+E.distance.value/lap)}
+function lapLengthV157(){
+  if(E.course.value==='小倉競馬場'&&E.surface.value==='芝'){
+    if(E.variant.value==='A')return 1615.1;
+    if(E.variant.value==='B')return 1633.9;
+    if(E.variant.value==='C')return 1652.8;
+  }
+  return E.variant.value==='外回り'?1800:E.variant.value==='内回り'?1500:1600;
+}
+function startAngle(){const lap=lapLengthV157(),d=+E.distance.value,dir=C[E.course.value].dir==='左'?-1:1,rem=d%lap||lap;return-dir*2*Math.PI*(rem/lap)}
+function laps(){const lap=lapLengthV157();return Math.max(1,+E.distance.value/lap)}
 function point(th,lane){const g=geom();return{x:g.cx+(g.rx-lane)*Math.cos(th),y:g.cy+(g.ry-lane*.5)*Math.sin(th)}}
 function drawTrack(){const g=geom(),w=E.canvas.clientWidth,h=E.canvas.clientHeight;ctx.fillStyle='#0a4d22';ctx.fillRect(0,0,w,h);if(straight()){ctx.fillStyle='#5f8f44';ctx.fillRect(28,g.cy-52,w-56,104);ctx.strokeStyle='#fff';ctx.strokeRect(28,g.cy-52,w-56,104);ctx.beginPath();ctx.moveTo(w-55,g.cy-52);ctx.lineTo(w-55,g.cy+52);ctx.stroke();return}ctx.strokeStyle='#ddd';ctx.lineWidth=48;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=E.surface.value==='芝'?'#5f8f44':'#b99063';ctx.lineWidth=39;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx,g.ry,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx-20,g.ry-10,0,0,Math.PI*2);ctx.stroke()}
 function frame(h,i){const f=Number(h.frame);return (f>=1&&f<=8)?f:1}
@@ -9159,6 +9167,11 @@ function parseNetkeibaRaceMetaV146(text,raceId,via){
 
   if(/外回り|外コース/.test(head))meta.variant='外回り';
   else if(/内回り|内コース/.test(head))meta.variant='内回り';
+  else if(meta.course==='小倉競馬場' && meta.surface==='芝'){
+    const km=head.match(/芝\s*[1-4]\d{3}\s*(?:m|メートル)?\s*(?:[（(][^）)]*?\b([ABC])\b[^）)]*[）)]|[・\s]\b([ABC])\b)/i);
+    const kv=km&&(km[1]||km[2]);
+    if(kv)meta.variant=String(kv).toUpperCase();
+  }
 
   let g=head.match(/(?:馬場(?:状態)?|芝|ダート)\s*[:：]?\s*(稍重|不良|重|良)(?=\s|$|\/|\||,|，|。)/m);
   if(!g)g=head.match(/(?:芝|ダート)\s*(稍重|不良|重|良)\s*(?:馬場)?/m);
@@ -9267,13 +9280,76 @@ async function resolveNetkeibaRaceMetaV147(raceId,masterText,shutubaObj,raceDate
   return {meta,applied,page};
 }
 
+function netkeibaHeaderCourseV156(text){
+  const raw=String(text||'').normalize('NFKC').replace(/\r/g,' ').replace(/\u00a0/g,' ');
+  let cut=raw.length;
+  for(const token of ['のデータベース','馬名 |','馬名|','枠 | 馬番','枠|馬番']){
+    const i=raw.indexOf(token);
+    if(i>200&&i<cut)cut=i;
+  }
+  const head=raw.slice(0,Math.min(cut,30000))
+    .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
+    .replace(/\*\*/g,' ')
+    .replace(/[ \t]+/g,' ');
+  const map={札幌:'01',函館:'02',福島:'03',新潟:'04',東京:'05',中山:'06',中京:'07',京都:'08',阪神:'09',小倉:'10'};
+
+  // Strong current-race header forms used by netkeiba/Jina.
+  let m=head.match(/(?:^|[\s｜|])(?:第?\d+回\s*)?(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\s*\d+日(?:[\s｜|]|$)/m);
+  if(!m)m=head.match(/(?:^|[\s｜|])(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)競馬場(?:[\s｜|]|$)/m);
+  if(!m)m=head.match(/(?:^|[\s｜|])(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)\s*(?:\d{1,2}R|11R|12R)(?:[\s｜|]|$)/m);
+  if(!m)return {course:'',code:'',head:''};
+  return {course:m[1]+'競馬場',code:map[m[1]]||'',head:m[0]||''};
+}
+
+async function repairNetkeibaRaceIdV156(raceId,src,parsed){
+  const rid=String(raceId||'');
+  const current=Array.isArray(parsed)?parsed:[];
+  const detected=netkeibaHeaderCourseV156(src&&src.text);
+  if(!/^20\d{10}$/.test(rid)||!detected.code||rid.slice(4,6)===detected.code){
+    return {changed:false,raceId:rid,src,parsed:current,from:rid,to:rid,reason:''};
+  }
+
+  // netkeiba race_id = YYYY + 場コード + 回次 + 日次 + R.
+  // If the fetched page header says a different venue, repair ONLY the venue code.
+  // This specifically protects course code 10 (小倉) from being mangled to 01 (札幌).
+  const candidate=rid.slice(0,4)+detected.code+rid.slice(6);
+  if(!/^20\d{10}$/.test(candidate))return {changed:false,raceId:rid,src,parsed:current,from:rid,to:rid,reason:''};
+
+  try{
+    const candSrc=await fetchNetkeibaMasterTextV125(candidate);
+    const candParsed=parseNetkeibaRunnerListV110(candSrc.text);
+    const candCourse=netkeibaHeaderCourseV156(candSrc.text);
+    const validCount=candParsed.length>=5&&candParsed.length<=18;
+    const courseOk=!candCourse.code||candCourse.code===detected.code;
+    // Prefer the repaired id when it yields a valid field and is at least as complete.
+    if(validCount&&courseOk&&candParsed.length>=current.length){
+      return {
+        changed:true,raceId:candidate,src:candSrc,parsed:candParsed,
+        from:rid,to:candidate,
+        reason:'本文ヘッダー '+detected.course+' とrace_id場コード不一致'
+      };
+    }
+  }catch(e){}
+  return {changed:false,raceId:rid,src,parsed:current,from:rid,to:rid,reason:''};
+}
+
 async function importFromNetkeibaV108(url){
-  const raceId=netkeibaRaceIdFromUrlV108(url);
+  let raceId=netkeibaRaceIdFromUrlV108(url);
   if(!raceId)throw new Error('netkeiba競馬新聞URLのrace_idを確認できません');
 
   jraEntryStatus.textContent='① netkeiba競馬新聞を取得中…';
-  const src=await fetchNetkeibaMasterTextV125(raceId);
+  let src=await fetchNetkeibaMasterTextV125(raceId);
   let parsed=parseNetkeibaRunnerListV110(src.text);
+
+  // v156: integrity check between netkeiba race_id venue code and the fetched page header.
+  // If they disagree, rebuild only the venue code and re-fetch the canonical race.
+  const raceIdRepairV156=await repairNetkeibaRaceIdV156(raceId,src,parsed);
+  if(raceIdRepairV156.changed){
+    raceId=raceIdRepairV156.raceId;
+    src=raceIdRepairV156.src;
+    parsed=raceIdRepairV156.parsed;
+  }
+
   if(parsed.length<5||parsed.length>18){
     const dbMarks=(String(src.text||'').match(/のデータベース/g)||[]).length;
     throw new Error('出走馬を正しく判定できません（'+parsed.length+'頭 / 馬DB表記 '+dbMarks+'件）。netkeiba本文取得は成功しています。');
@@ -9493,7 +9569,9 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
+    '<b>v156：netkeiba race_idの競馬場コードと本文ヘッダーを照合し、不一致時は正規race_idへ自動補正</b><br>'+
+    (raceIdRepairV156.changed?'<small class="ok">race_id補正: '+raceIdRepairV156.from+' → '+raceIdRepairV156.to+'（'+raceIdRepairV156.reason+'）</small><br>':'')+
+    '<b>v157：小倉芝1000/1200/1700/1800/2000/2600m・芝A/B/C、ダ1000/1700/2400mに対応\nv155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
     '<small>短い直線・小回り・1角までの距離・内外枠・芝スタート・スタミナ/持続力を距離別に評価（最大±1.2pt）</small><br>'+
     '<b>v152：同一race_idの結果学習をそのレース自身の予測から完全除外（結果は次回以降だけ使用）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
