@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v145</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v146</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -1552,8 +1552,11 @@ function autoPaceDetail(){
  return {pace,score,count,reason};
 }
 function paceName(){
- const v=E.pace.value;
- if(v&&v!=='AI自動')return v;
+ const v=String(E.pace&&E.pace.value||'auto');
+ if(v==='auto'||v==='AI自動')return autoPaceDetail().pace;
+ if(v==='slow'||v==='スロー')return 'スロー';
+ if(v==='fast'||v==='ハイ')return 'ハイ';
+ if(v==='avg'||v==='平均'||v==='ミドル')return '平均';
  return autoPaceDetail().pace;
 }
 
@@ -2558,6 +2561,45 @@ function marketDetailV101(h){
 }
 function marketFitV101(h){ return marketDetailV101(h).bonus; }
 
+function paceStaticAdjV146(style,pace){
+  const st=String(style||'差し');
+  const p=String(pace||'平均');
+  if(p==='ハイ'){
+    if(st==='差し')return 4.4;
+    if(st==='追込')return 5.2;
+    if(st==='逃げ')return -3.5;
+    if(st==='先行')return -0.8;
+  }else if(p==='スロー'){
+    if(st==='逃げ')return 4.3;
+    if(st==='先行')return 2.7;
+    if(st==='差し')return -0.8;
+    if(st==='追込')return -2.5;
+  }else{
+    if(st==='先行')return 0.3;
+    if(st==='差し')return 0.2;
+  }
+  return 0;
+}
+
+function paceStyleDiagnosticV146(){
+  const pd=autoPaceDetail();
+  const p=paceName();
+  const styles=['逃げ','先行','差し','追込'];
+  const vals=styles.map(st=>({style:st,v:paceStaticAdjV146(st,p),n:horses.filter(h=>h.style===st).length}));
+  const active=vals.filter(x=>x.n>0);
+  const use=active.length>=2?active:vals;
+  const max=Math.max(...use.map(x=>x.v));
+  const min=Math.min(...use.map(x=>x.v));
+  const spread=max-min;
+  let level='穏当';
+  if(spread>=7.0)level='強め';
+  else if(spread>=4.5)level='中程度';
+  const detail=vals.map(x=>x.style+x.n+'頭 '+(x.v>=0?'+':'')+x.v.toFixed(1)).join(' / ');
+  const autoMode=String(E.pace&&E.pace.value||'auto')==='auto'||String(E.pace&&E.pace.value||'')==='AI自動';
+  const scoreText=autoMode?' / AIペース判定スコア '+Number(pd.score||0).toFixed(1):'';
+  return {pace:p,level,spread,detail,scoreText};
+}
+
 function totalBreakdownV86(h){
   const pace=paceName();
 
@@ -2575,21 +2617,7 @@ function totalBreakdownV86(h){
   const fieldMean = fieldRaw.reduce((a,b)=>a+b,0)/(fieldRaw.length||1);
   const base = fieldMean + (rawBase-fieldMean)*0.74;
 
-  let paceAdj=0;
-  if(pace==='ハイ'){
-    if(h.style==='差し')paceAdj+=4.4;
-    if(h.style==='追込')paceAdj+=5.2;
-    if(h.style==='逃げ')paceAdj-=3.5;
-    if(h.style==='先行')paceAdj-=0.8;
-  }else if(pace==='スロー'){
-    if(h.style==='逃げ')paceAdj+=4.3;
-    if(h.style==='先行')paceAdj+=2.7;
-    if(h.style==='差し')paceAdj-=0.8;
-    if(h.style==='追込')paceAdj-=2.5;
-  }else{
-    if(h.style==='先行')paceAdj+=0.3;
-    if(h.style==='差し')paceAdj+=0.2;
-  }
+  const paceAdj=paceStaticAdjV146(h.style,pace);
 
   let goingAdj=0;
   if(E.going.value!=='良'){
@@ -2763,11 +2791,12 @@ function setSimulationBusyV95(busy,done,total){
 }
 function renderPaceAutoStatus(){
  if(!E.paceAutoStatus)return;
- if(E.pace.value==='AI自動'){
+ const v=String(E.pace.value||'auto');
+ if(v==='auto'||v==='AI自動'){
    const p=autoPaceDetail();
    E.paceAutoStatus.innerHTML='AI判定: <b>'+p.pace+'</b>　'+p.reason;
  }else{
-   E.paceAutoStatus.textContent='手動設定: '+E.pace.value;
+   E.paceAutoStatus.textContent='手動設定: '+paceName();
  }
 }
 
@@ -2801,17 +2830,21 @@ function renderStats(){
   E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();
 
   const pd=autoPaceDetail();
+  const pdiagV146=paceStyleDiagnosticV146();
+  const paceAutoV146=String(E.pace.value||'auto')==='auto'||String(E.pace.value||'')==='AI自動';
   E.analysis.innerHTML=
-    '想定ペース: '+paceName()+
-    (E.pace.value==='AI自動'?'<br>AI判定理由: '+pd.reason:'')+
+    '想定ペース: <b>'+paceName()+'</b>'+
+    (paceAutoV146?'<br>AI判定理由: '+pd.reason:'')+
     '<br>逃げ '+horses.filter(h=>h.style==='逃げ').length+
     '頭 / 先行 '+horses.filter(h=>h.style==='先行').length+
     '頭 / 差し '+horses.filter(h=>h.style==='差し').length+
     '頭 / 追込 '+horses.filter(h=>h.style==='追込').length+
-    '頭<br>'+
+    '頭<br><b>展開補正診断: '+pdiagV146.level+'</b>（脚質間差 '+pdiagV146.spread.toFixed(1)+'pt'+pdiagV146.scoreText+'）'+
+    '<br><span style="opacity:.78">基準補正: '+pdiagV146.detail+'</span><br>'+ 
     '枠・斤量・馬体重・距離・馬場・脚質・ペース・騎手・血統・馬齢・市場・過去5走・レース格/相手レベルを評価。'+
     'シミュレーションの生勝率はレースシナリオ集計として保持し、馬券期待値には総合診断と市場確率を組み合わせた校正AI勝率を使用します。'+
     '市場とAIの乖離が極端な場合は自動的に保守化し、さらに30倍以上かつ大幅な格上挑戦では追加縮小します。オッズが全頭揃わない場合は市場校正と期待値判定を停止し、仮の市場確率は作りません。';
+
 
   renderAISummary();
   renderAllFiveBreakdownV85();
@@ -8386,6 +8419,117 @@ async function supplementMissingPedigreeV117(parsed, newspaperText){
   return {attempted,filled,timedOut,errors,mobileFilled,vercelFilled};
 }
 
+function mergeRaceMetaV146(base,extra){
+  const a={...(base||{})},b=extra||{};
+  for(const k of ['course','surface','distance','going','variant','via']){
+    if((a[k]==null||a[k]===''||a[k]===0) && b[k]!=null&&b[k]!==''&&b[k]!==0)a[k]=b[k];
+  }
+  return a;
+}
+
+function parseNetkeibaRaceMetaV146(text,raceId,via){
+  const raw=String(text||'').normalize('NFKC').replace(/\r/g,'').replace(/\u00a0/g,' ');
+  const meta={via:via||''};
+  const courseMap={'01':'札幌競馬場','02':'函館競馬場','03':'福島競馬場','04':'新潟競馬場','05':'東京競馬場','06':'中山競馬場','07':'中京競馬場','08':'京都競馬場','09':'阪神競馬場','10':'小倉競馬場'};
+  const rid=String(raceId||'');
+  if(rid.length>=6&&courseMap[rid.slice(4,6)])meta.course=courseMap[rid.slice(4,6)];
+
+  // Only inspect the race-header neighborhood. Historical race rows begin after the horse DB section.
+  let cut=raw.length;
+  for(const token of ['のデータベース','馬名 |','馬名|','枠 | 馬番','枠|馬番']){
+    const i=raw.indexOf(token);
+    if(i>250&&i<cut)cut=i;
+  }
+  let head=raw.slice(0,Math.min(cut,26000));
+  head=head.replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/\*\*/g,' ');
+
+  const courses=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
+  if(!meta.course){
+    for(const c of courses){
+      if(new RegExp('(?:第\\d+回\\s*)?'+c+'(?:競馬|\\d+日|\\s+\\d{1,2}R)').test(head)){
+        meta.course=c+'競馬場';break;
+      }
+    }
+  }
+
+  let m=head.match(/(?:コース\s*[:：]?\s*)?(芝|ダート|ダ)\s*([1-4]\d{3})\s*(?:m|メートル)/i);
+  if(!m)m=head.match(/([1-4]\d{3})\s*(?:m|メートル)\s*[（(]?\s*(芝|ダート|ダ)/i);
+  if(!m)m=head.match(/(?:芝|ダート)\s*[:：]?\s*([1-4]\d{3})\s*(?:m|メートル)/i);
+  if(m){
+    if(/^(?:芝|ダート|ダ)$/.test(m[1])){
+      meta.surface=m[1]==='ダ'?'ダート':m[1];
+      meta.distance=Number(m[2]);
+    }else{
+      meta.distance=Number(m[1]);
+      const sf=m[2]||((m[0]||'').includes('ダート')?'ダート':'芝');
+      meta.surface=sf==='ダ'?'ダート':sf;
+    }
+  }
+
+  if(/外回り|外コース/.test(head))meta.variant='外回り';
+  else if(/内回り|内コース/.test(head))meta.variant='内回り';
+
+  let g=head.match(/(?:馬場(?:状態)?|芝|ダート)\s*[:：]?\s*(稍重|不良|重|良)(?=\s|$|\/|\||,|，|。)/m);
+  if(!g)g=head.match(/(?:芝|ダート)\s*(稍重|不良|重|良)\s*(?:馬場)?/m);
+  if(g)meta.going=g[1];
+
+  return meta;
+}
+
+function applyNetkeibaRaceMetaV146(meta){
+  if(!meta)return {applied:false};
+  if(meta.course&&E.course&&[...E.course.options].some(o=>o.value===meta.course))E.course.value=meta.course;
+  if(meta.surface&&E.surface&&[...E.surface.options].some(o=>o.value===meta.surface))E.surface.value=meta.surface;
+
+  const courseCfg=C[E.course.value];
+  const surfaceCfg=courseCfg&&courseCfg.variants&&courseCfg.variants[E.surface.value];
+  if(surfaceCfg){
+    const vs=Object.keys(surfaceCfg);
+    let v=(meta.variant&&vs.includes(meta.variant))?meta.variant:(vs.includes(E.variant.value)?E.variant.value:vs[0]);
+    if(vs.length===1)v=vs[0];
+    E.variant.innerHTML=vs.map(x=>'<option>'+x+'</option>').join('');
+    E.variant.value=v;
+    const ds=surfaceCfg[v]||[];
+    E.distance.innerHTML=ds.map(d=>'<option value="'+d+'">'+d+'m</option>').join('');
+    if(meta.distance&&ds.includes(Number(meta.distance)))E.distance.value=String(Number(meta.distance));
+    else if(!ds.includes(Number(E.distance.value))&&ds.length)E.distance.value=String(ds[0]);
+  }
+  if(meta.going&&E.going&&[...E.going.options].some(o=>o.value===meta.going))E.going.value=meta.going;
+  return {applied:true,course:E.course.value,surface:E.surface.value,distance:Number(E.distance.value),going:E.going.value,variant:E.variant.value};
+}
+
+async function resolveNetkeibaRaceMetaV146(raceId,masterText,shutubaObj){
+  let meta=parseNetkeibaRaceMetaV146(masterText,raceId,'newspaper');
+  let page=shutubaObj&&shutubaObj.text?shutubaObj:null;
+
+  // Prefer the dedicated shutuba/shutuba_past header for race conditions.
+  // It is tied to the exact race_id and is less likely to be contaminated by historical rows.
+  if(!page||!page.text){
+    try{page=await fetchNetkeibaShutubaTextV120(raceId);}catch(e){page={text:'',via:''};}
+  }
+  if(page&&page.text){
+    const pm=parseNetkeibaRaceMetaV146(page.text,raceId,page.via||'shutuba');
+    for(const k of ['course','surface','distance','going','variant'])if(pm[k]!=null&&pm[k]!==''&&pm[k]!==0)meta[k]=pm[k];
+    if(pm.surface||pm.distance||pm.going)meta.via=pm.via||'shutuba';
+  }
+
+  // Completed races expose the final going reliably on the result page.
+  if(!(meta.surface&&meta.distance&&meta.going)){
+    try{
+      const r=await fetchNetkeibaResultMarketV121(raceId);
+      if(r&&r.text){
+        const rm=parseNetkeibaRaceMetaV146(r.text,raceId,r.via||'result');
+        for(const k of ['course','surface','distance','going','variant'])if(rm[k]!=null&&rm[k]!==''&&rm[k]!==0)meta[k]=rm[k];
+        if(rm.surface||rm.distance||rm.going)meta.via=rm.via||'result';
+      }
+    }catch(e){}
+  }
+
+  const applied=applyNetkeibaRaceMetaV146(meta);
+  applied.resolved={course:!!meta.course,surface:!!meta.surface,distance:!!meta.distance,going:!!meta.going,variant:!!meta.variant};
+  return {meta,applied,page};
+}
+
 async function importFromNetkeibaV108(url){
   const raceId=netkeibaRaceIdFromUrlV108(url);
   if(!raceId)throw new Error('netkeiba競馬新聞URLのrace_idを確認できません');
@@ -8544,21 +8688,12 @@ async function importFromNetkeibaV108(url){
 
   const marketCacheSavedV142=saveRaceMarketCacheV142(raceId,parsed);
 
-  // Race-course identity can be inferred from race_id. Surface/distance stay on current controls
-  // unless the newspaper gives a clear value.
-  const courseMap={'01':'札幌競馬場','02':'函館競馬場','03':'福島競馬場','04':'新潟競馬場','05':'東京競馬場','06':'中山競馬場','07':'中京競馬場','08':'京都競馬場','09':'阪神競馬場','10':'小倉競馬場'};
-  const c=courseMap[raceId.slice(4,6)];
-  if(c&&E.course)E.course.value=c;
-  const head=String(src.text||'').slice(0,12000).normalize('NFKC');
-  let md=head.match(/(?:芝|ダート)\s*([1-4]\d{3})\s*m?/);
-  if(md){
-    const surf=(md[0].includes('ダート')?'ダート':'芝'),dist=+md[1];
-    if(E.surface)E.surface.value=surf;
-    if(E.distance){
-      let opt=[...E.distance.options].find(o=>+o.value===dist||+String(o.textContent).replace(/\D/g,'')===dist);
-      if(opt)E.distance.value=opt.value;
-    }
-  }
+  // v146: bind the controls to THIS race automatically.
+  // race_id fixes the course; newspaper/shutuba/result header fixes surface, distance and going.
+  const resolvedMetaV146=await resolveNetkeibaRaceMetaV146(raceId,src.text,shutuba);
+  if(resolvedMetaV146.page&&resolvedMetaV146.page.text&&!shutuba.text)shutuba=resolvedMetaV146.page;
+  const raceMetaV146=resolvedMetaV146.meta||{};
+  const raceMetaAppliedV146=resolvedMetaV146.applied||{};
 
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name);
@@ -8614,8 +8749,10 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v145：今回レース格をrace_id単位で固定・キャッシュ化し、取得失敗で相手レベル補正が消える問題を修正</b><br>'+
+    '<b>v146：netkeiba競馬新聞から競馬場・芝ダート・距離・馬場を自動反映＋ペースAUTO値の不整合を修正＋展開補正診断を追加</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
+    '<b>条件自動反映: '+(raceMetaV146.course||'競馬場未取得')+' / '+(raceMetaV146.surface||'芝ダ未取得')+' '+(raceMetaV146.distance?(raceMetaV146.distance+'m'):'距離未取得')+' / '+(raceMetaV146.going||'馬場未取得')+' / ペース '+paceName()+'</b><br>'+
+    '<small>条件取得: '+(raceMetaV146.via||'race_id+header')+' / 展開補正診断 '+paceStyleDiagnosticV146().level+'（脚質間差 '+paceStyleDiagnosticV146().spread.toFixed(1)+'pt）</small><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     (!currentRaceLevelV133?' <span style="color:#ffb020">※今回格が未取得のため順位は暫定</span>':'')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
