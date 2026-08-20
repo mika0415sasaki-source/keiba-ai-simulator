@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Simulator v171</title>
+<meta name="theme-color" content="#161b22">
+</head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v171 を読み込み中…</div>
+<script>
+(async function(){
+  try{
+    let src=await fetch('./v163.html?v=163',{cache:'no-store'}).then(function(r){
+      if(!r.ok) throw new Error('v163 source HTTP '+r.status);
+      return r.text();
+    });
+
+    function required(oldText,newText,label){
+      if(!src.includes(oldText)) throw new Error('patch target not found: '+label);
+      src=src.replace(oldText,newText);
+    }
+
+    required(
+      'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28',
+      'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),Infinity',
+      'trifecta full formation'
+    );
+
+    const valueAnchor=[
+      'best.calibration.coreDiagnosis>=medianCore-1.0;',
+      '',
+      '    txt+=`最高校正期待値:'
+    ].join('\n');
+    const valuePatch=[
+      'best.calibration.coreDiagnosis>=medianCore-1.0;',
+      '',
+      '    const exclusionReasons=[];',
+      '    if(best.ev<1.15) exclusionReasons.push(`EV ${best.ev.toFixed(2)}＜1.15`);',
+      "    if(!best.calibration){",
+      "      exclusionReasons.push('校正データなし');",
+      '    }else{',
+      '      if(best.calibration.consensus<.52) exclusionReasons.push(`信頼 ${(best.calibration.consensus*100).toFixed(0)}%＜52%`);',
+      '      if(best.calibration.classBonus<-1.0) exclusionReasons.push(`相手レベル ${best.calibration.classBonus.toFixed(1)}＜-1.0`);',
+      '      if(best.calibration.coreDiagnosis<medianCore-1.0) exclusionReasons.push(`総合診断 ${best.calibration.coreDiagnosis.toFixed(1)}＜${(medianCore-1.0).toFixed(1)}`);',
+      '    }',
+      "    const criteriaText=`EV ${best.ev.toFixed(2)}（基準≥1.15） / 信頼 ${best.calibration?(best.calibration.consensus*100).toFixed(0)+'%':'-'}（基準≥52%） / 相手レベル ${best.calibration?best.calibration.classBonus.toFixed(1):'-'}（基準≥-1.0） / 総合診断 ${best.calibration?best.calibration.coreDiagnosis.toFixed(1):'-'}（基準≥${(medianCore-1.0).toFixed(1)}）`;",
+      '',
+      '    txt+=`最高校正期待値:'
+    ].join('\n');
+    required(valueAnchor,valuePatch,'value diagnostic');
+
+    required(
+      ': \'<span style="margin-left:6px;opacity:.75">※期待値上位だが買い候補基準外</span>\'',
+      ': \'<span style="margin-left:6px;opacity:.75">※期待値上位だが買い候補基準外</span><br><span style="opacity:.75">判定: \'+criteriaText+\'</span><br><span style="opacity:.9">除外理由: \'+(exclusionReasons.join(\' / \')||\'買い候補基準未達\')+\'</span>\'',
+      'value exclusion reason'
+    );
+
+    required(
+      '<input id="jraEntryUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px">',
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px;margin-top:6px"><input id="jraEntryUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin:0"><button id="clearJraEntryUrl" type="button" class="secondary" style="margin:0;padding-left:6px;padding-right:6px" onclick="document.getElementById(\'jraEntryUrl\').value=\'\';document.getElementById(\'jraEntryUrl\').focus();">✕ クリア</button></div>',
+      'entry url clear button'
+    );
+
+    required(
+      '<input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin-top:6px">',
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px;margin-top:6px"><input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin:0"><button id="clearJraResultUrl" type="button" class="secondary" style="margin:0;padding-left:6px;padding-right:6px" onclick="document.getElementById(\'jraResultUrl\').value=\'\';document.getElementById(\'jraResultUrl\').focus();">✕ クリア</button></div>',
+      'result url clear button'
+    );
+
+    required(
+      "let v=(meta.variant&&vs.includes(meta.variant))?meta.variant:(vs.includes(E.variant.value)?E.variant.value:vs[0]);\n    if(vs.length===1)v=vs[0];",
+      [
+        "let v=(meta.variant&&vs.includes(meta.variant))?meta.variant:(vs.includes(E.variant.value)?E.variant.value:vs[0]);",
+        "    if(vs.length===1)v=vs[0];",
+        "    const targetDistV169=Number(meta.distance||0);",
+        "    if(!meta.variant&&targetDistV169){",
+        "      const matchesV169=vs.filter(x=>(surfaceCfg[x]||[]).includes(targetDistV169));",
+        "      if(matchesV169.length===1)v=matchesV169[0];",
+        "      else if(matchesV169.length>1){",
+        "        const hintV169=String(meta.header||meta.courseText||meta.raw||'');",
+        "        if(/外(?:回り)?|外回/.test(hintV169)&&matchesV169.includes('外回り'))v='外回り';",
+        "        else if(/内(?:回り)?|内回/.test(hintV169)&&matchesV169.includes('内回り'))v='内回り';",
+        "      }",
+        "    }"
+      ].join('\n'),
+      'distance based variant inference'
+    );
+
+    required(
+      "const raceDate=targetRaceDateV118(raceId,src.text,shutuba.text||'');",
+      [
+        "const raceDate=targetRaceDateV118(raceId,src.text,shutuba.text||'');",
+        "  const frameProbeV165=String((shutuba&&shutuba.text)||src.text||'');",
+        "  const frameMarkerCountV165=(frameProbeV165.match(/(?:!\\[Image[^\\]]*:\\s*枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)?\\]|\\/waku\\/[1-8]\\.png)/g)||[]).length;",
+        "  let frameNameHitsV165=0;",
+        "  for(const fhV165 of (parsed||[])){",
+        "    const nmV165=String(fhV165&&fhV165.name||'').trim();",
+        "    const atV165=nmV165?frameProbeV165.indexOf(nmV165):-1;",
+        "    if(atV165<0)continue;",
+        "    const preV165=frameProbeV165.slice(Math.max(0,atV165-900),atV165);",
+        "    if(/(?:!\\[Image[^\\]]*:\\s*枠[1-8](?:白|黒|赤|青|黄|緑|橙|桃)?\\]|\\/waku\\/[1-8]\\.png)/.test(preV165))frameNameHitsV165++;",
+        "  }",
+        "  const frameConfirmedV165=frameMarkerCountV165>=2&&frameNameHitsV165>=Math.min(2,Math.max(1,(parsed||[]).length));",
+        "  window.__keibaFrameConfirmedV167=frameConfirmedV165;",
+        "  (parsed||[]).forEach(h=>{h.frameConfirmedV165=frameConfirmedV165;});"
+      ].join('\n'),
+      'frame confirmation'
+    );
+
+    required(
+      "setCurrentRaceContextV152(raceId,raceDate,raceMetaV147);\n\n  E.bulk.value=compactHorseCsv(parsed);\n  horses=parsed.slice(0,18).filter(h=>h&&h.name);",
+      "setCurrentRaceContextV152(raceId,raceDate,raceMetaV147);\n\n  (parsed||[]).forEach(h=>{h.frameConfirmedV165=frameConfirmedV165;});\n  window.__keibaFrameConfirmedV166=frameConfirmedV165;\n  window.__keibaFrameConfirmedV167=frameConfirmedV165;\n  E.bulk.value=compactHorseCsv(parsed);\n  horses=parsed.slice(0,18).filter(h=>h&&h.name);",
+      'final frame-state propagation'
+    );
+
+    required(
+      "const frame=Number(h.frame||1);\n  const frameNorm=(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
+      "const frame=Number(h.frame||1);\n  const frameKnownV167=(window.__keibaFrameConfirmedV167!==false)||(h&&h.frameConfirmedV165===true);\n  const frameNorm=frameKnownV167?(frame-4.5)/3.5:0;\n  z+=scenario.frameBias*frameNorm;",
+      'simulation frame bias'
+    );
+
+    required(
+      "const f=Number(h&&h.frame||1);\n  const inside=f<=3, outer=f>=6;",
+      "const f=Number(h&&h.frame||1);\n  const frameKnownV167=(window.__keibaFrameConfirmedV167!==false)||(h&&h.frameConfirmedV165===true);\n  const inside=frameKnownV167&&f<=3, outer=frameKnownV167&&f>=6;",
+      'course frame bias'
+    );
+
+    required(
+      "function frameDetailV89(h){\n  const f=Number(h.frame||1);",
+      "function frameDetailV89(h){\n  if(window.__keibaFrameConfirmedV167===false&&!(h&&h.frameConfirmedV165===true))return {bonus:0,reason:'枠順未確定のため評価対象外（枠補正0.0）'};\n  const f=Number(h.frame||1);",
+      'frame detail hard guard'
+    );
+
+    required(
+      "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   lastStats=null;renderStats();draw();",
+      "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   if(k==='frame')h.frameConfirmedV165=true;\n   lastStats=null;renderStats();draw();",
+      'manual frame confirmation'
+    );
+
+    required(
+      "if(extremeLongshot&&verySharpRise)r.preCal=Math.min(r.preCal,r.pMarket*2.35);\n    else if(longshot&&sharpRise)r.preCal=Math.min(r.preCal,r.pMarket*3.00);\n  });",
+      [
+        "if(extremeLongshot&&verySharpRise)r.preCal=Math.min(r.preCal,r.pMarket*2.35);",
+        "    else if(longshot&&sharpRise)r.preCal=Math.min(r.preCal,r.pMarket*3.00);",
+        "",
+        "    const historyCountV165=Math.min(5,(r.h.runs||[]).length);",
+        "    const debutRaceV170=(typeof currentRaceClassLabelV133!=='undefined')&&/新馬/.test(String(currentRaceClassLabelV133||''));",
+        "    const youngCareerV170=Number(r.h.age||0)===2||debutRaceV170;",
+        "    r.youngCareerV170=youngCareerV170;",
+        "    if(historyCountV165<5){",
+        "      const youngConfidenceV170=[.72,.80,.86,.91,.96];",
+        "      const historyConfidenceV165=youngCareerV170?youngConfidenceV170[historyCountV165]:(.35+.13*historyCountV165);",
+        "      r.historyCountV165=historyCountV165;",
+        "      r.historyConfidenceV165=historyConfidenceV165;",
+        "      r.preCal=historyConfidenceV165*r.preCal+(1-historyConfidenceV165)*(1/n);",
+        "    }else{",
+        "      r.historyCountV165=5;",
+        "      r.historyConfidenceV165=1;",
+        "    }",
+        "  });"
+      ].join('\n'),
+      'young career confidence'
+    );
+
+    required(
+      "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '",
+      "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 枠順: '+(frameConfirmedV165?'確定・枠補正ON':'未確定・枠補正OFF')+' / 馬場方針: '",
+      'frame status diagnostic'
+    );
+
+    required(
+      "'<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
+      "'<b>v171：新馬・2歳戦の診断表示を整理。「5走未満」を正常な少キャリア表示へ変更し、HTTP 429・タイムアウト等の取得失敗だけを「取得要確認」として分離。</b><br>'+\n    '<b>v170：新馬・2歳戦の少キャリアを正常扱い。1〜4戦を取得失敗と混同せず若駒用の履歴信頼度で評価し、0戦は新馬として正常扱い（取得エラー時のみ警告）。</b><br>'+\n    '<b>v169：距離からコース区分を自動推定。新潟芝1600mなど距離が一意に属する場合、前レースの直線/内外回り設定を引き継がない。</b><br>'+\n    '<b>v167：枠補正本体をグローバル枠確定状態で直接ガード。補完後に個別フラグが消えても未確定なら必ず0.0。</b><br>'+\n    '<b>v166：枠未確定フラグを最終出走馬へ再付与し、補完処理後に枠補正が復活する不具合を修正。</b><br>'+\n    '<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
+      'v171 changelog'
+    );
+
+    const runtimeV165=[
+      '',
+      '// ---- v171 runtime hooks ----',
+      'const __frameDetailV89_v165=frameDetailV89;',
+      'frameDetailV89=function(h){',
+      "  if(window.__keibaFrameConfirmedV167===false&&!(h&&h.frameConfirmedV165===true))return {bonus:0,reason:'枠順未確定のため評価対象外（枠補正0.0）'};",
+      '  return __frameDetailV89_v165(h);',
+      '};',
+      '',
+      'const __calibrationNoteV140_v165=calibrationNoteV140;',
+      'calibrationNoteV140=function(q){',
+      '  const base=__calibrationNoteV140_v165(q);',
+      '  const n=Math.min(5,((q&&q.h&&q.h.runs)||[]).length);',
+      '  if(n>=5)return base;',
+      "  const debut=(typeof currentRaceClassLabelV133!=='undefined')&&/新馬/.test(String(currentRaceClassLabelV133||''));",
+      '  const young=!!(q&&q.calibration&&q.calibration.youngCareerV170)||Number(q&&q.h&&q.h.age||0)===2||debut;',
+      '  const c=q&&q.calibration;',
+      '  const conf=Math.round((c&&Number(c.historyConfidenceV165)>0?Number(c.historyConfidenceV165):(young?[.72,.80,.86,.91,.96][n]:(.35+.13*n)))*100);',
+      "  if(young&&n===0)return base+' / キャリア0戦（新馬・正常） / 若駒履歴信頼 '+conf+'%';",
+      "  if(young)return base+' / キャリア'+n+'戦・若駒として正常 / 履歴信頼 '+conf+'%';",
+      "  return base+' / 5走 '+n+'/5・履歴信頼 '+conf+'%（抑制）';",
+      '};',
+      '',
+      'const __fetchNetkeibaPast5V118_v165=fetchNetkeibaPast5V118;',
+      'fetchNetkeibaPast5V118=async function(jraUrl,parsed,explicitRaceDate){',
+      '  const all=(parsed||[]).slice();',
+      '  const first=await __fetchNetkeibaPast5V118_v165(jraUrl,all,explicitRaceDate);',
+      "  const sourceErrorV170=String(first.error||'');",
+      '  const sourceIssueV170=Number(first.networkFailed||0)>0||/タイムアウト|timeout|取得失敗|network|HTTP/i.test(sourceErrorV170);',
+      "  const runCountV170=h=>((first.byNo&&first.byNo.get(String(h.no)))||[]).length;",
+      "  const histCountV170=h=>((first.historyByNo&&first.historyByNo.get(String(h.no)))||[]).length;",
+      "  const ageV170=h=>{const p=(first.pedByNo&&first.pedByNo.get(String(h.no)))||{};return Number(h.age||p.age||0);};",
+      "  const debutRaceV170=(typeof currentRaceClassLabelV133!=='undefined')&&/新馬/.test(String(currentRaceClassLabelV133||''));",
+      '  const youngNormalV170=h=>{',
+      '    const n=runCountV170(h),hn=histCountV170(h),young=ageV170(h)===2||debutRaceV170;',
+      '    if(!young||n>=5||hn>n)return false;',
+      '    if(n>0)return true;',
+      '    return !sourceIssueV170;',
+      '  };',
+      '  const before=new Map(all.map(h=>[String(h.no),runCountV170(h)]));',
+      '  const retryTargets=all.filter(h=>runCountV170(h)<5&&!youngNormalV170(h));',
+      '  first.retryAttempted=retryTargets.length;',
+      '  first.retryRecovered=0;',
+      '  first.retryCompleted=0;',
+      '  if(retryTargets.length){',
+      "    try{if(typeof jraEntryStatus!=='undefined'&&jraEntryStatus)jraEntryStatus.textContent='③-v171 取得要確認 '+retryTargets.length+'頭を自動再試行中…';}catch(e){}",
+      '    let second=null;',
+      '    try{second=await __fetchNetkeibaPast5V118_v165(jraUrl,retryTargets,explicitRaceDate);}catch(e){second=null;}',
+      '    if(second){',
+      "      for(const key of ['byNo','historyByNo']){",
+      '        const a=first[key],b=second[key];',
+      "        if(a&&b&&typeof b.forEach==='function')b.forEach((v,k)=>{",
+      '          const old=a.get(k)||[];',
+      '          if((v||[]).length>old.length)a.set(k,v);',
+      '        });',
+      '      }',
+      "      if(first.pedByNo&&second.pedByNo&&typeof second.pedByNo.forEach==='function')second.pedByNo.forEach((v,k)=>{",
+      '        const old=first.pedByNo.get(k)||{};',
+      "        first.pedByNo.set(k,{sire:old.sire||v.sire||'',damsire:old.damsire||v.damsire||'',sex:old.sex||v.sex||'',age:Number(old.age||v.age||0),via:old.via||v.via||''});",
+      '      });',
+      '      first.cacheRecovered=(first.cacheRecovered||0)+(second.cacheRecovered||0);',
+      '      first.cacheRecoveredRuns=(first.cacheRecoveredRuns||0)+(second.cacheRecoveredRuns||0);',
+      '      first.networkFailed=(first.networkFailed||0)+(second.networkFailed||0);',
+      '    }',
+      '  }',
+      '  first.totalRuns=0;first.withRuns=0;first.with5=0;',
+      '  for(const h of all){',
+      "    const no=String(h.no),rs=(first.byNo&&first.byNo.get(no))||[];",
+      '    if(rs.length){first.withRuns++;first.totalRuns+=rs.length;if(rs.length>=5)first.with5++;}',
+      '    const oldN=before.get(no)||0;',
+      '    if(rs.length>oldN)first.retryRecovered++;',
+      '    if(oldN<5&&rs.length>=5)first.retryCompleted++;',
+      '  }',
+      "  first.withPed=first.pedByNo&&typeof first.pedByNo.forEach==='function'?Array.from(first.pedByNo.values()).filter(v=>v&&(v.sire||v.damsire)).length:(first.withPed||0);",
+      '  const normalYoung=all.filter(h=>youngNormalV170(h));',
+      '  const unresolved=all.filter(h=>runCountV170(h)<5&&!youngNormalV170(h));',
+      '  first.youngCareerNormalV170=normalYoung.length;',
+      "  first.via=(first.via||'newspaper-id>horse-db-v118')+' / v171-retry '+first.retryRecovered+'/'+first.retryAttempted+'改善'+(normalYoung.length?' / 若駒キャリア正常 '+normalYoung.length+'頭':'');",
+      "  first.error=unresolved.length?'取得要確認: '+unresolved.map(h=>{const n=runCountV170(h);return h.no+' '+h.name+'('+n+'走'+(first.retryAttempted?'・再試行済':'')+')';}).join('・'):'';",
+      '  return first;',
+      '};',
+      '',
+      'function normalizeYoungCareerDiagV171(){',
+      '  try{',
+      "    const el=(typeof jraEntryStatus!=='undefined'&&jraEntryStatus)?jraEntryStatus:document.getElementById('jraEntryStatus');",
+      '    if(!el)return;',
+      "    const hs=(typeof horses!=='undefined'&&Array.isArray(horses))?horses:[];",
+      "    const debut=(typeof currentRaceClassLabelV133!=='undefined')&&/新馬/.test(String(currentRaceClassLabelV133||''));",
+      '    const young=hs.filter(h=>Number(h&&h.age||0)===2||debut);',
+      '    if(!young.length)return;',
+      '    const html=String(el.innerHTML||"");',
+      '    const parts=html.split(/<br\\s*\\/?\\s*>/i);',
+      "    const plainParts=parts.map(p=>p.replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim());",
+      "    const issueText=plainParts.filter(t=>/^(?:5走未満\\/未取得|取得要確認)[:：]/.test(t)).join(' ');",
+      '    const normal=young.filter(h=>!issueText.includes(String(h&&h.name||"")));',
+      '    const counts=normal.map(h=>Math.min(5,((h&&h.runs)||[]).length));',
+      '    const minN=counts.length?Math.min(...counts):0;',
+      '    const maxN=counts.length?Math.max(...counts):0;',
+      "    const range=counts.length?(minN===maxN?minN+'戦':minN+'〜'+maxN+'戦'):'-';",
+      "    const summary=normal.length?'若駒キャリア正常: '+normal.length+'頭（'+range+'）・少キャリアは正常扱い':'若駒キャリア: 正常取得なし';",
+      '    const next=parts.map((p,i)=>{',
+      '      const t=plainParts[i];',
+      "      if(/^5走未満[:：]/.test(t))return '<span style=\"color:#8b949e\">'+summary+'</span>';",
+      "      if(/^5走未満\\/未取得[:：]/.test(t))return p.replace(/5走未満\\/未取得[:：]/,'取得要確認:');",
+      "      if(/^近走データ[:：]/.test(t)&&/5走取得\\s*\\d+頭/.test(t))return p.replace(/[（(]?5走取得\\s*\\d+頭[）)]?/,'（若駒は実キャリア分を取得）');",
+      '      return p;',
+      "    }).join('<br>');",
+      '    if(next!==html)el.innerHTML=next;',
+      '  }catch(e){}',
+      '};',
+      "if(typeof MutationObserver!=='undefined'){",
+      '  setTimeout(()=>{',
+      "    const el=(typeof jraEntryStatus!=='undefined'&&jraEntryStatus)?jraEntryStatus:document.getElementById('jraEntryStatus');",
+      '    if(!el)return;',
+      '    const ob=new MutationObserver(()=>setTimeout(normalizeYoungCareerDiagV171,0));',
+      '    ob.observe(el,{childList:true,subtree:true,characterData:true});',
+      '    normalizeYoungCareerDiagV171();',
+      '  },0);',
+      '}else setTimeout(normalizeYoungCareerDiagV171,0);',
+      '// ---- /v171 runtime hooks ----',
+      ''
+    ].join('\n');
+
+    const closeScript=src.lastIndexOf('<'+'/script>');
+    if(closeScript<0)throw new Error('main script end not found');
+    src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);
+
+    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v171</h1>');
+    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v171</title>');
+
+    document.open();
+    document.write(src);
+    document.close();
+  }catch(err){
+    document.getElementById('boot').innerHTML='<b>v171の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
