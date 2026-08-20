@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v159</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v160</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -7384,9 +7384,11 @@ async function fetchNetkeibaMasterTextV125(raceId){
         return {text:t,via:r.via,master:base,shell,horseMarks,oddsMarks,fresh:true};
       }
 
-      // Keep the first structurally valid page as fallback so import never fails
-      // just because odds are not published yet.
-      if(!fallback && horseMarks>=5){
+      // v160: keep the RICHEST structurally valid page, not merely the first one.
+      // Jina can occasionally return a truncated newspaper snapshot (e.g. 9/17 runners).
+      // A later route may contain the complete field even when current odds are absent.
+      if(horseMarks>=5 && (!fallback || horseMarks>Number(fallback.horseMarks||0) ||
+          (horseMarks===Number(fallback.horseMarks||0) && oddsMarks>Number(fallback.oddsMarks||0)))){
         fallback={text:t,via:r.via,master:base,shell,horseMarks,oddsMarks,fresh:false};
       }
       errs.push(r.via+':馬DB'+horseMarks+'件/オッズ'+oddsMarks+'件');
@@ -9429,6 +9431,71 @@ async function repairNetkeibaRaceIdV156(raceId,src,parsed){
   return {changed:false,raceId:rid,src,parsed:current,from:rid,to:rid,reason:''};
 }
 
+
+// v160: recover a complete, correctly numbered runner roster when the newspaper proxy
+// returns a truncated snapshot. Historical result pages are used ONLY for horse no/name/frame;
+// finish position is never copied into the prediction input.
+function runnerKeyV160(x){
+  return String(x||'').normalize('NFKC').replace(/[\s　・･'’`.-]/g,'').toLowerCase();
+}
+function resultRosterV160(text){
+  try{
+    const rows=parseNetkeibaResultTextV153(text||'');
+    const out=[];
+    const seen=new Set();
+    for(const r of rows){
+      const no=Number(r&&r.no||0),name=String(r&&r.name||'').trim();
+      if(!(no>=1&&no<=18)||!name||seen.has(no))continue;
+      seen.add(no);
+      out.push({
+        frame:Number(r.frame||0)||0,no,name,
+        style:'差し',jockey:'',carried:0,body:0,odds:0,
+        sp:80,st:80,pw:80,runs:[]
+      });
+    }
+    out.sort((a,b)=>a.no-b.no);
+    const n=out.length;
+    for(const h of out){
+      if(!(h.frame>=1&&h.frame<=8))h.frame=frameByNoCountV108(h.no,n);
+    }
+    return out;
+  }catch(e){return []}
+}
+function mergeRecoveredRosterV160(roster,partial){
+  const src=Array.isArray(partial)?partial:[];
+  const byName=new Map();
+  for(const h of src){
+    const k=runnerKeyV160(h&&h.name);
+    if(k)byName.set(k,h);
+  }
+  return (roster||[]).map(r=>{
+    const p=byName.get(runnerKeyV160(r.name));
+    if(!p)return r;
+    return {...r,
+      style:p.style||r.style,jockey:p.jockey||'',carried:Number(p.carried||0),
+      body:Number(p.body||0),bodyDiff:p.bodyDiff,odds:Number(p.odds||0),
+      popularity:Number(p.popularity||0),sex:p.sex||'',age:Number(p.age||0),
+      sire:p.sire||'',damsire:p.damsire||'',netkeibaId:p.netkeibaId||''
+    };
+  });
+}
+async function recoverRunnerRosterV160(raceId,src,parsed){
+  const cur=Array.isArray(parsed)?parsed:[];
+  // The known failure mode is a suspiciously small DB-marker set caused by a truncated proxy.
+  // For normal full fields, skip the extra request entirely.
+  if(cur.length>=13 && Number(src&&src.horseMarks||0)>=13)return {parsed:cur,via:'',recovered:false,from:cur.length,to:cur.length};
+  try{
+    const rm=await fetchNetkeibaResultMarketV121(raceId);
+    if(rm&&rm.text){
+      const roster=resultRosterV160(rm.text);
+      if(roster.length>cur.length && roster.length<=18){
+        return {parsed:mergeRecoveredRosterV160(roster,cur),via:rm.via||'result-roster',recovered:true,from:cur.length,to:roster.length};
+      }
+    }
+  }catch(e){}
+  return {parsed:cur,via:'',recovered:false,from:cur.length,to:cur.length};
+}
+
 async function importFromNetkeibaV108(url){
   let raceId=netkeibaRaceIdFromUrlV108(url);
   if(!raceId)throw new Error('netkeiba競馬新聞URLのrace_idを確認できません');
@@ -9445,6 +9512,12 @@ async function importFromNetkeibaV108(url){
     src=raceIdRepairV156.src;
     parsed=raceIdRepairV156.parsed;
   }
+
+  // v160: if the newspaper proxy is truncated, rebuild the runner list from the
+  // same race's result roster (horse no/name/frame only). This prevents 17 runners
+  // from collapsing to 9 and being renumbered 1..9.
+  const rosterRecoveryV160=await recoverRunnerRosterV160(raceId,src,parsed);
+  parsed=rosterRecoveryV160.parsed;
 
   if(parsed.length<5||parsed.length>18){
     const dbMarks=(String(src.text||'').match(/のデータベース/g)||[]).length;
@@ -9665,6 +9738,8 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
+    '<b>v160：競馬新聞の取得が途中で切れた場合、同一レースの全頭名簿から馬番を保持して自動復元</b><br>'+
+    (rosterRecoveryV160.recovered?'<small class="ok">全頭復元: '+rosterRecoveryV160.from+'頭 → '+rosterRecoveryV160.to+'頭（'+rosterRecoveryV160.via+' / 着順は予測に不使用）</small><br>':'')+
     '<b>v156：netkeiba race_idの競馬場コードと本文ヘッダーを照合し、不一致時は正規race_idへ自動補正</b><br>'+
     (raceIdRepairV156.changed?'<small class="ok">race_id補正: '+raceIdRepairV156.from+' → '+raceIdRepairV156.to+'（'+raceIdRepairV156.reason+'）</small><br>':'')+
     '<b>v159：新潟芝直線1000m専用補正（外枠・ダッシュ力・千直実績・ペース補正）\nv157：小倉芝1000/1200/1700/1800/2000/2600m・芝A/B/C、ダ1000/1700/2400mに対応\nv155：福島競馬場の芝1200/1800/2000/2600m・ダ1150/1700/2400mのコース特性を小幅補正で反映</b><br>'+
