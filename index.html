@@ -9,13 +9,13 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v153</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v154</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
 <div class="card small" style="margin-top:0">
 保存馬数: <b id="memoryCount">0</b>頭<br>
-<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA / netkeiba の確定結果URLから全頭の実着順を取り込み、次回以降へ学習できます。</span>
+<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA / netkeiba の確定結果URLから全頭の実着順を取り込み、次回以降へ学習できます。同一レースを両方から取り込んでも1回分に統合します。</span>
 <div class="grid2" style="margin-top:6px">
 <button id="saveMemory" type="button">💾 現在の馬を保存</button>
 <button id="clearMemory" type="button" class="secondary">🗑 メモリ初期化</button>
@@ -503,7 +503,23 @@ function parseNetkeibaResultMetaV153(txt,url){
  );
  if(title)meta.raceName=title.replace(/^#+\s*/,'').trim();
 
- const ci=raceClassInfoV133(head);
+ // v154: never scan the entire netkeiba page for grade.
+ // Navigation/footer may contain unrelated G1/G2/G3 text and corrupt the learned race class.
+ let ci=raceClassInfoV133(meta.raceName);
+ if(!ci.level && title){
+   const ti=lines.indexOf(title);
+   const near=(ti>=0?lines.slice(Math.max(0,ti-2),ti+3):[]).join(' ');
+   ci=raceClassInfoV133(near);
+ }
+ const rid=netkeibaRaceIdFromAnyUrlV153(url);
+ const currentSame=!!(currentRaceContextV152&&currentRaceContextV152.raceId&&
+   ((rid&&String(rid)===String(currentRaceContextV152.raceId)) ||
+    (normalizeRaceDateV152(meta.date)&&normalizeRaceDateV152(meta.date)===normalizeRaceDateV152(currentRaceContextV152.date)&&
+     normalizeCourseV152(meta.course)===normalizeCourseV152(currentRaceContextV152.course)&&
+     Number(meta.raceNo||0)===Number(currentRaceContextV152.raceNo||0))));
+ if(!ci.level && currentSame && Number(currentRaceLevelV133||0)>0){
+   ci={level:Number(currentRaceLevelV133),label:String(currentRaceClassLabelV133||'不明')};
+ }
  meta.classLevel=Number(ci.level||0);meta.classLabel=ci.label||'不明';
  return meta;
 }
@@ -630,15 +646,52 @@ function matchResultToHorses(rows){
  });
  return {matches,unmatched};
 }
+function learnedRaceIdentityV154(x){
+ if(!x)return '';
+ const rid=String(x.raceId||'').trim();
+ if(/^\d{12}$/.test(rid))return 'rid|'+rid;
+ const d=normalizeRaceDateV152(x.date);
+ const c=normalizeCourseV152(x.course);
+ const rn=Number(x.raceNo||0);
+ if(d&&c&&rn)return 'meta|'+d+'|'+c+'|'+rn;
+ return String(x.raceKey||'').replace(/\s+/g,'');
+}
+function sameLearnedRaceV154(a,b){
+ const ia=learnedRaceIdentityV154(a),ib=learnedRaceIdentityV154(b);
+ return !!(ia&&ib&&ia===ib);
+}
+function dedupeLearnedResultsInMemV154(mem){
+ let removed=0;
+ for(const m of Object.values(mem||{})){
+   if(!m||!Array.isArray(m.learnedResults)||m.learnedResults.length<2)continue;
+   const out=[];
+   for(const x of m.learnedResults){
+     if(!x)continue;
+     const hit=out.find(y=>sameLearnedRaceV154(y,x));
+     if(!hit){out.push(x);continue;}
+     // Keep the first record (normally the earlier JRA record), and only fill missing fields.
+     // This prevents a later source with weaker metadata from overwriting a correct grade.
+     for(const [k,v] of Object.entries(x)){
+       if((hit[k]===undefined||hit[k]===null||hit[k]===''||hit[k]===0) &&
+          v!==undefined&&v!==null&&v!==''&&v!==0) hit[k]=v;
+     }
+     removed++;
+   }
+   m.learnedResults=out.slice(-30);
+ }
+ return removed;
+}
 function resultRaceKeyV150(meta,url){
- const core=[meta&&meta.date||'',meta&&meta.course||'',meta&&meta.raceNo||'',meta&&meta.raceName||''];
- // Same JRA race can have multiple CNAME URL variants. If body metadata is complete,
- // dedupe by the race itself rather than by the URL variant.
- if(core.filter(Boolean).length>=3)return core.join('|').replace(/\s+/g,'');
+ const ridFromUrl=netkeibaRaceIdFromAnyUrlV153(url);
+ if(ridFromUrl)return 'rid|'+ridFromUrl;
+ const d=normalizeRaceDateV152(meta&&meta.date);
+ const c=normalizeCourseV152(meta&&meta.course);
+ const rn=Number(meta&&meta.raceNo||0);
+ if(d&&c&&rn)return 'meta|'+d+'|'+c+'|'+rn;
  const u=String(url||'').trim();
  let cname='';
  try{cname=new URL(u).searchParams.get('CNAME')||''}catch(e){}
- return [...core,cname].join('|').replace(/\s+/g,'');
+ return ['fallback',d,c,rn,cname].join('|').replace(/\s+/g,'');
 }
 function learnParsedResult(rows,meta={},resultUrl=''){
  const matched=matchResultToHorses(rows);
@@ -649,6 +702,7 @@ function learnParsedResult(rows,meta={},resultUrl=''){
  // Save the current netkeiba-derived horse state first, then attach only result-learning metadata.
  matched.matches.forEach(({h})=>rememberHorse(h));
  const mem=loadMem();let learned=0,duplicates=0;
+ const removedOldV154=dedupeLearnedResultsInMemV154(mem);
  const course=String(meta.course||E.course.value||'');
  const surface=String(meta.surface||E.surface.value||'');
  const going=String(meta.going||E.going.value||'');
@@ -657,7 +711,12 @@ function learnParsedResult(rows,meta={},resultUrl=''){
  matched.matches.forEach(({h,row})=>{
    const k=normName(h.name),m=mem[k];if(!m)return;
    if(!Array.isArray(m.learnedResults))m.learnedResults=[];
-   const old=m.learnedResults.find(x=>x&&x.raceKey===raceKey);
+   const candidateV154={
+     raceKey,
+     raceId:(currentRaceContextV152&&currentRaceContextV152.raceId)||'',
+     date:meta.date||'',course,surface,distance,going,raceNo:Number(meta.raceNo||0)
+   };
+   const old=m.learnedResults.find(x=>sameLearnedRaceV154(x,candidateV154) || (x&&x.raceKey===raceKey));
    if(old){duplicates++;return;}
    const p=ensureProfile(m);
    if(course&&surface)addProfile(p.course,course+'|'+surface,row.pos);
@@ -677,14 +736,14 @@ function learnParsedResult(rows,meta={},resultUrl=''){
      classLevel:Number(meta.classLevel||0),classLabel:meta.classLabel||'不明',
      course,surface,distance,going,pos:Number(row.pos),no:String(row.no||''),
      last3:Number(row.last3||0)||0,body:Number(row.body||0)||0,jockey:row.jockey||'',
-     importedAt:new Date().toISOString(),source:'JRA-result'
+     importedAt:new Date().toISOString(),source:String(meta.source||'result')
    });
    m.learnedResults=m.learnedResults.slice(-30);
    m.lastFinish=row.pos;m.lastCourse=course;m.lastSurface=surface;m.lastDistance=distance;m.lastGoing=going;
    m.lastRaceLearnedAt=new Date().toISOString();m.updated=new Date().toISOString();learned++;
  });
  saveMemObject(mem);
- return {learned,matched:matched.matches.length,unmatched:matched.unmatched,duplicates,blocked:false,raceKey,meta};
+ return {learned,matched:matched.matches.length,unmatched:matched.unmatched,duplicates,removedOld:removedOldV154,blocked:false,raceKey,meta};
 }
 function sampleText(){return [
 '1,1,サンプルA,逃げ,騎手A,56.0,470,4.8,1,34.2,1800,良,3,34.8,1800,稍重',
@@ -9509,6 +9568,7 @@ fetchJraResult.onclick=async()=>{
   const rows=parseResultRowsV153(E.resultText.value,data.source);
   if(!rows.length)throw new Error('ページは取得できましたが確定着順を解析できませんでした');
   const meta=parseResultMetaV153(E.resultText.value,data.url||u,data.source);
+  meta.source=(data.source==='netkeiba'?'netkeiba-result':'JRA-result');
   const r=learnParsedResult(rows,meta,data.url||u);
   if(r.blocked)throw new Error(r.error);
   updateMemoryCount();
@@ -9519,6 +9579,7 @@ fetchJraResult.onclick=async()=>{
   jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規学習 '+r.learned+'頭</span>'+
     '<br>取得元: <b>'+(data.source==='netkeiba'?'netkeiba':'JRA')+'</b>'+
     dedupe+
+    (r.removedOld?'<br><span class="ok">✓ 旧重複学習 '+r.removedOld+'件を自動整理</span>':'')+
     (cond?'<br>実績条件: '+cond:'')+
     resultOrderHtmlV151(rows)+
     '<br><span class="small">※全頭の着順を次回以降の学習に保存。同一レースの学習効果はそのレース自身の再計算から自動除外します。取得経路: '+(data.via||'-')+'</span>'+
@@ -9564,6 +9625,11 @@ if(!localStorage.getItem('keiba_v36_route_reset')){
  localStorage.setItem('keiba_v36_route_reset','1');
 }
 restoreJraUrlV40();
+try{
+ const memV154=loadMem();
+ const removedV154=dedupeLearnedResultsInMemV154(memV154);
+ if(removedV154)localStorage.setItem(MEMKEY,JSON.stringify(memV154));
+}catch(e){}
 initHorses();fillCourse();updateMemoryCount();renderStats();setTimeout(resize,0);
 })();
 </script>
