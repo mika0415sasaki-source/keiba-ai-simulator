@@ -21,14 +21,12 @@
       src=src.replace(oldText,newText);
     }
 
-    // v164: 3連複フォーメーションを表示どおり全点生成。
     required(
       'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28',
       'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),Infinity',
       'trifecta full formation'
     );
 
-    // v164: 妙味判定の基準外理由を数値で表示。
     const valueAnchor=[
       'best.calibration.coreDiagnosis>=medianCore-1.0;',
       '',
@@ -58,8 +56,6 @@
       'value exclusion reason'
     );
 
-    // v165: netkeiba出馬表で「枠順が本当に掲載されている」証拠を確認。
-    // 仮の馬番→自動枠換算は表示用に残すが、採点には使わない。
     required(
       "const raceDate=targetRaceDateV118(raceId,src.text,shutuba.text||'');",
       [
@@ -80,29 +76,24 @@
       'frame confirmation'
     );
 
-    // v165: 枠未確定ならシミュレーションのランダム内外バイアスも停止。
     required(
       "const frame=Number(h.frame||1);\n  const frameNorm=(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
       "const frame=Number(h.frame||1);\n  const frameNorm=(h&&h.frameConfirmedV165===false)?0:(frame-4.5)/3.5;\n  z+=scenario.frameBias*frameNorm;",
       'simulation frame bias'
     );
 
-    // v165: コース専用補正内の内/外枠項目も、未確定時だけ無効化。
     required(
       "const f=Number(h&&h.frame||1);\n  const inside=f<=3, outer=f>=6;",
       "const f=Number(h&&h.frame||1);\n  const frameKnownV165=!(h&&h.frameConfirmedV165===false);\n  const inside=frameKnownV165&&f<=3, outer=frameKnownV165&&f>=6;",
       'course frame bias'
     );
 
-    // v165: 手動で枠を変更した場合は、その入力を確定枠として扱う。
     required(
       "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   lastStats=null;renderStats();draw();",
       "h[k]=['name','style','no','jockey'].includes(k)?x.value:+x.value;\n   if(k==='frame')h.frameConfirmedV165=true;\n   lastStats=null;renderStats();draw();",
       'manual frame confirmation'
     );
 
-    // v165: 近5走が不足した馬の校正勝率は、データ量に応じてフィールド平均へ縮小。
-    // 0走=35%, 1走=48%, 2走=61%, 3走=74%, 4走=87%, 5走=100%の履歴信頼度。
     required(
       "if(extremeLongshot&&verySharpRise)r.preCal=Math.min(r.preCal,r.pMarket*2.35);\n    else if(longshot&&sharpRise)r.preCal=Math.min(r.preCal,r.pMarket*3.00);\n  });",
       [
@@ -124,24 +115,18 @@
       'history confidence shrink'
     );
 
-    // v165: 診断欄にも枠確定状態を表示。
     required(
       "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '",
       "'<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 枠順: '+(frameConfirmedV165?'確定・枠補正ON':'未確定・枠補正OFF')+' / 馬場方針: '",
       'frame status diagnostic'
     );
 
-    // v165の更新内容を取込診断の先頭へ表示。
     required(
       "'<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
       "'<b>v165：枠順未確定は枠補正を完全停止（総合診断・コース専用内外枠・シミュレーション枠バイアス）。近5走不足は自動再試行し、残った不足分は履歴信頼度で校正勝率を保守化。</b><br>'+\n    '<b>v163：新潟芝直線1000mのコース履歴を過去5走と分離",
       'v165 changelog'
     );
 
-    // v165 runtime hooks:
-    // 1) 枠補正0.0
-    // 2) 近5走の不足馬だけ自動再試行
-    // 3) AI表示に履歴信頼度を明示
     const runtimeV165=[
       '',
       '// ---- v165 runtime hooks ----',
@@ -207,7 +192,7 @@
       ''
     ].join('\n');
 
-    const closeScript=src.lastIndexOf('</script>');
+    const closeScript=src.lastIndexOf('<'+'/script>');
     if(closeScript<0)throw new Error('main script end not found');
     src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);
 
