@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v157</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v158</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -435,17 +435,20 @@ function parseNetkeibaResultTextV153(txt){
    if(c.length&&c[c.length-1]==='')c=c.slice(0,-1);
    if(c.length<4)continue;
 
-   const p=stripMarkdownV150(c[0]).match(/^(\d{1,2})(?:\s*着)?$/);
+   const ptxt=stripMarkdownV150(c[0]);
+   const p=ptxt.match(/^(\d{1,2})(?:\s*着)?$/);
+   const statusM=ptxt.match(/^(中止|競走中止|取消|除外|失格)$/);
    const f=stripMarkdownV150(c[1]).match(/^(?:枠)?([1-8])$/);
    const n=stripMarkdownV150(c[2]).match(/^(\d{1,2})$/);
-   if(!p||!n)continue;
+   if((!p&&!statusM)||!n)continue;
 
-   const pos=Number(p[1]),no=Number(n[1]);
-   if(!(pos>=1&&pos<=18&&no>=1&&no<=18))continue;
+   const pos=p?Number(p[1]):0,no=Number(n[1]);
+   if(!((pos===0||(pos>=1&&pos<=18))&&no>=1&&no<=18))continue;
    const name=resultHorseNameV150(c[3]);
    if(!name)continue;
 
-   const row={pos,frame:f?Number(f[1]):null,no:String(no),name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
+   const status=statusM?(statusM[1]==='競走中止'?'中止':statusM[1]):'';
+   const row={pos,status,frame:f?Number(f[1]):null,no:String(no),name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
    if(c[6])row.jockey=stripMarkdownV150(c[6]).replace(/\s+/g,' ').trim();
 
    const whole=c.map(stripMarkdownV150).join(' | ');
@@ -460,9 +463,18 @@ function parseNetkeibaResultTextV153(txt){
    rows.push(row);
  }
  const seenNo=new Set(),seenPos=new Set(),out=[];
- rows.sort((a,b)=>a.pos-b.pos).forEach(r=>{
-   if(seenNo.has(r.no)||seenPos.has(r.pos))return;
-   seenNo.add(r.no);seenPos.add(r.pos);out.push(r);
+ rows.sort((a,b)=>{
+   const ap=Number(a.pos||0),bp=Number(b.pos||0);
+   if(ap&&bp)return ap-bp;
+   if(ap)return -1;
+   if(bp)return 1;
+   return Number(a.no||99)-Number(b.no||99);
+ }).forEach(r=>{
+   if(seenNo.has(r.no))return;
+   if(Number(r.pos||0)>0&&seenPos.has(r.pos))return;
+   seenNo.add(r.no);
+   if(Number(r.pos||0)>0)seenPos.add(r.pos);
+   out.push(r);
  });
  return out.slice(0,18);
 }
@@ -588,19 +600,22 @@ function parseJraResultText(txt){
    if(cells.length<4)continue;
    const ptxt=stripMarkdownV150(cells[0]);
    const ntxt=stripMarkdownV150(cells[2]);
-   const pm=ptxt.match(/^(\d{1,2})(?:\s*着)?$/),nm=ntxt.match(/^(\d{1,2})$/);
-   if(!pm||!nm)continue;
-   const pos=Number(pm[1]),no=Number(nm[1]);
-   if(!(pos>=1&&pos<=18&&no>=1&&no<=18))continue;
+   const pm=ptxt.match(/^(\d{1,2})(?:\s*着)?$/);
+   const statusM=ptxt.match(/^(中止|競走中止|取消|除外|失格)$/);
+   const nm=ntxt.match(/^(\d{1,2})$/);
+   if((!pm&&!statusM)||!nm)continue;
+   const pos=pm?Number(pm[1]):0,no=Number(nm[1]);
+   if(!((pos===0||(pos>=1&&pos<=18))&&no>=1&&no<=18))continue;
    const name=resultHorseNameV150(cells[3]);
    if(!name)continue;
-   rowStarts.push({i,pos,no,name,cells});
+   const status=statusM?(statusM[1]==='競走中止'?'中止':statusM[1]):'';
+   rowStarts.push({i,pos,status,no,name,cells});
  }
  for(let z=0;z<rowStarts.length;z++){
    const st=rowStarts[z],end=z+1<rowStarts.length?rowStarts[z+1].i:Math.min(lines.length,st.i+16);
    const block=lines.slice(st.i,end).join('\n');
    const c=st.cells;
-   const row={pos:st.pos,frame:null,no:String(st.no),name:st.name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
+   const row={pos:st.pos,status:st.status||'',frame:null,no:String(st.no),name:st.name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
    const frameTxt=stripMarkdownV150(c[1]||'');
    const fm=frameTxt.match(/枠?\s*([1-8])/);if(fm)row.frame=Number(fm[1]);
    if(c[6])row.jockey=stripMarkdownV150(c[6]).replace(/\s+/g,' ').trim();
@@ -719,9 +734,11 @@ function learnParsedResult(rows,meta={},resultUrl=''){
    const old=m.learnedResults.find(x=>sameLearnedRaceV154(x,candidateV154) || (x&&x.raceKey===raceKey));
    if(old){duplicates++;return;}
    const p=ensureProfile(m);
-   if(course&&surface)addProfile(p.course,course+'|'+surface,row.pos);
-   if(going)addProfile(p.going,going,row.pos);
-   if(distance)addProfile(p.distance,distBucket(distance),row.pos);
+   const finishPos=Number(row.pos||0);
+   const hasNumericFinish=finishPos>=1&&finishPos<=18;
+   if(hasNumericFinish&&course&&surface)addProfile(p.course,course+'|'+surface,finishPos);
+   if(hasNumericFinish&&going)addProfile(p.going,going,finishPos);
+   if(hasNumericFinish&&distance)addProfile(p.distance,distBucket(distance),finishPos);
    const fullCurrentFieldV152=!!(currentRaceContextV152&&currentRaceContextV152.raceId&&
      matched.matches.length===horses.length&&rows.length===horses.length);
    const strongMetaMatchV152=!!(currentRaceContextV152&&currentRaceContextV152.raceId&&
@@ -734,16 +751,20 @@ function learnParsedResult(rows,meta={},resultUrl=''){
    m.learnedResults.push({
      raceKey,raceId:learnedRaceIdV152,date:meta.date||'',raceName:meta.raceName||'',raceNo:Number(meta.raceNo||0),
      classLevel:Number(meta.classLevel||0),classLabel:meta.classLabel||'不明',
-     course,surface,distance,going,pos:Number(row.pos),no:String(row.no||''),
+     course,surface,distance,going,pos:Number(row.pos||0),status:String(row.status||''),no:String(row.no||''),
      last3:Number(row.last3||0)||0,body:Number(row.body||0)||0,jockey:row.jockey||'',
      importedAt:new Date().toISOString(),source:String(meta.source||'result')
    });
    m.learnedResults=m.learnedResults.slice(-30);
-   m.lastFinish=row.pos;m.lastCourse=course;m.lastSurface=surface;m.lastDistance=distance;m.lastGoing=going;
+   if(hasNumericFinish)m.lastFinish=finishPos;
+   if(row.status)m.lastStatus=String(row.status);
+   m.lastCourse=course;m.lastSurface=surface;m.lastDistance=distance;m.lastGoing=going;
    m.lastRaceLearnedAt=new Date().toISOString();m.updated=new Date().toISOString();learned++;
  });
  saveMemObject(mem);
- return {learned,matched:matched.matches.length,unmatched:matched.unmatched,duplicates,removedOld:removedOldV154,blocked:false,raceKey,meta};
+ const rankedLearned=matched.matches.filter(x=>Number(x.row.pos||0)>=1&&Number(x.row.pos||0)<=18).length;
+ const statusLearned=matched.matches.filter(x=>x.row.status).length;
+ return {learned,rankedLearned,statusLearned,matched:matched.matches.length,unmatched:matched.unmatched,duplicates,removedOld:removedOldV154,blocked:false,raceKey,meta};
 }
 function sampleText(){return [
 '1,1,サンプルA,逃げ,騎手A,56.0,470,4.8,1,34.2,1800,良,3,34.8,1800,稍重',
@@ -9708,8 +9729,8 @@ function resultOrderHtmlV151(rows){
  if(!list.length)return '';
  return '<div style="margin-top:8px"><b>確定着順（全頭）</b>'+
    '<div style="margin-top:5px;border:1px solid #30363d;border-radius:8px;overflow:hidden">'+
-   list.map((x,i)=>'<div style="display:grid;grid-template-columns:46px 46px 1fr;gap:6px;padding:7px 9px;'+(i?'border-top:1px solid #30363d;':'')+'">'+
-     '<b>'+esc(x.pos)+'着</b><span>'+esc(x.no)+'</span><span>'+esc(x.name||'')+'</span></div>').join('')+
+   list.map((x,i)=>'<div style="display:grid;grid-template-columns:58px 46px 1fr;gap:6px;padding:7px 9px;'+(i?'border-top:1px solid #30363d;':'')+'">'+
+     '<b>'+esc(x.status||((x.pos||'')+'着'))+'</b><span>'+esc(x.no)+'</span><span>'+esc(x.name||'')+'</span></div>').join('')+
    '</div></div>';
 }
 
@@ -9730,13 +9751,17 @@ fetchJraResult.onclick=async()=>{
   const dedupe=(r.learned===0&&r.duplicates===r.matched&&r.matched>0)
     ?'<br><span class="ok">✓ 二重取込み防止：このレースは学習済みです。再加算していません。</span>'
     :(r.duplicates?'<br>重複済み '+r.duplicates+'頭は再加算していません。':'');
-  jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規学習 '+r.learned+'頭</span>'+
+  const specialRows=rows.filter(x=>x.status);
+  const specialNote=specialRows.length
+    ?' / 着順学習 '+rows.filter(x=>Number(x.pos||0)>0).length+'頭 / '+specialRows.map(x=>x.no+'番'+x.name+' '+x.status).join('・')
+    :'';
+  jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規保存 '+r.learned+'頭'+specialNote+'</span>'+
     '<br>取得元: <b>'+(data.source==='netkeiba'?'netkeiba':'JRA')+'</b>'+
     dedupe+
     (r.removedOld?'<br><span class="ok">✓ 旧重複学習 '+r.removedOld+'件を自動整理</span>':'')+
     (cond?'<br>実績条件: '+cond:'')+
     resultOrderHtmlV151(rows)+
-    '<br><span class="small">※全頭の着順を次回以降の学習に保存。同一レースの学習効果はそのレース自身の再計算から自動除外します。取得経路: '+(data.via||'-')+'</span>'+
+    '<br><span class="small">※全頭の結果を次回以降へ保存。中止・取消・除外・失格は結果履歴として保存しますが、最下位着順には換算せず能力評価の着順点にも加算しません。同一レースの学習効果はそのレース自身の再計算から自動除外します。取得経路: '+(data.via||'-')+'</span>'+
     (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭: '+r.unmatched.map(x=>x.no+' '+x.name).join('・')+'</span>':'');
  }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraResult.disabled=false}
