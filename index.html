@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v147</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v148</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -60,7 +60,12 @@ JRA出馬表テキストの貼り付けにも対応"></textarea><div class="grid
 <div class="small">枠色: <span class="pill" style="background:#fff;color:#111">1白</span><span class="pill" style="background:#222;color:#fff">2黒</span><span class="pill" style="background:#e53935;color:#fff">3赤</span><span class="pill" style="background:#1976d2;color:#fff">4青</span><span class="pill" style="background:#fdd835;color:#111">5黄</span><span class="pill" style="background:#2e7d32;color:#fff">6緑</span><span class="pill" style="background:#ef6c00;color:#fff">7橙</span><span class="pill" style="background:#ec407a;color:#fff">8桃</span></div>
 <div class="stage"><div id="badge" class="badge"></div><div id="runstatus" class="status">停止中</div><canvas id="canvas"></canvas></div>
 <div class="card small"><b>レース局面:</b> <span id="phase">スタート前</span><br><span id="finish">再生すると着順どおりにゴールします。</span></div>
-<div class="bottom"><div class="card"><b>シミュレーション結果</b><table><thead><tr><th>印</th><th>馬</th><th>診断</th><th>AI勝率</th><th>連対</th><th>3着内</th></tr></thead><tbody id="ranking"></tbody></table></div><div class="card"><b>展開分析</b><div id="analysis" class="small" style="line-height:1.7;margin-top:6px"></div></div></div>
+<div class="bottom"><div class="card"><b>シミュレーション結果</b>
+<div class="small" style="margin:6px 0 8px;line-height:1.55;opacity:.82">
+3複印＝3着内・連対・総合診断・校正勝率を合成した「3連複軸信頼度」。◎は3連複軸1位です。<br>
+単勝AI＝校正勝率。3複◎と単勝1位は一致しない場合があります。
+</div>
+<table><thead><tr><th>3複</th><th>馬</th><th>診断</th><th>単勝AI</th><th>連対</th><th>3着内</th></tr></thead><tbody id="ranking"></tbody></table></div><div class="card"><b>展開分析</b><div id="analysis" class="small" style="line-height:1.7;margin-top:6px"></div></div></div>
 <div class="bottom"><div class="card"><b>AI最終評価</b><div id="aiSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div><div class="card"><b>妙味判定</b><div id="valueSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div></div></main></div>
 <script>
 (()=>{'use strict';
@@ -2168,6 +2173,58 @@ function calibrationNoteV140(q){
   return `校正 ${q.calWin.toFixed(1)}% / 生 ${q.win.toFixed(1)}% / 市場 ${c.marketWin.toFixed(1)}% / 信頼 ${(c.trust*100).toFixed(0)}% / 市場比 ${gap.toFixed(2)}倍`;
 }
 
+function betRankViewV148(rows){
+  const enriched=(rows||[]).map(q=>{
+    const d=diagnosis100V97(q.h);
+    // 3連複の「軸」は勝ち切りよりも3着内安定性を最重視。
+    // ただし連対・総合診断・校正勝率も少量混ぜ、単なるshow順にはしない。
+    const axisScore=
+      Number(q.show||0)*0.52+
+      Number(q.quin||0)*0.20+
+      Number(q.calWin||q.win||0)*0.12+
+      Number(d||0)*0.16;
+    return {...q,diag100:d,axisScore};
+  });
+
+  const axis=enriched.slice().sort((a,b)=>
+    b.axisScore-a.axisScore ||
+    b.show-a.show ||
+    b.quin-a.quin ||
+    b.calWin-a.calWin
+  );
+  const single=enriched.slice().sort((a,b)=>
+    b.calWin-a.calWin ||
+    b.win-a.win ||
+    b.axisScore-a.axisScore
+  );
+
+  const byI=new Map();
+  axis.forEach((q,i)=>{
+    q.axisRank=i+1;
+    byI.set(q.i,q);
+  });
+  single.forEach((q,i)=>{
+    const x=byI.get(q.i);
+    if(x)x.singleRank=i+1;
+  });
+
+  axis.forEach(q=>{
+    const ar=q.axisRank||99,sr=q.singleRank||99;
+    if(ar<=3&&sr<=3)q.betType='両対応';
+    else if(ar<=3)q.betType='3連複軸向き';
+    else if(sr<=3)q.betType='単勝向き';
+    else q.betType='相手候補';
+  });
+
+  return {axis,single,byI};
+}
+
+function betRankNoteV148(q){
+  if(!q)return '';
+  const sr=q.singleRank||'-';
+  return `${q.betType} / 3複軸${q.axisRank}位 / 単勝${sr}位`;
+}
+
 function randNormV82(){
   // Box-Muller; clipped so a single freak draw cannot dominate everything.
   let u=0,v=0;
@@ -2277,23 +2334,35 @@ function renderAISummary(){
   if(!horses.length)return;
 
   const r=currentModel();
-  const top=r.slice(0,5),marks=['◎','○','▲','☆','△'];
+  const view=betRankViewV148(r);
+  const top=view.axis.slice(0,5),marks=['◎','○','▲','☆','△'];
+  const axisTop=view.axis[0]||null;
+  const singleTop=view.single[0]||null;
+
+  const splitLine=(axisTop&&singleTop)
+    ? `<br><b>3連複軸1位:</b> ${axisTop.h.no} ${axisTop.h.name}　
+       <b>単勝AI1位:</b> ${singleTop.h.no} ${singleTop.h.name}
+       ${axisTop.i!==singleTop.i?'<br><span style="opacity:.72">※軸信頼度と勝ち切り評価を分離しています。</span>':''}`
+    : '';
 
   const head=`<div class="small" style="margin-bottom:10px">
     シミュレーション: <b>${lastSimulationCountV83.toLocaleString()}回</b> /
     実行 #${simulationRunSeqV83} / ${lastSimulationLabelV83}<br>
-    <span style="opacity:.78">期待値は「校正AI勝率」を使用。生シミュ勝率をそのままオッズへ掛けません。</span>
+    <span style="opacity:.78">3複印は「軸信頼度」、単勝AIは「校正勝率」。期待値は校正AI勝率を使用し、生シミュ勝率をそのままオッズへ掛けません。</span>
+    ${splitLine}
   </div>`;
 
   E.aiSummary.innerHTML=head+top.map((q,i)=>{
     const m=pastFiveMetricsV81(q.h);
     const s=(m.bonus>=0?'+':'')+m.bonus.toFixed(1);
+    const singleTag=q.singleRank===1?' <b>【単勝1位】</b>':'';
     return `<div style="margin-bottom:7px">
       ${marks[i]} ${q.h.no} ${q.h.name}　
       <b>校正勝率${q.calWin.toFixed(1)}%</b> /
       <span style="opacity:.70">生${q.win.toFixed(1)}%</span> /
       3着内${q.show.toFixed(1)}%
-      <span class="small">5走評価 ${s}</span>
+      <span class="small">5走評価 ${s}</span>${singleTag}
+      <br><span class="small" style="opacity:.80">${betRankNoteV148(q)} / 軸指数 ${q.axisScore.toFixed(1)}</span>
     </div>
     <div style="margin:-3px 0 6px 24px;font-size:11px;opacity:.68">${calibrationNoteV140(q)}</div>
     ${fiveBreakdownHtmlV85(q.h)}${totalBreakdownHtmlV86(q.h)}`;
@@ -2306,12 +2375,6 @@ function renderAISummary(){
   const cores=r.map(q=>q.calibration?Number(q.calibration.coreDiagnosis||0):0);
   const medianCore=medianV140(cores);
 
-  // A value horse must have more than a high decimal price:
-  // - calibrated EV > 1
-  // - meaningful market edge
-  // - simulation/diagnosis agreement
-  // - no severe class-rise warning
-  // - diagnosis not far below field median
   const hole=value.find(q=>{
     const c=q.calibration;
     if(!c)return false;
@@ -2323,8 +2386,6 @@ function renderAISummary(){
       c.coreDiagnosis>=medianCore-1.0;
   });
 
-  // "Dangerous favorite" is restricted to market top-5 horses whose
-  // calibrated probability does not justify the quoted odds.
   const danger=value
     .filter(q=>q.calibration&&q.calibration.marketRank<=5)
     .sort((a,b)=>a.ev-b.ev)
@@ -2380,7 +2441,7 @@ function renderAISummary(){
 
 function renderAllTotalBreakdownV86(){
   if(!E.totalBreakdownAll||!horses.length)return;
-  const r=currentModel().slice().sort((a,b)=>b.show-a.show||b.win-a.win);
+  const r=betRankViewV148(currentModel()).axis;
   E.totalBreakdownAll.innerHTML=r.map(q=>{
     const b=totalBreakdownV86(q.h);
     return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
@@ -2392,7 +2453,7 @@ function renderAllTotalBreakdownV86(){
 
 function renderAllFiveBreakdownV85(){
   if(!E.fiveBreakdownAll||!horses.length)return;
-  const r=currentModel().slice().sort((a,b)=>b.show-a.show||b.win-a.win);
+  const r=betRankViewV148(currentModel()).axis;
   E.fiveBreakdownAll.innerHTML=r.map(q=>{
     const m=pastFiveMetricsV81(q.h);
     return `<div style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)">
@@ -2804,16 +2865,26 @@ function renderStats(){
   }
   const baseStats=lastStats;
   const calMap=calibratedWinBundleV140(baseStats);
+  const presentationRows=baseStats.map(q=>{
+    const h=horses[q.i],c=calMap.get(q.i);
+    return {
+      ...q,
+      h,
+      calWin:c?c.calWin:q.win,
+      calibration:c||null
+    };
+  });
+  const viewV148=betRankViewV148(presentationRows);
 
-  E.ranking.innerHTML=baseStats.map((q,i)=>{
-    const h=horses[q.i],d=diagnosis100V97(h);
-    const c=calMap.get(q.i);
-    const calWin=c?c.calWin:q.win;
+  E.ranking.innerHTML=viewV148.axis.map((q,i)=>{
+    const h=q.h,d=q.diag100;
+    const mark=(['◎','○','▲','☆'][i]||'△');
+    const single1=q.singleRank===1?' <b style="font-size:10px">単1</b>':'';
     return '<tr>'+
-      '<td>'+(['◎','○','▲','☆'][i]||'△')+'</td>'+
-      '<td>'+h.no+' '+h.name+'</td>'+
+      '<td>'+mark+'</td>'+
+      '<td>'+h.no+' '+h.name+'<br><span class="small">'+q.betType+' / 単'+q.singleRank+'位</span></td>'+
       '<td><b>'+d.toFixed(1)+'</b><span class="small">/100 '+diagnosisLabelV97(d)+'</span></td>'+
-      '<td><b>'+calWin.toFixed(1)+'%</b><br><span class="small">生'+q.win.toFixed(1)+'%</span></td>'+
+      '<td><b>'+q.calWin.toFixed(1)+'%</b>'+single1+'<br><span class="small">生'+q.win.toFixed(1)+'%</span></td>'+
       '<td>'+q.quin.toFixed(1)+'%</td>'+
       '<td>'+q.show.toFixed(1)+'%</td>'+
     '</tr>';
@@ -8787,7 +8858,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v147：競馬場・芝ダート・距離は自動反映／馬場は当日公表値だけ自動・過去/未来は手動保持＋ハイペース脚質補正を縮小</b><br>'+
+    '<b>v148：3連複軸信頼度と単勝AI順位を分離表示（v147の条件・馬場・展開補正ロジックは維持）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>条件自動反映: '+(raceMetaV147.course||'競馬場未取得')+' / '+(raceMetaV147.surface||'芝ダ未取得')+' '+(raceMetaV147.distance?(raceMetaV147.distance+'m'):'距離未取得')+' / 馬場 '+(raceMetaAppliedV147.goingAuto?(E.going.value+'（当日自動）'):(E.going.value+'（手動保持）'))+' / ペース '+paceName()+'</b><br>'+
     '<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '+(raceMetaAppliedV147.goingReason||'手動')+' / 展開補正診断 '+paceStyleDiagnosticV147().level+'（脚質間差 '+paceStyleDiagnosticV147().spread.toFixed(1)+'pt・上限±2.2pt）</small><br>'+
