@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v150</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v151</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -43,12 +43,15 @@ JRA出馬表テキストの貼り付けにも対応"></textarea><div class="grid
 <div id="learnStatus" class="small"></div></div>
 <div class="g" style="margin-top:10px"><label>JRA確定結果を取込み・学習</label>
 <div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRA確定結果URLから結果取込み</b><br><input id="jraResultUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">🌐 確定結果を取込み・学習</button><div id="jraResultStatus" class="small" style="margin-top:5px">確定結果URLを貼って押すだけで、着順を取り込み次回以降の学習メモリへ保存します。二重取込みは自動防止します。</div></div>
-<textarea id="resultText" placeholder="JRAのレース結果ページをコピーして、ここに貼り付け"></textarea>
+<details class="card small" style="margin-top:8px">
+<summary><b>手動貼り付け・解析（必要なときだけ）</b></summary>
+<textarea id="resultText" placeholder="JRAのレース結果ページをコピーして、ここに貼り付け" style="margin-top:8px"></textarea>
 <div class="grid2">
 <button id="previewResult" class="secondary">🔎 結果を解析</button>
 <button id="autoLearnResult">🧠 自動学習</button>
 </div>
-<div id="autoLearnStatus" class="small">確定着順を自動で読み取り、馬名・馬番で照合します。結果は次回以降にだけ学習反映し、同じレースの予測値は後から書き換えません。</div></div>
+<div id="autoLearnStatus" class="small">URL取込みが使えない場合の予備欄です。確定着順を読み取り、馬名・馬番で照合します。</div>
+</details></div>
 <div class="g" style="margin-top:12px"><label>出走馬編集</label>
 <div class="runner small" style="margin-bottom:5px"><span>枠</span><span>馬番</span><span>馬名</span><span>脚質</span><span>騎手</span><span>斤量</span><span>馬体重</span><span>速</span><span>持</span><span>力</span></div>
 <div id="runners"></div></div>
@@ -9210,6 +9213,18 @@ fetchJraEntry.onclick=async()=>{
  }catch(e){jraEntryStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraEntry.disabled=false}
 };
+
+function resultOrderHtmlV151(rows){
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const list=(rows||[]).slice().sort((a,b)=>Number(a.pos||99)-Number(b.pos||99));
+ if(!list.length)return '';
+ return '<div style="margin-top:8px"><b>確定着順（全頭）</b>'+
+   '<div style="margin-top:5px;border:1px solid #30363d;border-radius:8px;overflow:hidden">'+
+   list.map((x,i)=>'<div style="display:grid;grid-template-columns:46px 46px 1fr;gap:6px;padding:7px 9px;'+(i?'border-top:1px solid #30363d;':'')+'">'+
+     '<b>'+esc(x.pos)+'着</b><span>'+esc(x.no)+'</span><span>'+esc(x.name||'')+'</span></div>').join('')+
+   '</div></div>';
+}
+
 fetchJraResult.onclick=async()=>{
  jraResultStatus.textContent='確定結果を取得中…';fetchJraResult.disabled=true;
  try{
@@ -9222,14 +9237,16 @@ fetchJraResult.onclick=async()=>{
   const r=learnParsedResult(rows,meta,u);
   if(r.blocked)throw new Error(r.error);
   updateMemoryCount();
-  const top=rows.slice(0,3).map(x=>x.pos+'着 '+x.no+' '+x.name).join(' / ');
   const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
+  const dedupe=(r.learned===0&&r.duplicates===r.matched&&r.matched>0)
+    ?'<br><span class="ok">✓ 二重取込み防止：このレースは学習済みです。再加算していません。</span>'
+    :(r.duplicates?'<br>重複済み '+r.duplicates+'頭は再加算していません。':'');
   jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規学習 '+r.learned+'頭</span>'+
-    (r.duplicates?'<br>重複済み '+r.duplicates+'頭は再加算していません。':'')+
-    '<br>確定上位: '+top+
+    dedupe+
     (cond?'<br>実績条件: '+cond:'')+
-    '<br><span class="small">※結果は次回以降の学習に保存。同じレースの予測値は後から書き換えません。取得経路: '+(data.via||'-')+'</span>'+
-    (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭: '+r.unmatched.slice(0,4).map(x=>x.no+' '+x.name).join('・')+'</span>':'');
+    resultOrderHtmlV151(rows)+
+    '<br><span class="small">※全頭の着順を次回以降の学習に保存。同じレースの予測値は後から書き換えません。取得経路: '+(data.via||'-')+'</span>'+
+    (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭: '+r.unmatched.map(x=>x.no+' '+x.name).join('・')+'</span>':'');
  }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraResult.disabled=false}
 };
@@ -9238,9 +9255,10 @@ E.previewResult.onclick=()=>{
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">着順を解析できませんでした。</span>';return}
  const meta=parseJraResultMetaV150(E.resultText.value,'');
  const m=matchResultToHorses(rows);
- const top=rows.slice(0,3).map(r=>r.pos+'着 '+r.no+' '+r.name).join(' / ');
  const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
- E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span><br>'+top+(cond?'<br>実績条件: '+cond:'')+(m.unmatched.length?'<br><span class="warn">未照合 '+m.unmatched.length+'頭</span>':'');
+ E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span>'+
+   (cond?'<br>実績条件: '+cond:'')+resultOrderHtmlV151(rows)+
+   (m.unmatched.length?'<br><span class="warn">未照合 '+m.unmatched.length+'頭</span>':'');
 };
 E.autoLearnResult.onclick=()=>{
  const rows=parseJraResultText(E.resultText.value);
