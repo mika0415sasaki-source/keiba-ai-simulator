@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v146</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v147</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -2176,22 +2176,10 @@ function randNormV82(){
   return clampV81(Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v),-2.8,2.8);
 }
 function paceAdjV82(h,p){
-  let a=0;
-  if(p==='ハイ'){
-    if(h.style==='差し')a+=5;
-    if(h.style==='追込')a+=6;
-    if(h.style==='逃げ')a-=4;
-    if(h.style==='先行')a-=1;
-  }else if(p==='スロー'){
-    if(h.style==='逃げ')a+=5;
-    if(h.style==='先行')a+=3;
-    if(h.style==='差し')a-=1;
-    if(h.style==='追込')a-=3;
-  }else{
-    if(h.style==='先行')a+=.5;
-    if(h.style==='差し')a+=.3;
-  }
-  return a;
+  // v147: scenario simulation must use exactly the same bounded pace/style
+  // correction as the diagnostic score.  This prevents the older +/-6pt
+  // scenario adjustment from re-introducing an excessive closer bias.
+  return paceStaticAdjV147(h&&h.style,p);
 }
 function samplePaceV82(){
   const base=paceName();
@@ -2561,39 +2549,43 @@ function marketDetailV101(h){
 }
 function marketFitV101(h){ return marketDetailV101(h).bonus; }
 
-function paceStaticAdjV146(style,pace){
+function paceStaticAdjV147(style,pace){
   const st=String(style||'差し');
   const p=String(pace||'平均');
+
+  // v147: pace is a modifier, not a second ability score.
+  // Keep the sign of the tactical advantage but cap the magnitude so that
+  // a high-pace diagnosis alone cannot launch a low-base closer to the top.
   if(p==='ハイ'){
-    if(st==='差し')return 4.4;
-    if(st==='追込')return 5.2;
-    if(st==='逃げ')return -3.5;
-    if(st==='先行')return -0.8;
+    if(st==='差し')return 1.8;
+    if(st==='追込')return 2.2;
+    if(st==='逃げ')return -1.8;
+    if(st==='先行')return -0.4;
   }else if(p==='スロー'){
-    if(st==='逃げ')return 4.3;
-    if(st==='先行')return 2.7;
-    if(st==='差し')return -0.8;
-    if(st==='追込')return -2.5;
+    if(st==='逃げ')return 2.0;
+    if(st==='先行')return 1.2;
+    if(st==='差し')return -0.4;
+    if(st==='追込')return -1.2;
   }else{
-    if(st==='先行')return 0.3;
-    if(st==='差し')return 0.2;
+    if(st==='先行')return 0.2;
+    if(st==='差し')return 0.1;
   }
   return 0;
 }
 
-function paceStyleDiagnosticV146(){
+function paceStyleDiagnosticV147(){
   const pd=autoPaceDetail();
   const p=paceName();
   const styles=['逃げ','先行','差し','追込'];
-  const vals=styles.map(st=>({style:st,v:paceStaticAdjV146(st,p),n:horses.filter(h=>h.style===st).length}));
+  const vals=styles.map(st=>({style:st,v:paceStaticAdjV147(st,p),n:horses.filter(h=>h.style===st).length}));
   const active=vals.filter(x=>x.n>0);
   const use=active.length>=2?active:vals;
   const max=Math.max(...use.map(x=>x.v));
   const min=Math.min(...use.map(x=>x.v));
   const spread=max-min;
-  let level='穏当';
-  if(spread>=7.0)level='強め';
-  else if(spread>=4.5)level='中程度';
+  let level='抑制';
+  if(spread>=3.5)level='中程度';
+  else if(spread>=2.0)level='軽め';
   const detail=vals.map(x=>x.style+x.n+'頭 '+(x.v>=0?'+':'')+x.v.toFixed(1)).join(' / ');
   const autoMode=String(E.pace&&E.pace.value||'auto')==='auto'||String(E.pace&&E.pace.value||'')==='AI自動';
   const scoreText=autoMode?' / AIペース判定スコア '+Number(pd.score||0).toFixed(1):'';
@@ -2617,7 +2609,7 @@ function totalBreakdownV86(h){
   const fieldMean = fieldRaw.reduce((a,b)=>a+b,0)/(fieldRaw.length||1);
   const base = fieldMean + (rawBase-fieldMean)*0.74;
 
-  const paceAdj=paceStaticAdjV146(h.style,pace);
+  const paceAdj=paceStaticAdjV147(h.style,pace);
 
   let goingAdj=0;
   if(E.going.value!=='良'){
@@ -2830,7 +2822,7 @@ function renderStats(){
   E.badge.textContent=E.course.value+'・'+E.surface.value+' '+E.variant.value+' '+E.distance.value+'m / '+paceName();
 
   const pd=autoPaceDetail();
-  const pdiagV146=paceStyleDiagnosticV146();
+  const pdiagV146=paceStyleDiagnosticV147();
   const paceAutoV146=String(E.pace.value||'auto')==='auto'||String(E.pace.value||'')==='AI自動';
   E.analysis.innerHTML=
     '想定ペース: <b>'+paceName()+'</b>'+
@@ -8476,8 +8468,35 @@ function parseNetkeibaRaceMetaV146(text,raceId,via){
   return meta;
 }
 
-function applyNetkeibaRaceMetaV146(meta){
-  if(!meta)return {applied:false};
+function jstDateKeyV147(){
+  try{
+    const p=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const y=(p.find(x=>x.type==='year')||{}).value||'';
+    const m=(p.find(x=>x.type==='month')||{}).value||'';
+    const d=(p.find(x=>x.type==='day')||{}).value||'';
+    if(y&&m&&d)return y+m+d;
+  }catch(e){}
+  const dt=new Date(Date.now()+9*60*60*1000);
+  return String(dt.getUTCFullYear())+String(dt.getUTCMonth()+1).padStart(2,'0')+String(dt.getUTCDate()).padStart(2,'0');
+}
+
+function goingPolicyV147(raceDate,sourceVia){
+  const target=/^20\d{6}$/.test(String(raceDate||''))?String(raceDate):'';
+  const today=jstDateKeyV147();
+  const via=String(sourceVia||'');
+
+  // A result page is never a legitimate source for a pre-race going input.
+  if(/result|daily/i.test(via))return {allow:false,reason:'結果ページの馬場は予想入力に使わない'};
+  if(!target)return {allow:false,reason:'開催日未確定のため馬場は手動'};
+  if(target<today)return {allow:false,reason:'過去レースの確定馬場は自動反映しない'};
+  if(target>today)return {allow:false,reason:'レース前のため馬場は手動'};
+  return {allow:true,reason:'当日ページの公表馬場のみ自動反映'};
+}
+
+function applyNetkeibaRaceMetaV147(meta,raceDate){
+  if(!meta)return {applied:false,goingAuto:false,goingReason:'条件未取得'};
+  const keepGoing=E.going?E.going.value:'良';
+
   if(meta.course&&E.course&&[...E.course.options].some(o=>o.value===meta.course))E.course.value=meta.course;
   if(meta.surface&&E.surface&&[...E.surface.options].some(o=>o.value===meta.surface))E.surface.value=meta.surface;
 
@@ -8494,16 +8513,34 @@ function applyNetkeibaRaceMetaV146(meta){
     if(meta.distance&&ds.includes(Number(meta.distance)))E.distance.value=String(Number(meta.distance));
     else if(!ds.includes(Number(E.distance.value))&&ds.length)E.distance.value=String(ds[0]);
   }
-  if(meta.going&&E.going&&[...E.going.options].some(o=>o.value===meta.going))E.going.value=meta.going;
-  return {applied:true,course:E.course.value,surface:E.surface.value,distance:Number(E.distance.value),going:E.going.value,variant:E.variant.value};
+
+  const gp=goingPolicyV147(raceDate,meta.via);
+  let goingAuto=false;
+  if(gp.allow && meta.going && E.going && [...E.going.options].some(o=>o.value===meta.going)){
+    E.going.value=meta.going;
+    goingAuto=true;
+  }else if(E.going && [...E.going.options].some(o=>o.value===keepGoing)){
+    E.going.value=keepGoing;
+  }
+
+  return {
+    applied:true,
+    course:E.course.value,
+    surface:E.surface.value,
+    distance:Number(E.distance.value),
+    going:E.going.value,
+    variant:E.variant.value,
+    goingAuto,
+    goingSource:meta.going||'',
+    goingReason:gp.reason
+  };
 }
 
-async function resolveNetkeibaRaceMetaV146(raceId,masterText,shutubaObj){
+async function resolveNetkeibaRaceMetaV147(raceId,masterText,shutubaObj,raceDate){
   let meta=parseNetkeibaRaceMetaV146(masterText,raceId,'newspaper');
   let page=shutubaObj&&shutubaObj.text?shutubaObj:null;
 
-  // Prefer the dedicated shutuba/shutuba_past header for race conditions.
-  // It is tied to the exact race_id and is less likely to be contaminated by historical rows.
+  // Prefer the exact shutuba header for immutable race conditions.
   if(!page||!page.text){
     try{page=await fetchNetkeibaShutubaTextV120(raceId);}catch(e){page={text:'',via:''};}
   }
@@ -8513,19 +8550,20 @@ async function resolveNetkeibaRaceMetaV146(raceId,masterText,shutubaObj){
     if(pm.surface||pm.distance||pm.going)meta.via=pm.via||'shutuba';
   }
 
-  // Completed races expose the final going reliably on the result page.
-  if(!(meta.surface&&meta.distance&&meta.going)){
+  // Result pages may fill immutable course/surface/distance only.
+  // v147 deliberately excludes going here to prevent hindsight leakage.
+  if(!(meta.surface&&meta.distance)){
     try{
       const r=await fetchNetkeibaResultMarketV121(raceId);
       if(r&&r.text){
         const rm=parseNetkeibaRaceMetaV146(r.text,raceId,r.via||'result');
-        for(const k of ['course','surface','distance','going','variant'])if(rm[k]!=null&&rm[k]!==''&&rm[k]!==0)meta[k]=rm[k];
-        if(rm.surface||rm.distance||rm.going)meta.via=rm.via||'result';
+        for(const k of ['course','surface','distance','variant'])if(rm[k]!=null&&rm[k]!==''&&rm[k]!==0)meta[k]=rm[k];
+        if(rm.surface||rm.distance)meta.via=rm.via||'result';
       }
     }catch(e){}
   }
 
-  const applied=applyNetkeibaRaceMetaV146(meta);
+  const applied=applyNetkeibaRaceMetaV147(meta,raceDate);
   applied.resolved={course:!!meta.course,surface:!!meta.surface,distance:!!meta.distance,going:!!meta.going,variant:!!meta.variant};
   return {meta,applied,page};
 }
@@ -8688,12 +8726,12 @@ async function importFromNetkeibaV108(url){
 
   const marketCacheSavedV142=saveRaceMarketCacheV142(raceId,parsed);
 
-  // v146: bind the controls to THIS race automatically.
-  // race_id fixes the course; newspaper/shutuba/result header fixes surface, distance and going.
-  const resolvedMetaV146=await resolveNetkeibaRaceMetaV146(raceId,src.text,shutuba);
-  if(resolvedMetaV146.page&&resolvedMetaV146.page.text&&!shutuba.text)shutuba=resolvedMetaV146.page;
-  const raceMetaV146=resolvedMetaV146.meta||{};
-  const raceMetaAppliedV146=resolvedMetaV146.applied||{};
+  // v147: course/surface/distance are immutable and may be auto-applied.
+  // Going is time-sensitive: historical/future result values must not leak into a pre-race prediction.
+  const resolvedMetaV147=await resolveNetkeibaRaceMetaV147(raceId,src.text,shutuba,raceDate);
+  if(resolvedMetaV147.page&&resolvedMetaV147.page.text&&!shutuba.text)shutuba=resolvedMetaV147.page;
+  const raceMetaV147=resolvedMetaV147.meta||{};
+  const raceMetaAppliedV147=resolvedMetaV147.applied||{};
 
   E.bulk.value=compactHorseCsv(parsed);
   horses=parsed.slice(0,18).filter(h=>h&&h.name);
@@ -8749,10 +8787,10 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v146：netkeiba競馬新聞から競馬場・芝ダート・距離・馬場を自動反映＋ペースAUTO値の不整合を修正＋展開補正診断を追加</b><br>'+
+    '<b>v147：競馬場・芝ダート・距離は自動反映／馬場は当日公表値だけ自動・過去/未来は手動保持＋ハイペース脚質補正を縮小</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
-    '<b>条件自動反映: '+(raceMetaV146.course||'競馬場未取得')+' / '+(raceMetaV146.surface||'芝ダ未取得')+' '+(raceMetaV146.distance?(raceMetaV146.distance+'m'):'距離未取得')+' / '+(raceMetaV146.going||'馬場未取得')+' / ペース '+paceName()+'</b><br>'+
-    '<small>条件取得: '+(raceMetaV146.via||'race_id+header')+' / 展開補正診断 '+paceStyleDiagnosticV146().level+'（脚質間差 '+paceStyleDiagnosticV146().spread.toFixed(1)+'pt）</small><br>'+
+    '<b>条件自動反映: '+(raceMetaV147.course||'競馬場未取得')+' / '+(raceMetaV147.surface||'芝ダ未取得')+' '+(raceMetaV147.distance?(raceMetaV147.distance+'m'):'距離未取得')+' / 馬場 '+(raceMetaAppliedV147.goingAuto?(E.going.value+'（当日自動）'):(E.going.value+'（手動保持）'))+' / ペース '+paceName()+'</b><br>'+
+    '<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '+(raceMetaAppliedV147.goingReason||'手動')+' / 展開補正診断 '+paceStyleDiagnosticV147().level+'（脚質間差 '+paceStyleDiagnosticV147().spread.toFixed(1)+'pt・上限±2.2pt）</small><br>'+
     '<b>今回レース格: '+currentRaceClassLabelV133+' / 相手レベル補正 '+(currentRaceLevelV133?'ON':'未判定')+
     (!currentRaceLevelV133?' <span style="color:#ffb020">※今回格が未取得のため順位は暫定</span>':'')+
     ' / 過去格取得 '+classKnownRunsV134+'/'+total5+'走（'+classKnownHorsesV134+'/'+horses.length+'頭）</b><br>'+
