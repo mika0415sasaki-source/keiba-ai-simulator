@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v148</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v149</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
@@ -66,11 +66,11 @@ JRA出馬表テキストの貼り付けにも対応"></textarea><div class="grid
 単勝AI＝校正勝率。3複◎と単勝1位は一致しない場合があります。
 </div>
 <table><thead><tr><th>3複</th><th>馬</th><th>診断</th><th>単勝AI</th><th>連対</th><th>3着内</th></tr></thead><tbody id="ranking"></tbody></table></div><div class="card"><b>展開分析</b><div id="analysis" class="small" style="line-height:1.7;margin-top:6px"></div></div></div>
-<div class="bottom"><div class="card"><b>AI最終評価</b><div id="aiSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div><div class="card"><b>妙味判定</b><div id="valueSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div></div></main></div>
+<div class="bottom"><div class="card"><b>AI最終評価</b><div id="aiSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div><div class="card"><b>妙味判定</b><div id="valueSummary" class="small" style="line-height:1.8;margin-top:6px"></div></div></div><div class="card"><b>3連複AI買い目</b><div id="trifectaPlan" class="small" style="line-height:1.8;margin-top:6px"></div></div></main></div>
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
-const E={course:$('course'),surface:$('surface'),variant:$('variant'),distance:$('distance'),going:$('going'),pace:$('pace'),speed:$('speed'),count:$('count'),bulk:$('bulk'),sample:$('sample'),apply:$('apply'),importStatus:$('importStatus'),play:$('play'),batch:$('batch'),reset:$('reset'),resultLearn:$('resultLearn'),learnResult:$('learnResult'),learnStatus:$('learnStatus'),resultText:$('resultText'),previewResult:$('previewResult'),autoLearnResult:$('autoLearnResult'),autoLearnStatus:$('autoLearnStatus'),runners:$('runners'),tab2d:$('tab2d'),tab3d:$('tab3d'),canvas:$('canvas'),badge:$('badge'),runstatus:$('runstatus'),phase:$('phase'),finish:$('finish'),ranking:$('ranking'),analysis:$('analysis'),paceAutoStatus:$('paceAutoStatus'),aiSummary:$('aiSummary'),valueSummary:$('valueSummary'),memoryCount:$('memoryCount'),memoryStatus:$('memoryStatus'),saveMemory:$('saveMemory'),clearMemory:$('clearMemory'),cleanMemory:$('cleanMemory'),purgeBadMemory:$('purgeBadMemory'),navImport:$('navImport'),navAnalyze:$('navAnalyze'),navPlay:$('navPlay'),navBatch:$('navBatch')};
+const E={course:$('course'),surface:$('surface'),variant:$('variant'),distance:$('distance'),going:$('going'),pace:$('pace'),speed:$('speed'),count:$('count'),bulk:$('bulk'),sample:$('sample'),apply:$('apply'),importStatus:$('importStatus'),play:$('play'),batch:$('batch'),reset:$('reset'),resultLearn:$('resultLearn'),learnResult:$('learnResult'),learnStatus:$('learnStatus'),resultText:$('resultText'),previewResult:$('previewResult'),autoLearnResult:$('autoLearnResult'),autoLearnStatus:$('autoLearnStatus'),runners:$('runners'),tab2d:$('tab2d'),tab3d:$('tab3d'),canvas:$('canvas'),badge:$('badge'),runstatus:$('runstatus'),phase:$('phase'),finish:$('finish'),ranking:$('ranking'),analysis:$('analysis'),paceAutoStatus:$('paceAutoStatus'),aiSummary:$('aiSummary'),valueSummary:$('valueSummary'),trifectaPlan:$('trifectaPlan'),memoryCount:$('memoryCount'),memoryStatus:$('memoryStatus'),saveMemory:$('saveMemory'),clearMemory:$('clearMemory'),cleanMemory:$('cleanMemory'),purgeBadMemory:$('purgeBadMemory'),navImport:$('navImport'),navAnalyze:$('navAnalyze'),navPlay:$('navPlay'),navBatch:$('navBatch')};
 E.fiveBreakdownAll=document.getElementById('fiveBreakdownAll');
 E.totalBreakdownAll=document.getElementById('totalBreakdownAll');
 const C={
@@ -2225,6 +2225,130 @@ function betRankNoteV148(q){
   return `${q.betType} / 3複軸${q.axisRank}位 / 単勝${sr}位`;
 }
 
+// v149: 3連複の「1頭軸 / 2頭軸 / フォーメーション」を自動選択し、実買い目まで生成。
+// 勝ち切り順位ではなく、v148の3連複軸信頼度・3着内率・連対率・診断を中心に判断する。
+function trifectaRowStrengthV149(q){
+  return Number(q.axisScore||0)*0.56+
+    Number(q.show||0)*0.22+
+    Number(q.quin||0)*0.10+
+    Number(q.diag100||0)*0.12;
+}
+function trifectaComboKeyV149(nums){
+  return nums.map(Number).sort((a,b)=>a-b).join('-');
+}
+function trifectaUniquePushV149(out,seen,nums){
+  const a=nums.map(Number).filter(Number.isFinite);
+  if(a.length!==3 || new Set(a).size!==3)return;
+  const key=trifectaComboKeyV149(a);
+  if(seen.has(key))return;
+  seen.add(key);
+  out.push(a.slice().sort((x,y)=>x-y));
+}
+function formationCombosV149(g1,g2,g3,maxPoints=28){
+  const out=[],seen=new Set();
+  for(const a of g1)for(const b of g2)for(const c of g3){
+    trifectaUniquePushV149(out,seen,[a,b,c]);
+  }
+  return out.slice(0,maxPoints);
+}
+function trifectaPlanBundleV149(rows){
+  const view=betRankViewV148(rows||[]);
+  const axis=view.axis||[];
+  if(axis.length<3)return null;
+
+  const ranked=axis.map(q=>({...q,triStrength:trifectaRowStrengthV149(q)}));
+  const top=ranked[0],second=ranked[1],third=ranked[2];
+  const gap12=Number(top.axisScore||0)-Number(second.axisScore||0);
+  const gap23=Number(second.axisScore||0)-Number(third.axisScore||0);
+  const topShow=Number(top.show||0),secondShow=Number(second.show||0);
+  const topQuin=Number(top.quin||0),secondQuin=Number(second.quin||0);
+
+  // 1頭軸は「明確な軸」がいる時だけ。軸違い全滅を避けるため条件は厳しめ。
+  const oneAxis = topShow>=58 && topQuin>=38 && gap12>=4.0 && Number(top.axisScore||0)>=52;
+  // 2頭軸は上位2頭とも馬券内安定度が高く、互いに近い時だけ。
+  const twoAxis = !oneAxis && topShow>=54 && secondShow>=50 && topQuin>=34 && secondQuin>=30 && gap12<=4.2;
+  const mode=oneAxis?'1頭軸流し':twoAxis?'2頭軸流し':'フォーメーション';
+
+  // 相手候補は軸信頼度を基本にしつつ、単勝上位馬を少し救う。
+  const partnerRank=ranked.slice().sort((a,b)=>{
+    const sa=a.triStrength + (a.singleRank<=3?(4-a.singleRank)*1.25:0);
+    const sb=b.triStrength + (b.singleRank<=3?(4-b.singleRank)*1.25:0);
+    return sb-sa || a.axisRank-b.axisRank;
+  });
+
+  let groups={},combos=[];
+  if(mode==='1頭軸流し'){
+    const anchor=top;
+    const partnerN=Math.min(axis.length-1, axis.length>=15?7:axis.length>=11?6:5);
+    const partners=partnerRank.filter(q=>q.i!==anchor.i).slice(0,partnerN);
+    const seen=new Set();
+    for(let i=0;i<partners.length;i++)for(let j=i+1;j<partners.length;j++){
+      trifectaUniquePushV149(combos,seen,[anchor.h.no,partners[i].h.no,partners[j].h.no]);
+    }
+    groups={axis:[anchor],partners};
+  }else if(mode==='2頭軸流し'){
+    const anchors=[top,second];
+    const partnerN=Math.min(axis.length-2, axis.length>=15?8:axis.length>=11?7:6);
+    const partners=partnerRank.filter(q=>!anchors.some(a=>a.i===q.i)).slice(0,partnerN);
+    const seen=new Set();
+    partners.forEach(p=>trifectaUniquePushV149(combos,seen,[anchors[0].h.no,anchors[1].h.no,p.h.no]));
+    groups={axis:anchors,partners};
+  }else{
+    const g1=ranked.slice(0,2);
+    const g2=partnerRank.slice(0,Math.min(5,axis.length));
+    const g3=partnerRank.slice(0,Math.min(axis.length>=15?8:7,axis.length));
+    combos=formationCombosV149(
+      g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28
+    );
+    groups={g1,g2,g3};
+  }
+
+  const reason = mode==='1頭軸流し'
+    ? `軸1位${top.h.no} ${top.h.name}の3着内${topShow.toFixed(1)}%・連対${topQuin.toFixed(1)}%、軸指数2位との差${gap12.toFixed(1)}pt。1頭軸に固定できる強さ。`
+    : mode==='2頭軸流し'
+      ? `軸上位2頭の3着内が${topShow.toFixed(1)}% / ${secondShow.toFixed(1)}%で拮抗。2頭とも残るシナリオを強く評価。`
+      : `軸1頭に固定するだけの差が小さいため複数シナリオをカバー。軸1位との差${gap12.toFixed(1)}pt、2位と3位の差${gap23.toFixed(1)}pt。`;
+
+  return {mode,view,ranked,top,second,third,gap12,gap23,groups,combos,reason};
+}
+function trifectaNumsV149(rows){
+  return (rows||[]).map(q=>q.h.no).join('・');
+}
+function trifectaComboHtmlV149(combos){
+  if(!combos.length)return '<span style="opacity:.72">買い目を生成できませんでした。</span>';
+  const chunks=[];
+  for(let i=0;i<combos.length;i+=6)chunks.push(combos.slice(i,i+6).map(x=>x.join('-')).join('　'));
+  return chunks.join('<br>');
+}
+function renderTrifectaPlanV149(){
+  if(!E.trifectaPlan)return;
+  if(!horses.length){E.trifectaPlan.innerHTML='出馬表を読み込むと自動判定します。';return;}
+  const plan=trifectaPlanBundleV149(currentModel());
+  if(!plan){E.trifectaPlan.innerHTML='3頭以上のデータが必要です。';return;}
+
+  let setup='';
+  if(plan.mode==='1頭軸流し'){
+    setup=`<b>軸:</b> ${trifectaNumsV149(plan.groups.axis)}<br><b>相手:</b> ${trifectaNumsV149(plan.groups.partners)}`;
+  }else if(plan.mode==='2頭軸流し'){
+    setup=`<b>2頭軸:</b> ${trifectaNumsV149(plan.groups.axis)}<br><b>相手:</b> ${trifectaNumsV149(plan.groups.partners)}`;
+  }else{
+    setup=`<b>1列:</b> ${trifectaNumsV149(plan.groups.g1)}<br><b>2列:</b> ${trifectaNumsV149(plan.groups.g2)}<br><b>3列:</b> ${trifectaNumsV149(plan.groups.g3)}`;
+  }
+  const cost=plan.combos.length*100;
+  const axisTop=plan.top;
+  const singleTop=plan.view.single[0];
+  E.trifectaPlan.innerHTML=`
+    推奨方式: <b style="font-size:14px">${plan.mode}</b><br>
+    <span style="opacity:.78">${plan.reason}</span><br>
+    <span style="opacity:.72">3連複軸1位: ${axisTop.h.no} ${axisTop.h.name} / 単勝AI1位: ${singleTop.h.no} ${singleTop.h.name}</span><br><br>
+    ${setup}<br>
+    <b>点数: ${plan.combos.length}点</b>　<span style="opacity:.75">100円均等なら ${cost.toLocaleString()}円</span><br>
+    <div style="margin-top:6px;padding:8px;border:1px solid #30363d;border-radius:7px;background:#0d1117;line-height:1.75">
+      <b>実買い目</b><br>${trifectaComboHtmlV149(plan.combos)}
+    </div>
+    <div style="margin-top:6px;opacity:.70">※3連複は順不同。軸信頼度を優先し、単勝順位だけで軸を決めません。1頭軸は明確な差がある場合だけ採用します。</div>`;
+}
+
 function randNormV82(){
   // Box-Muller; clipped so a single freak draw cannot dominate everything.
   let u=0,v=0;
@@ -2910,6 +3034,7 @@ function renderStats(){
 
 
   renderAISummary();
+  renderTrifectaPlanV149();
   renderAllFiveBreakdownV85();
   renderAllTotalBreakdownV86();
 }
@@ -8858,7 +8983,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v148：3連複軸信頼度と単勝AI順位を分離表示（v147の条件・馬場・展開補正ロジックは維持）</b><br>'+
+    '<b>v149：3連複の1頭軸・2頭軸・フォーメーションを自動判定し、実買い目まで生成（v148評価ロジックは維持）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>条件自動反映: '+(raceMetaV147.course||'競馬場未取得')+' / '+(raceMetaV147.surface||'芝ダ未取得')+' '+(raceMetaV147.distance?(raceMetaV147.distance+'m'):'距離未取得')+' / 馬場 '+(raceMetaAppliedV147.goingAuto?(E.going.value+'（当日自動）'):(E.going.value+'（手動保持）'))+' / ペース '+paceName()+'</b><br>'+
     '<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '+(raceMetaAppliedV147.goingReason||'手動')+' / 展開補正診断 '+paceStyleDiagnosticV147().level+'（脚質間差 '+paceStyleDiagnosticV147().spread.toFixed(1)+'pt・上限±2.2pt）</small><br>'+
