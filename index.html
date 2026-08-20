@@ -9,13 +9,13 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{padding:12px 14px;background:#161b22;border-bottom:1px solid #30363d;position:sticky;top:0;z-index:20}h1{margin:0;font-size:19px}.sub,.small{font-size:11px;color:#8b949e}.top{padding:8px;background:#0d1117;border-bottom:1px solid #30363d}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.flow button{margin:0}.wrap{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 100px)}aside{padding:12px;background:#161b22;border-right:1px solid #30363d}main{padding:10px;min-width:0}.g{margin-bottom:10px}label{display:block;font-size:11px;color:#8b949e;margin-bottom:4px}select,input,textarea,button{width:100%;border:1px solid #30363d;background:#0d1117;color:#e6edf3;border-radius:7px;padding:8px}button{cursor:pointer;background:#238636;font-weight:700}.secondary{background:#21262d}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tabs{display:flex;gap:6px;margin-bottom:8px}.tabs button{width:auto}.active{background:#1f6feb}.stage{position:relative;background:#07100b;border:1px solid #30363d;border-radius:10px;overflow:hidden}.badge,.status{position:absolute;z-index:2;background:#161b22dd;border:1px solid #30363d;border-radius:6px;padding:5px 7px;font-size:11px}.badge{left:8px;top:8px}.status{right:8px;top:8px}canvas{width:100%;height:420px;display:block}.card{background:#161b22;border:1px solid #30363d;border-radius:9px;padding:10px;margin-top:8px}.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px}.runner{display:grid;grid-template-columns:42px 42px 1.05fr .78fr .9fr .62fr .72fr .7fr .7fr .7fr;gap:4px;margin-bottom:4px}.runner input,.runner select{padding:5px;font-size:11px}.pill{display:inline-block;padding:2px 6px;border-radius:9px;border:1px solid #30363d;font-size:10px;margin:2px 2px 0 0}textarea{min-height:110px;resize:vertical}.ok{color:#3fb950}.warn{color:#d29922}table{width:100%;border-collapse:collapse;font-size:11px}td,th{padding:6px;border-bottom:1px solid #30363d;text-align:left}th{color:#8b949e}@media(max-width:800px){.wrap{display:flex;flex-direction:column}.wrap main{order:1}.wrap aside{order:2;border-right:0;border-top:1px solid #30363d}.flow{grid-template-columns:1fr 1fr}.bottom{grid-template-columns:1fr}canvas{height:360px}}
 </style></head><body>
-<header><h1>🏇 KEIBA AI Simulator v149</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
+<header><h1>🏇 KEIBA AI Simulator v150</h1><div class="sub">iPhone Webアプリ版 — 直接HTML安定版 / 横一線スタート</div></header>
 <div class="top"><div class="flow"><button id="navImport">① 出馬表取込</button><button id="navAnalyze" class="secondary">② AI分析</button><button id="navPlay" class="secondary">③ 走らせる</button><button id="navBatch" class="secondary">④ 1,000回</button></div></div>
 <div class="wrap"><aside>
 <div class="g"><label>馬データ学習メモリ</label>
 <div class="card small" style="margin-top:0">
 保存馬数: <b id="memoryCount">0</b>頭<br>
-<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA確定結果テキストを貼るだけで着順学習できます。</span>
+<span id="memoryStatus">同じ馬が次回出走したら過去データを自動統合。JRA確定結果URLから実着順を取り込み、次回以降へ学習できます。</span>
 <div class="grid2" style="margin-top:6px">
 <button id="saveMemory" type="button">💾 現在の馬を保存</button>
 <button id="clearMemory" type="button" class="secondary">🗑 メモリ初期化</button>
@@ -41,14 +41,14 @@ JRA出馬表テキストの貼り付けにも対応"></textarea><div class="grid
 <input id="resultLearn" placeholder="例 1:3,2:1,3:5,4:2">
 <button id="learnResult" class="secondary" style="margin-top:5px">🧠 結果を学習</button>
 <div id="learnStatus" class="small"></div></div>
-<div class="g" style="margin-top:10px"><label>JRA確定結果から自動学習</label>
-<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRA確定結果URLから自動学習</b><br><input id="jraResultUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">🌐 確定結果を取得して学習</button><div id="jraResultStatus" class="small" style="margin-top:5px">確定結果のリンクをコピーして、このボタンを押すだけでも自動学習できます。</div></div>
+<div class="g" style="margin-top:10px"><label>JRA確定結果を取込み・学習</label>
+<div class="card small" style="margin-top:0;margin-bottom:8px"><b>JRA確定結果URLから結果取込み</b><br><input id="jraResultUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px"><button id="fetchJraResult" type="button" style="margin-top:5px">🌐 確定結果を取込み・学習</button><div id="jraResultStatus" class="small" style="margin-top:5px">確定結果URLを貼って押すだけで、着順を取り込み次回以降の学習メモリへ保存します。二重取込みは自動防止します。</div></div>
 <textarea id="resultText" placeholder="JRAのレース結果ページをコピーして、ここに貼り付け"></textarea>
 <div class="grid2">
 <button id="previewResult" class="secondary">🔎 結果を解析</button>
 <button id="autoLearnResult">🧠 自動学習</button>
 </div>
-<div id="autoLearnStatus" class="small">確定着順を自動で読み取り、馬名・馬番で照合します。</div></div>
+<div id="autoLearnStatus" class="small">確定着順を自動で読み取り、馬名・馬番で照合します。結果は次回以降にだけ学習反映し、同じレースの予測値は後から書き換えません。</div></div>
 <div class="g" style="margin-top:12px"><label>出走馬編集</label>
 <div class="runner small" style="margin-bottom:5px"><span>枠</span><span>馬番</span><span>馬名</span><span>脚質</span><span>騎手</span><span>斤量</span><span>馬体重</span><span>速</span><span>持</span><span>力</span></div>
 <div id="runners"></div></div>
@@ -245,33 +245,106 @@ function learnResultText(text){
  saveMemObject(mem);return n;
 }
 
+function stripMarkdownV150(v){
+ return String(v||'')
+  .replace(/!\[([^\]]*)\]\([^)]*\)/g,' $1 ')
+  .replace(/\[([^\]]+)\]\([^)]*\)/g,' $1 ')
+  .replace(/<[^>]+>/g,' ')
+  .replace(/(?:Image|画像)\s*[:：]\s*/gi,' ')
+  .replace(/(?:ブリンカー着用|マルガイ|マルチ|父内国産)/g,' ')
+  .replace(/\s+/g,' ').trim();
+}
+function resultHorseNameV150(cell){
+ const s=stripMarkdownV150(cell).normalize('NFKC');
+ const toks=s.match(/[ァ-ヶー一-龠々A-Za-z][ァ-ヶー一-龠々A-Za-z0-9・ー'’\-]{1,40}/g)||[];
+ const bad=/^(枠|白|黒|赤|青|黄|緑|橙|桃|牡|牝|セ|騙|騎手|調教師|着順|馬番|馬名)$/;
+ const ok=toks.filter(x=>!bad.test(x)&&!/^(牡|牝|セ|騙)\d+$/.test(x)&&!/^枠[1-8]/.test(x));
+ if(!ok.length)return '';
+ ok.sort((a,b)=>b.length-a.length);
+ return ok[0];
+}
+function parseJraResultMetaV150(txt,url){
+ const t=String(txt||'').normalize('NFKC').replace(/\r/g,'');
+ const head=t.slice(0,26000);
+ // JRA pages contain navigation text such as "GⅠレース出走馬決定順" and all racecourses.
+ // Restrict metadata detection to the actual race body so navigation cannot turn a G3 into G1.
+ const bodyAt=head.indexOf('ここから本文');
+ const body=(bodyAt>=0?head.slice(bodyAt):head).slice(0,12000);
+ const meta={date:'',course:'',surface:'',distance:0,going:'',raceNo:0,raceName:'',classLevel:0,classLabel:'不明',url:String(url||'')};
+ let m=body.match(/(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+ if(m)meta.date=m[1]+String(m[2]).padStart(2,'0')+String(m[3]).padStart(2,'0');
+ m=body.match(/(?:\d+回)?\s*(札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉)(?:競馬場|\d+日|\s)/);
+ if(m)meta.course=m[1]+'競馬場';
+ m=body.match(/コース\s*[:：]?\s*([\d,]{3,5})\s*(?:メートル|m)\s*[（(]?\s*(芝|ダート)/i);
+ if(m){meta.distance=Number(m[1].replace(/,/g,''));meta.surface=m[2];}
+ if(!meta.distance||!meta.surface){
+   m=body.match(/(?:芝|ダート)\s*([\d,]{3,5})\s*(?:メートル|m)/i);
+   if(m){meta.surface=(m[0].match(/芝|ダート/)||[''])[0];meta.distance=Number(m[1].replace(/,/g,''));}
+ }
+ // JRA text can contain mojibake between surface and going (e.g. ダート�c重), so allow a short gap.
+ m=body.match(/(?:芝|ダート)[^\n]{0,18}?(不良|稍重|重|良)(?:\s|$|\n)/m);
+ if(m)meta.going=m[1];
+ if(!meta.going){m=body.match(/馬場状態\s*[:：]?\s*(不良|稍重|重|良)/);if(m)meta.going=m[1];}
+ // Prefer the race header close to the actual result body.
+ const lines=body.split('\n').map(x=>stripMarkdownV150(x)).filter(Boolean);
+ const raceLine=lines.find(x=>/(ステークス|記念|カップ|賞|杯|特別)/.test(x)&&!/本賞金|付加賞/.test(x));
+ if(raceLine)meta.raceName=raceLine.replace(/^#+\s*/,'').replace(/\s+(G|Jpn)\s*[ⅠⅡⅢIVX123]+.*$/i,'').trim();
+ m=body.match(/(?:Image\s*[:：]\s*)?(\d{1,2})レース/);
+ if(m)meta.raceNo=Number(m[1]);
+ // Grade detection uses the header text itself; raceClassInfoV133 is intentionally shared with prediction logic.
+ const ci=raceClassInfoV133(body);
+ meta.classLevel=Number(ci.level||0);meta.classLabel=ci.label||'不明';
+ return meta;
+}
 function parseJraResultText(txt){
- const text=String(txt||'').replace(/\r/g,'');
- const lines=text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+ const text=String(txt||'').normalize('NFKC').replace(/\r/g,'');
+ const lines=text.split('\n');
  const rows=[];
- // Fast path: lines that begin with finish position then frame/horse no/name.
+ const rowStarts=[];
+ // Primary path: Jina/JRA markdown result table. A row begins with finish | frame | horseNo | horseName.
  for(let i=0;i<lines.length;i++){
    const line=lines[i];
-   let m=line.match(/^(\d{1,2})\s+(?:枠)?([1-8])?(?:白|黒|赤|青|黄|緑|橙|桃)?\s*(\d{1,2})\s+([ァ-ヶー一-龠A-Za-z0-9・ー]+)/);
-   if(!m){
-     m=line.match(/^(\d{1,2})\s+(\d{1,2})\s+([ァ-ヶー一-龠A-Za-z0-9・ー]+)/);
-     if(m){
-       rows.push({pos:+m[1],frame:null,no:String(m[2]),name:m[3]});
-       continue;
-     }
-   }
-   if(m){
-     rows.push({pos:+m[1],frame:m[2]?+m[2]:null,no:String(m[3]),name:m[4]});
-     continue;
-   }
+   if(!line.includes('|'))continue;
+   let cells=line.split('|').map(x=>x.trim());
+   if(cells.length&&cells[0]==='')cells=cells.slice(1);
+   if(cells.length&&cells[cells.length-1]==='')cells=cells.slice(0,-1);
+   if(cells.length<4)continue;
+   const ptxt=stripMarkdownV150(cells[0]);
+   const ntxt=stripMarkdownV150(cells[2]);
+   const pm=ptxt.match(/^(\d{1,2})(?:\s*着)?$/),nm=ntxt.match(/^(\d{1,2})$/);
+   if(!pm||!nm)continue;
+   const pos=Number(pm[1]),no=Number(nm[1]);
+   if(!(pos>=1&&pos<=18&&no>=1&&no<=18))continue;
+   const name=resultHorseNameV150(cells[3]);
+   if(!name)continue;
+   rowStarts.push({i,pos,no,name,cells});
  }
- // Fallback: search text blocks for "着順, 枠, 馬番, 馬名" patterns.
+ for(let z=0;z<rowStarts.length;z++){
+   const st=rowStarts[z],end=z+1<rowStarts.length?rowStarts[z+1].i:Math.min(lines.length,st.i+16);
+   const block=lines.slice(st.i,end).join('\n');
+   const c=st.cells;
+   const row={pos:st.pos,frame:null,no:String(st.no),name:st.name,jockey:'',last3:null,body:null,bodyDiff:null,popularity:null};
+   const frameTxt=stripMarkdownV150(c[1]||'');
+   const fm=frameTxt.match(/枠?\s*([1-8])/);if(fm)row.frame=Number(fm[1]);
+   if(c[6])row.jockey=stripMarkdownV150(c[6]).replace(/\s+/g,' ').trim();
+   const lm=block.match(/(?:^|\|)\s*(3\d\.\d|4\d\.\d)\s*(?=\|)/m);
+   if(lm)row.last3=Number(lm[1]);
+   const bm=block.match(/\b(\d{3})\s*\(([+\-]?\d+|0)\)/);
+   if(bm){row.body=Number(bm[1]);row.bodyDiff=Number(bm[2]);}
+   // Popularity is the final small integer cell in the continuation row.
+   const popMatches=[...block.matchAll(/\|\s*(\d{1,2})\s*(?=\n|$)/g)].map(m=>Number(m[1])).filter(n=>n>=1&&n<=18);
+   if(popMatches.length)row.popularity=popMatches[popMatches.length-1];
+   rows.push(row);
+ }
+ // Secondary path: flattened text where one row happens to remain on one line.
  if(!rows.length){
-   const rg=/(\d{1,2})\s*(?:着)?\s*(?:枠\s*)?([1-8])?(?:白|黒|赤|青|黄|緑|橙|桃)?\s*(\d{1,2})\s+([ァ-ヶー一-龠A-Za-z0-9・ー]{2,30})/g;
-   let m;
-   while((m=rg.exec(text))){
-     const pos=+m[1],no=+m[3];
-     if(pos>=1&&pos<=18&&no>=1&&no<=18)rows.push({pos,frame:m[2]?+m[2]:null,no:String(no),name:m[4]});
+   const flat=text.split(/\n+/).map(x=>stripMarkdownV150(x)).filter(Boolean);
+   for(const line of flat){
+     let m=line.match(/^(\d{1,2})\s+(?:枠)?([1-8])?(?:白|黒|赤|青|黄|緑|橙|桃)?\s*(\d{1,2})\s+([ァ-ヶー一-龠々A-Za-z0-9・ー'’\-]{2,40})/);
+     if(!m)m=line.match(/^(\d{1,2})\s+(\d{1,2})\s+([ァ-ヶー一-龠々A-Za-z0-9・ー'’\-]{2,40})/);
+     if(!m)continue;
+     if(m.length>=5)rows.push({pos:+m[1],frame:m[2]?+m[2]:null,no:String(m[3]),name:m[4]});
+     else rows.push({pos:+m[1],frame:null,no:String(m[2]),name:m[3]});
    }
  }
  const seen=new Set(),out=[];
@@ -284,37 +357,64 @@ function parseJraResultText(txt){
 function matchResultToHorses(rows){
  const matches=[],unmatched=[];
  rows.forEach(r=>{
-   let h=horses.find(x=>String(x.no)===String(r.no));
-   if(!h && r.name)h=horses.find(x=>normName(x.name)===normName(r.name));
+   let h=null;
+   if(r.name)h=horses.find(x=>normName(x.name)===normName(r.name));
+   if(!h && !r.name)h=horses.find(x=>String(x.no)===String(r.no));
+   // Number fallback is allowed only if parsed name agrees; prevents importing another race into current horses.
+   if(!h && r.name){
+     const n=horses.find(x=>String(x.no)===String(r.no));
+     if(n&&normName(n.name)===normName(r.name))h=n;
+   }
    if(h)matches.push({h,row:r}); else unmatched.push(r);
  });
  return {matches,unmatched};
 }
-function learnParsedResult(rows){
+function resultRaceKeyV150(meta,url){
+ const core=[meta&&meta.date||'',meta&&meta.course||'',meta&&meta.raceNo||'',meta&&meta.raceName||''];
+ // Same JRA race can have multiple CNAME URL variants. If body metadata is complete,
+ // dedupe by the race itself rather than by the URL variant.
+ if(core.filter(Boolean).length>=3)return core.join('|').replace(/\s+/g,'');
+ const u=String(url||'').trim();
+ let cname='';
+ try{cname=new URL(u).searchParams.get('CNAME')||''}catch(e){}
+ return [...core,cname].join('|').replace(/\s+/g,'');
+}
+function learnParsedResult(rows,meta={},resultUrl=''){
  const matched=matchResultToHorses(rows);
- const mem=loadMem();
- let learned=0;
+ const need=horses.length?Math.min(horses.length,Math.max(3,Math.ceil(horses.length*.60))):0;
+ if(need && matched.matches.length<need){
+   return {learned:0,matched:matched.matches.length,unmatched:matched.unmatched,duplicates:0,blocked:true,error:'出走馬との照合が '+matched.matches.length+'/'+horses.length+'頭だけなので、別レース誤学習防止のため保存しませんでした。'};
+ }
+ // Save the current netkeiba-derived horse state first, then attach only result-learning metadata.
+ matched.matches.forEach(({h})=>rememberHorse(h));
+ const mem=loadMem();let learned=0,duplicates=0;
+ const course=String(meta.course||E.course.value||'');
+ const surface=String(meta.surface||E.surface.value||'');
+ const going=String(meta.going||E.going.value||'');
+ const distance=Number(meta.distance||E.distance.value||0);
+ const raceKey=resultRaceKeyV150(meta,resultUrl)||('manual|'+course+'|'+surface+'|'+distance+'|'+Date.now());
  matched.matches.forEach(({h,row})=>{
-   rememberHorse(h);
- });
- const mem2=loadMem();
- matched.matches.forEach(({h,row})=>{
-   const k=normName(h.name),m=mem2[k];if(!m)return;
+   const k=normName(h.name),m=mem[k];if(!m)return;
+   if(!Array.isArray(m.learnedResults))m.learnedResults=[];
+   const old=m.learnedResults.find(x=>x&&x.raceKey===raceKey);
+   if(old){duplicates++;return;}
    const p=ensureProfile(m);
-   addProfile(p.course,E.course.value+'|'+E.surface.value,row.pos);
-   addProfile(p.going,E.going.value,row.pos);
-   addProfile(p.distance,distBucket(E.distance.value),row.pos);
-   m.lastFinish=row.pos;
-   m.lastCourse=E.course.value;
-   m.lastSurface=E.surface.value;
-   m.lastDistance=Number(E.distance.value);
-   m.lastGoing=E.going.value;
-   m.lastRaceLearnedAt=new Date().toISOString();
-   m.updated=new Date().toISOString();
-   learned++;
+   if(course&&surface)addProfile(p.course,course+'|'+surface,row.pos);
+   if(going)addProfile(p.going,going,row.pos);
+   if(distance)addProfile(p.distance,distBucket(distance),row.pos);
+   m.learnedResults.push({
+     raceKey,date:meta.date||'',raceName:meta.raceName||'',raceNo:Number(meta.raceNo||0),
+     classLevel:Number(meta.classLevel||0),classLabel:meta.classLabel||'不明',
+     course,surface,distance,going,pos:Number(row.pos),no:String(row.no||''),
+     last3:Number(row.last3||0)||0,body:Number(row.body||0)||0,jockey:row.jockey||'',
+     importedAt:new Date().toISOString(),source:'JRA-result'
+   });
+   m.learnedResults=m.learnedResults.slice(-30);
+   m.lastFinish=row.pos;m.lastCourse=course;m.lastSurface=surface;m.lastDistance=distance;m.lastGoing=going;
+   m.lastRaceLearnedAt=new Date().toISOString();m.updated=new Date().toISOString();learned++;
  });
- saveMemObject(mem2);
- return {learned,matched:matched.matches.length,unmatched:matched.unmatched};
+ saveMemObject(mem);
+ return {learned,matched:matched.matches.length,unmatched:matched.unmatched,duplicates,blocked:false,raceKey,meta};
 }
 function sampleText(){return [
 '1,1,サンプルA,逃げ,騎手A,56.0,470,4.8,1,34.2,1800,良,3,34.8,1800,稍重',
@@ -8983,7 +9083,7 @@ async function importFromNetkeibaV108(url){
   const pastJockeyRuns=horses.reduce((s,h)=>s+(h.runs||[]).filter(r=>validJockeyNameV114(r&&r.jockey)).length,0);
 
   jraEntryStatus.innerHTML='<span class="ok">'+horses.length+'頭を取り込みました。</span><br>'+
-    '<b>v149：3連複の1頭軸・2頭軸・フォーメーションを自動判定し、実買い目まで生成（v148評価ロジックは維持）</b><br>'+
+    '<b>v150：JRA確定結果URLから実着順を取込み・重複防止・次回以降へ学習（v149予測ロジックは維持）</b><br>'+
     '<b>今回情報 '+currentN+'/'+horses.length+'頭 / 脚質 '+styleN+'/'+horses.length+'頭 / 過去5走 '+total5+'走</b><br>'+
     '<b>条件自動反映: '+(raceMetaV147.course||'競馬場未取得')+' / '+(raceMetaV147.surface||'芝ダ未取得')+' '+(raceMetaV147.distance?(raceMetaV147.distance+'m'):'距離未取得')+' / 馬場 '+(raceMetaAppliedV147.goingAuto?(E.going.value+'（当日自動）'):(E.going.value+'（手動保持）'))+' / ペース '+paceName()+'</b><br>'+
     '<small>条件取得: '+(raceMetaV147.via||'race_id+header')+' / 馬場方針: '+(raceMetaAppliedV147.goingReason||'手動')+' / 展開補正診断 '+paceStyleDiagnosticV147().level+'（脚質間差 '+paceStyleDiagnosticV147().spread.toFixed(1)+'pt・上限±2.2pt）</small><br>'+
@@ -9111,30 +9211,47 @@ fetchJraEntry.onclick=async()=>{
  finally{fetchJraEntry.disabled=false}
 };
 fetchJraResult.onclick=async()=>{
- jraResultStatus.textContent='取得中…';fetchJraResult.disabled=true;
+ jraResultStatus.textContent='確定結果を取得中…';fetchJraResult.disabled=true;
  try{
   const u=await urlFromInputOrClipboard(jraResultUrl);
   const data=await fetchJraPage(u);
   E.resultText.value=data.text||'';
   const rows=parseJraResultText(E.resultText.value);
   if(!rows.length)throw new Error('ページは取得できましたが確定着順を解析できませんでした');
-  const r=learnParsedResult(rows);lastStats=null;renderStats();updateMemoryCount();
-  jraResultStatus.innerHTML='<span class="ok">'+r.learned+'頭をJRA確定結果から自動学習しました。</span>'+(r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭</span>':'');
+  const meta=parseJraResultMetaV150(E.resultText.value,u);
+  const r=learnParsedResult(rows,meta,u);
+  if(r.blocked)throw new Error(r.error);
+  updateMemoryCount();
+  const top=rows.slice(0,3).map(x=>x.pos+'着 '+x.no+' '+x.name).join(' / ');
+  const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
+  jraResultStatus.innerHTML='<span class="ok"><b>結果取込み完了</b>：'+rows.length+'頭解析 / '+r.matched+'頭照合 / 新規学習 '+r.learned+'頭</span>'+
+    (r.duplicates?'<br>重複済み '+r.duplicates+'頭は再加算していません。':'')+
+    '<br>確定上位: '+top+
+    (cond?'<br>実績条件: '+cond:'')+
+    '<br><span class="small">※結果は次回以降の学習に保存。同じレースの予測値は後から書き換えません。取得経路: '+(data.via||'-')+'</span>'+
+    (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭: '+r.unmatched.slice(0,4).map(x=>x.no+' '+x.name).join('・')+'</span>':'');
  }catch(e){jraResultStatus.innerHTML='<span class="warn">'+String(e.message||e)+'</span>'}
  finally{fetchJraResult.disabled=false}
 };
 E.previewResult.onclick=()=>{
  const rows=parseJraResultText(E.resultText.value);
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">着順を解析できませんでした。</span>';return}
+ const meta=parseJraResultMetaV150(E.resultText.value,'');
  const m=matchResultToHorses(rows);
- E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span><br>'+rows.slice(0,6).map(r=>r.pos+'着 '+r.no+' '+r.name).join(' / ')+(rows.length>6?' ...':'');
+ const top=rows.slice(0,3).map(r=>r.pos+'着 '+r.no+' '+r.name).join(' / ');
+ const cond=[meta.course,meta.surface,meta.distance?meta.distance+'m':'',meta.going,meta.classLabel].filter(Boolean).join('・');
+ E.autoLearnStatus.innerHTML='<span class="ok">'+rows.length+'頭の着順を解析、'+m.matches.length+'頭を出走馬と照合しました。</span><br>'+top+(cond?'<br>実績条件: '+cond:'')+(m.unmatched.length?'<br><span class="warn">未照合 '+m.unmatched.length+'頭</span>':'');
 };
 E.autoLearnResult.onclick=()=>{
  const rows=parseJraResultText(E.resultText.value);
  if(!rows.length){E.autoLearnStatus.innerHTML='<span class="warn">確定結果を解析できませんでした。</span>';return}
- const r=learnParsedResult(rows);
- lastStats=null;renderStats();updateMemoryCount();
- E.autoLearnStatus.innerHTML='<span class="ok">'+r.learned+'頭を自動学習しました。</span>'+(r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭</span>':'');
+ const meta=parseJraResultMetaV150(E.resultText.value,'');
+ const r=learnParsedResult(rows,meta,'');
+ if(r.blocked){E.autoLearnStatus.innerHTML='<span class="warn">'+r.error+'</span>';return}
+ updateMemoryCount();
+ E.autoLearnStatus.innerHTML='<span class="ok">結果取込み完了：新規 '+r.learned+'頭 / 重複 '+r.duplicates+'頭 / 照合 '+r.matched+'頭</span>'+
+   '<br><span class="small">次回以降の学習へ保存しました。現在の同レース予測は再計算しません。</span>'+
+   (r.unmatched.length?'<br><span class="warn">未照合 '+r.unmatched.length+'頭</span>':'');
 };
 E.saveMemory.onclick=rememberAll;
 
