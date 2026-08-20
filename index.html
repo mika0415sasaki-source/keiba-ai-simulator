@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v172</title>
+<title>KEIBA AI Simulator v173</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v172 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v173 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -17,7 +17,7 @@
     });
 
     function patch(oldText,newText,label){
-      if(!src.includes(oldText))throw new Error('v172 patch target not found: '+label);
+      if(!src.includes(oldText))throw new Error('v173 patch target not found: '+label);
       src=src.replace(oldText,newText);
     }
 
@@ -53,21 +53,48 @@
       'zero-start is normal in young race'
     );
 
-    src=src.replace('KEIBA AI Simulator v171 を読み込み中…','KEIBA AI Simulator v172 を読み込み中…');
-    src=src.replace("KEIBA AI Simulator v171</h1>","KEIBA AI Simulator v172</h1>");
-    src=src.replaceAll('KEIBA AI Simulator v171</title>','KEIBA AI Simulator v172</title>');
-    src=src.replaceAll('v171の読み込みに失敗','v172の読み込みに失敗');
-    src=src.replaceAll('③-v171','③-v172');
+    patch(
+      "      '// ---- /v171 runtime hooks ----',",
+      [
+        `      '',`,
+        `      '// ---- v173 post-render young-race diagnostic rescan ----',`,
+        `      'function kickYoungDiagV173(){',`,
+        `      '  [0,80,250,700,1500].forEach(ms=>setTimeout(()=>{try{normalizeYoungCareerDiagV171();}catch(e){}},ms));',`,
+        `      '}',`,
+        `      "if(typeof MutationObserver!=='undefined'){",`,
+        `      '  setTimeout(()=>{',`,
+        `      '    const body=document.body;',`,
+        `      '    if(body){',`,
+        `      '      const obV173=new MutationObserver(()=>{',`,
+        `      "        const el=(typeof jraEntryStatus!=='undefined'&&jraEntryStatus)?jraEntryStatus:document.getElementById('jraEntryStatus');",`,
+        `      "        if(el&&/5走未満/.test(String(el.textContent||'')))kickYoungDiagV173();",`,
+        `      '      });',`,
+        `      '      obV173.observe(body,{childList:true,subtree:true,characterData:true});',`,
+        `      '    }',`,
+        `      '    kickYoungDiagV173();',`,
+        `      '  },0);',`,
+        `      '}',`,
+        `      '// ---- /v173 post-render young-race diagnostic rescan ----',`,
+        `      '// ---- /v171 runtime hooks ----',`
+      ].join('\n'),
+      'post-render young diagnostic rescan'
+    );
+
+    src=src.replace('KEIBA AI Simulator v171 を読み込み中…','KEIBA AI Simulator v173 を読み込み中…');
+    src=src.replace("KEIBA AI Simulator v171</h1>","KEIBA AI Simulator v173</h1>");
+    src=src.replaceAll('KEIBA AI Simulator v171</title>','KEIBA AI Simulator v173</title>');
+    src=src.replaceAll('v171の読み込みに失敗','v173の読み込みに失敗');
+    src=src.replaceAll('③-v171','③-v173');
     src=src.replace(
       "'<b>v171：新馬・2歳戦の診断表示を整理。",
-      "'<b>v172：2歳戦の診断判定を強化。馬データ年齢が空でも画面の2歳表記・少キャリア分布から若駒戦を認識し、対象レース以前0走は正常扱い。実通信エラーだけ取得要確認として残す。</b><br>'+\\n    '<b>v171：新馬・2歳戦の診断表示を整理。"
+      "'<b>v173：若駒診断をAI描画後にも再判定。2歳表記が後から描画された場合でも「5走未満」を正常な少キャリア表示へ置換する。</b><br>'+\\n    '<b>v172：2歳戦の診断判定を強化。馬データ年齢が空でも画面の2歳表記・少キャリア分布から若駒戦を認識し、対象レース以前0走は正常扱い。実通信エラーだけ取得要確認として残す。</b><br>'+\\n    '<b>v171：新馬・2歳戦の診断表示を整理。"
     );
 
     document.open();
     document.write(src);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v172の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v173の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
