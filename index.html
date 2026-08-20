@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v167</title>
+<title>KEIBA AI Simulator v168</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v167 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v168 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -54,6 +54,18 @@
       ': \'<span style="margin-left:6px;opacity:.75">※期待値上位だが買い候補基準外</span>\'',
       ': \'<span style="margin-left:6px;opacity:.75">※期待値上位だが買い候補基準外</span><br><span style="opacity:.75">判定: \'+criteriaText+\'</span><br><span style="opacity:.9">除外理由: \'+(exclusionReasons.join(\' / \')||\'買い候補基準未達\')+\'</span>\'',
       'value exclusion reason'
+    );
+
+    required(
+      '<input id="jraEntryUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin-top:6px">',
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px;margin-top:6px"><input id="jraEntryUrl" type="url" placeholder="https://www.jra.go.jp/JRADB/accessS.html?..." style="margin:0"><button id="clearJraEntryUrl" type="button" class="secondary" style="margin:0;padding-left:6px;padding-right:6px" onclick="document.getElementById(\'jraEntryUrl\').value=\'\';document.getElementById(\'jraEntryUrl\').focus();">✕ クリア</button></div>',
+      'entry url clear button'
+    );
+
+    required(
+      '<input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin-top:6px">',
+      '<div style="display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px;margin-top:6px"><input id="jraResultUrl" type="url" placeholder="JRAまたはnetkeibaの結果URL（race_id付きURLでも可）" style="margin:0"><button id="clearJraResultUrl" type="button" class="secondary" style="margin:0;padding-left:6px;padding-right:6px" onclick="document.getElementById(\'jraResultUrl\').value=\'\';document.getElementById(\'jraResultUrl\').focus();">✕ クリア</button></div>',
+      'result url clear button'
     );
 
     required(
@@ -195,7 +207,7 @@
       '    if(rs.length>oldN)first.retryRecovered++;',
       '    if(oldN<5&&rs.length>=5)first.retryCompleted++;',
       '  }',
-      "  first.withPed=first.pedByNo&&typeof first.pedByNo.forEach==='function'?Array.from(first.pedByNo.values()).filter(v=>v&&(v.sire||v.damsire)).length:(first.withPed||0);",
+      '  first.withPed=first.pedByNo&&typeof first.pedByNo.forEach===\'function\'?Array.from(first.pedByNo.values()).filter(v=>v&&(v.sire||v.damsire)).length:(first.withPed||0);',
       '  const still=all.filter(h=>((first.byNo&&first.byNo.get(String(h.no)))||[]).length<5);',
       "  first.via=(first.via||'newspaper-id>horse-db-v118')+' / v165-retry '+first.retryRecovered+'/'+first.retryAttempted+'改善';",
       "  first.error=still.length?'5走未満/未取得: '+still.map(h=>{const n=((first.byNo&&first.byNo.get(String(h.no)))||[]).length;return h.no+' '+h.name+'('+n+'走・再試行済)';}).join('・'):'';",
@@ -209,14 +221,14 @@
     if(closeScript<0)throw new Error('main script end not found');
     src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);
 
-    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v167</h1>');
-    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v167</title>');
+    src=src.replace('KEIBA AI Simulator v163</h1>','KEIBA AI Simulator v168</h1>');
+    src=src.replace('<title>KEIBA AI Safari v51</title>','<title>KEIBA AI Simulator v168</title>');
 
     document.open();
     document.write(src);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v167の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v168の読み込みに失敗しました。</b><br><br>'+String(err && err.message ? err.message : err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
