@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v179</title>
+<title>KEIBA AI Simulator v180</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v179 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v180 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -16,27 +16,140 @@
       return r.text();
     });
 
-    const precisionPatchV178="\n    // v178: 2歳重賞の格補正とレース前馬体重の誤評価を、v163本体へ直接パッチ\n    function replaceV178(re,replacement,label){\n      const before=src;\n      src=src.replace(re,function(){return replacement;});\n      if(src===before)throw new Error('v178 patch target not found: '+label);\n    }\n\n    const helperV178=[\n      \"function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}\",\n      \"function juvenileStakeV178(h){\",\n      \"  const lab=String(currentRaceClassLabelV133||'');\",\n      \"  if(!/^(?:G1|G2|G3|L|OP)$/.test(lab))return false;\",\n      \"  if(Number(h&&h.age||0)===2)return true;\",\n      \"  const rr=(h&&Array.isArray(h.runs))?h.runs:[];\",\n      \"  const head=String(document.body&&document.body.innerText||'').slice(0,7000);\",\n      \"  return rr.length<=4&&/2歳/.test(head);\",\n      \"}\",\n      \"function juvenileClassBonusV178(h,base){\",\n      \"  base=Number(base||0);\",\n      \"  if(!juvenileStakeV178(h)||base>=-1.0)return base;\",\n      \"  const rr=(h&&Array.isArray(h.runs))?h.runs.slice(0,5):[];\",\n      \"  const latest=Number(rr[0]&&rr[0].pos||0);\",\n      \"  const wins=rr.filter(r=>Number(r&&r.pos||0)===1).length;\",\n      \"  let floor=-0.80;\",\n      \"  if(latest===1)floor=-0.25;\",\n      \"  else if(latest>=1&&latest<=3)floor=-0.45;\",\n      \"  else if(wins)floor=-0.55;\",\n      \"  return Math.max(base,floor);\",\n      \"}\",\n      \"function raceDateYmdV178(){\",\n      \"  const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;\",\n      \"  const s=String(c&&c.date||'').replace(/\\\\D/g,'');\",\n      \"  return s.length>=8?Number(s.slice(0,8)):0;\",\n      \"}\",\n      \"function todayYmdV178(){\",\n      \"  const d=new Date();\",\n      \"  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();\",\n      \"}\",\n      \"function preRaceBodyUnknownV178(){\",\n      \"  const d=raceDateYmdV178();\",\n      \"  return !!d&&d>todayYmdV178();\",\n      \"}\",\n      \"function pastFiveMetricsV81(h){\"\n    ].join(\"\\n\");\n\n    replaceV178(\n      /function clampV81\\(x,a,b\\)\\{return Math\\.max\\(a,Math\\.min\\(b,x\\)\\)\\}\\s*function pastFiveMetricsV81\\(h\\)\\{/,\n      helperV178,\n      'helper functions'\n    );\n\n    replaceV178(\n      /const classD=raceClassDetailV133\\(h\\);\\s*const bonus=clampV81\\(\\s*finish\\*\\.72 \\+ last3\\*\\.58 \\+ distance \\+ surface \\+ going \\+ stability \\+ trend \\+ classD\\.bonus,\\s*-9\\.5,\\s*9\\.5\\s*\\);/,\n      [\n        \"const classD=raceClassDetailV133(h);\",\n        \" const classBonusV178=juvenileClassBonusV178(h,Number(classD.bonus||0));\",\n        \" const bonus=clampV81(\",\n        \"   finish*.72 + last3*.58 + distance + surface + going + stability + trend + classBonusV178,\",\n        \"   -9.5, 9.5\",\n        \" );\"\n      ].join(\"\\n\"),\n      'juvenile class score'\n    );\n\n    replaceV178(\n      /stability,trend,classLevel:classD\\.bonus,classReason:classD\\.reason,/,\n      \"stability,trend,classLevel:classBonusV178,classReason:(classBonusV178!==Number(classD.bonus||0)?String(classD.reason||'')+' / 2歳重賞は標準的な格上げを圧縮':classD.reason),\",\n      'juvenile class display'\n    );\n\n    replaceV178(\n      /return clampV81\\(\\(d\\.avg-currentRaceLevelV133\\)\\*1\\.00,-4\\.0,2\\.5\\);/,\n      [\n        \"const rawV178=clampV81((d.avg-currentRaceLevelV133)*1.00,-4.0,2.5);\",\n        \"  if(juvenileStakeV178(h)&&rawV178<-1.0){\",\n        \"    const rr=(h&&Array.isArray(h.runs))?h.runs.slice(0,5):[];\",\n        \"    const latest=Number(rr[0]&&rr[0].pos||0);\",\n        \"    return Math.max(rawV178,latest===1?-.35:-.75);\",\n        \"  }\",\n        \"  return rawV178;\"\n      ].join(\"\\n\"),\n      'juvenile base ability'\n    );\n\n    replaceV178(\n      /function bodyDetailV89\\(h\\)\\{\\s*const b=Number\\(h\\.body\\|\\|0\\);/,\n      [\n        \"function bodyDetailV89(h){\",\n        \"  if(preRaceBodyUnknownV178())return {bonus:0,reason:'当日馬体重未発表（レース前・評価対象外）',prev:0,delta:null,goodN:0,available:false};\",\n        \"  const b=Number(h.body||0);\"\n      ].join(\"\\n\"),\n      'pre-race body guard'\n    );\n\n    replaceV178(\n      /const currentParts=\\[\\s*Number\\(h\\.carried\\|\\|0\\)>=48&&Number\\(h\\.carried\\|\\|0\\)<=62,\\s*Number\\(h\\.body\\|\\|0\\)>=300&&Number\\(h\\.body\\|\\|0\\)<=700,\\s*Number\\(h\\.odds\\|\\|0\\)>0,\\s*!!String\\(h\\.jockey\\|\\|''\\)\\.trim\\(\\)\\s*\\];/,\n      [\n        \"const currentParts=[\",\n        \"    Number(h.carried||0)>=48&&Number(h.carried||0)<=62,\",\n        \"    (!preRaceBodyUnknownV178()&&Number(h.body||0)>=300&&Number(h.body||0)<=700),\",\n        \"    Number(h.odds||0)>0,\",\n        \"    !!String(h.jockey||'').trim()\",\n        \"  ];\"\n      ].join(\"\\n\"),\n      'calibration body quality'\n    );\n\n    // v178 changelog insertion deferred; v171 owns the original changelog anchor.\n";
+    const precisionPatchV178=`
+    // v178: 2歳重賞の格補正とレース前馬体重の誤評価を、v163本体へ直接パッチ
+    function replaceV178(re,replacement,label){
+      const before=src;
+      src=src.replace(re,function(){return replacement;});
+      if(src===before)throw new Error('v178 patch target not found: '+label);
+    }
+
+    const helperV178=[
+      "function clampV81(x,a,b){return Math.max(a,Math.min(b,x))}",
+      "function juvenileStakeV178(h){",
+      "  const lab=String(currentRaceClassLabelV133||'');",
+      "  if(!/^(?:G1|G2|G3|L|OP)$/.test(lab))return false;",
+      "  if(Number(h&&h.age||0)===2)return true;",
+      "  const rr=(h&&Array.isArray(h.runs))?h.runs:[];",
+      "  const head=String(document.body&&document.body.innerText||'').slice(0,7000);",
+      "  return rr.length<=4&&/2歳/.test(head);",
+      "}",
+      "function juvenileClassBonusV178(h,base){",
+      "  base=Number(base||0);",
+      "  if(!juvenileStakeV178(h)||base>=-1.0)return base;",
+      "  const rr=(h&&Array.isArray(h.runs))?h.runs.slice(0,5):[];",
+      "  const latest=Number(rr[0]&&rr[0].pos||0);",
+      "  const wins=rr.filter(r=>Number(r&&r.pos||0)===1).length;",
+      "  let floor=-0.80;",
+      "  if(latest===1)floor=-0.25;",
+      "  else if(latest>=1&&latest<=3)floor=-0.45;",
+      "  else if(wins)floor=-0.55;",
+      "  return Math.max(base,floor);",
+      "}",
+      "function raceDateYmdV178(){",
+      "  const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;",
+      "  const s=String(c&&c.date||'').replace(/\\D/g,'');",
+      "  return s.length>=8?Number(s.slice(0,8)):0;",
+      "}",
+      "function todayYmdV178(){",
+      "  const d=new Date();",
+      "  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();",
+      "}",
+      "function preRaceBodyUnknownV178(){",
+      "  const d=raceDateYmdV178();",
+      "  return !!d&&d>todayYmdV178();",
+      "}",
+      "function pastFiveMetricsV81(h){"
+    ].join("\\n");
+
+    replaceV178(
+      /function clampV81\\(x,a,b\\)\\{return Math\\.max\\(a,Math\\.min\\(b,x\\)\\)\\}\\s*function pastFiveMetricsV81\\(h\\)\\{/,
+      helperV178,
+      'helper functions'
+    );
+
+    replaceV178(
+      /const classD=raceClassDetailV133\\(h\\);\\s*const bonus=clampV81\\(\\s*finish\\*\\.72 \\+ last3\\*\\.58 \\+ distance \\+ surface \\+ going \\+ stability \\+ trend \\+ classD\\.bonus,\\s*-9\\.5,\\s*9\\.5\\s*\\);/,
+      [
+        "const classD=raceClassDetailV133(h);",
+        " const classBonusV178=juvenileClassBonusV178(h,Number(classD.bonus||0));",
+        " const bonus=clampV81(",
+        "   finish*.72 + last3*.58 + distance + surface + going + stability + trend + classBonusV178,",
+        "   -9.5, 9.5",
+        " );"
+      ].join("\\n"),
+      'juvenile class score'
+    );
+
+    replaceV178(
+      /stability,trend,classLevel:classD\\.bonus,classReason:classD\\.reason,/,
+      "stability,trend,classLevel:classBonusV178,classReason:(classBonusV178!==Number(classD.bonus||0)?String(classD.reason||'')+' / 2歳重賞は標準的な格上げを圧縮':classD.reason),",
+      'juvenile class display'
+    );
+
+    replaceV178(
+      /return clampV81\\(\\(d\\.avg-currentRaceLevelV133\\)\\*1\\.00,-4\\.0,2\\.5\\);/,
+      [
+        "const rawV178=clampV81((d.avg-currentRaceLevelV133)*1.00,-4.0,2.5);",
+        "  if(juvenileStakeV178(h)&&rawV178<-1.0){",
+        "    const rr=(h&&Array.isArray(h.runs))?h.runs.slice(0,5):[];",
+        "    const latest=Number(rr[0]&&rr[0].pos||0);",
+        "    return Math.max(rawV178,latest===1?-.35:-.75);",
+        "  }",
+        "  return rawV178;"
+      ].join("\\n"),
+      'juvenile base ability'
+    );
+
+    replaceV178(
+      /function bodyDetailV89\\(h\\)\\{\\s*const b=Number\\(h\\.body\\|\\|0\\);/,
+      [
+        "function bodyDetailV89(h){",
+        "  if(preRaceBodyUnknownV178())return {bonus:0,reason:'当日馬体重未発表（レース前・評価対象外）',prev:0,delta:null,goodN:0,available:false};",
+        "  const b=Number(h.body||0);"
+      ].join("\\n"),
+      'pre-race body guard'
+    );
+
+    replaceV178(
+      /const currentParts=\\[\\s*Number\\(h\\.carried\\|\\|0\\)>=48&&Number\\(h\\.carried\\|\\|0\\)<=62,\\s*Number\\(h\\.body\\|\\|0\\)>=300&&Number\\(h\\.body\\|\\|0\\)<=700,\\s*Number\\(h\\.odds\\|\\|0\\)>0,\\s*!!String\\(h\\.jockey\\|\\|''\\)\\.trim\\(\\)\\s*\\];/,
+      [
+        "const currentParts=[",
+        "    Number(h.carried||0)>=48&&Number(h.carried||0)<=62,",
+        "    (!preRaceBodyUnknownV178()&&Number(h.body||0)>=300&&Number(h.body||0)<=700),",
+        "    Number(h.odds||0)>0,",
+        "    !!String(h.jockey||'').trim()",
+        "  ];"
+      ].join("\\n"),
+      'calibration body quality'
+    );
+`;
+
     const firstPatchMarker="\n\n    required(\n      'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28'";
     const at=wrapper.indexOf(firstPatchMarker);
-    if(at<0)throw new Error('v178 patch insertion point not found');
+    if(at<0)throw new Error('v180 precision patch insertion point not found');
     wrapper=wrapper.slice(0,at)+"\n"+precisionPatchV178+wrapper.slice(at);
 
-    const runtimeV179=`
+    const runtimeV180=`
 
-// ---- v179 compact diagnostic UI ----
+// ---- v180 compact diagnostic UI ----
 (function(){
-  let busyV179=false;
+  let lockV180=false;
 
-  function plainV179(s){
+  function textV180(s){
     const d=document.createElement('div');
     d.innerHTML=String(s||'');
     return String(d.textContent||'').replace(/\\s+/g,' ').trim();
   }
 
-  function youngRaceV179(){
+  function isYoungV180(){
     try{
-      if(typeof horses!=='undefined'&&Array.isArray(horses)&&horses.some(h=>Number(h&&h.age||0)===2))return true;
+      const hs=(typeof horses!=='undefined'&&Array.isArray(horses))?horses:[];
+      if(hs.some(h=>Number(h&&h.age||0)===2))return true;
+      if(hs.length>=6){
+        const short=hs.filter(h=>((h&&Array.isArray(h.runs))?h.runs.length:0)<=2).length;
+        if(short/hs.length>=0.8)return true;
+      }
     }catch(e){}
     try{
       const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;
@@ -46,87 +159,112 @@
     return false;
   }
 
-  function normalizeCareerV179(part,young){
-    const t=plainV179(part);
+  function normalizeYoungLineV180(part,young){
+    const t=textV180(part);
+    const hasNetError=/HTTP\\s*429|429|タイムアウト|timeout|aborted|Fetch is aborted|fetch failed|取得失敗|取得エラー/i.test(t);
+
     if(/^5走未満\\/未取得[:：]/.test(t)){
-      if(/HTTP\\s*429|429|タイムアウト|timeout|aborted|Fetch|取得失敗|取得エラー/i.test(t)){
-        return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
-      }
+      if(hasNetError)return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
       if(young){
         const body=t.replace(/^5走未満\\/未取得[:：]\\s*/,'');
         return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
       }
       return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
     }
-    if(young&&/^5走未満[:：]/.test(t)){
+
+    if(/^5走未満[:：]/.test(t)&&young){
       const body=t.replace(/^5走未満[:：]\\s*/,'');
       return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
+    }
+
+    if(/^近走データ[:：]/.test(t)&&young){
+      return part.replace(/[（(]?5走取得\\s*\\d+頭[）)]?/,'（若駒は実キャリア分を取得）');
     }
     return part;
   }
 
-  function compactEntryStatusV179(){
+  function compactV180(){
     const el=document.getElementById('jraEntryStatus');
-    if(!el||busyV179)return;
-    const html=String(el.innerHTML||'');
-    if(!html||html.indexOf('class="v179-history"')>=0)return;
+    if(!el||lockV180)return;
 
-    let parts=html.split(/<br\\s*\\/?\\s*>/i);
-    const young=youngRaceV179();
-    parts=parts.map(p=>normalizeCareerV179(p,young));
-    const plain=parts.map(plainV179);
-    const start=plain.findIndex(t=>/^v\\d+[:：]/.test(t));
-    let end=-1;
-    if(start>=0){
-      for(let i=start+1;i<plain.length;i++){
-        if(/^(?:今回情報|条件自動反映)[:：]?/.test(plain[i])){end=i;break;}
+    let html=String(el.innerHTML||'');
+    if(!html)return;
+
+    const young=isYoungV180();
+    let parts=html.split(/<br\\s*\\/?\\s*>/i).map(p=>normalizeYoungLineV180(p,young));
+    let labels=parts.map(textV180);
+
+    // 更新履歴を丸ごと折りたたむ
+    let histStart=labels.findIndex(t=>/^v(?:171|170|169|167|166|165|163|162|161|160|159|157|156|155|152)[:：]/.test(t));
+    let histEnd=-1;
+    if(histStart>=0){
+      for(let i=histStart+1;i<labels.length;i++){
+        if(/^(?:今回情報|条件自動反映)[:：]?/.test(labels[i])){histEnd=i;break;}
       }
     }
-
-    if(start>=0&&end>start){
-      const history=[
-        '<b>v179：診断欄を見やすく整理。更新履歴を折りたたみ、2歳戦の少キャリア表示を正常化。</b>'
-      ].concat(parts.slice(start,end)).join('<br>');
-      const details='<details class="v179-history" style="margin:7px 0 9px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">更新履歴（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.82">'+history+'</div></details>';
-      parts=parts.slice(0,start).concat([details],parts.slice(end));
+    if(histStart>=0&&histEnd>histStart){
+      const history=parts.slice(histStart,histEnd).join('<br>');
+      const fold='<details data-v180-history="1" style="margin:7px 0 8px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">更新履歴（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.82">'+history+'</div></details>';
+      parts=parts.slice(0,histStart).concat([fold],parts.slice(histEnd));
+      labels=parts.map(textV180);
     }
 
-    const next=parts.join('<br>');
+    // 取得経路などのデバッグ詳細も折りたたむ
+    const keepRe=/^(?:\\d+頭を取り込みました|今回情報|条件自動反映|今回レース格|過去レース格|斤量\\s*\\d+\\/\\d+頭|近走データ|血統[:：]|馬齢[:：]|騎手[:：]|不足[:：]|若駒キャリア正常[:：]|取得要確認[:：]|race_id\\b|更新履歴)/;
+    const debugRe=/^(?:今回格取得元|格サンプル|競馬新聞一次取得|v125直接解析|競馬新聞取得経路|主取得|補完[:：]|馬DB ID|枠サンプル|開催日結果|市場cache|血統DB補完|Vercel血統|v137 live|cache\\b|条件取得)/;
+
+    const visible=[];
+    const debug=[];
+    for(const p of parts){
+      const t=textV180(p);
+      if(!t)continue;
+      if(/更新履歴（タップで表示）/.test(t) || keepRe.test(t))visible.push(p);
+      else if(debugRe.test(t))debug.push(p);
+      else visible.push(p);
+    }
+
+    if(debug.length&&!visible.some(p=>/data-v180-debug=/.test(p))){
+      visible.push(
+        '<details data-v180-debug="1" style="margin:7px 0 3px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">取得詳細・診断ログ（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.78">'+debug.join('<br>')+'</div></details>'
+      );
+    }
+
+    const next=visible.join('<br>');
     if(next!==html){
-      busyV179=true;
+      lockV180=true;
       el.innerHTML=next;
-      busyV179=false;
+      lockV180=false;
     }
   }
 
-  function mountV179(){
-    const el=document.getElementById('jraEntryStatus');
-    if(!el){setTimeout(mountV179,250);return;}
-    compactEntryStatusV179();
-    const mo=new MutationObserver(()=>setTimeout(compactEntryStatusV179,0));
-    mo.observe(el,{childList:true,subtree:true,characterData:true});
+  function mountV180(){
+    const body=document.body;
+    if(!body){setTimeout(mountV180,200);return;}
+    compactV180();
+    new MutationObserver(function(){setTimeout(compactV180,0);}).observe(body,{childList:true,subtree:true,characterData:true});
+    setInterval(compactV180,800);
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV179,{once:true});
-  else setTimeout(mountV179,0);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV180,{once:true});
+  else setTimeout(mountV180,0);
 })();
 `;
 
-    const runtimeAnchorV179="src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);";
-    if(!wrapper.includes(runtimeAnchorV179))throw new Error('v179 runtime insertion point not found');
+    const runtimeAnchorV180="src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);";
+    if(!wrapper.includes(runtimeAnchorV180))throw new Error('v180 runtime insertion point not found');
     wrapper=wrapper.replace(
-      runtimeAnchorV179,
-      "src=src.slice(0,closeScript)+runtimeV165+"+JSON.stringify(runtimeV179)+"+src.slice(closeScript);"
+      runtimeAnchorV180,
+      "src=src.slice(0,closeScript)+runtimeV165+"+JSON.stringify(runtimeV180)+"+src.slice(closeScript);"
     );
 
-    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v179');
-    wrapper=wrapper.replaceAll('③-v171','③-v179');
+    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v180');
+    wrapper=wrapper.replaceAll('③-v171','③-v180');
 
     document.open();
     document.write(wrapper);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v179の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v180の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
