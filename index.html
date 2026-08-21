@@ -58,33 +58,29 @@
     if(!outer.includes(precisionMarkerV190))throw new Error('v191 wrapper patch insertion point not found');
     outer=outer.replace(precisionMarkerV190,frameWrapperPatchV190+'\n'+historyWrapperPatchV191+'\n'+precisionMarkerV190);
 
-    // v195 TEST: 枠補正はランタイム上書きではなく、v163のframeDetailV89本体へ直接挿入。
-    // 札幌芝1200mは近年の枠成績を縮小反映。その他の条件は従来ロジックを変更しない。
+    // v195 TEST: frameDetailV89の既存先頭部を壊さず、style取得直後に札幌芝1200m補正を直接挿入。
+    // これによりv171の枠確定ガードと競合しない。その他の条件は従来ロジックを変更しない。
     const framePrecisionPatchV195=[
-      "    const frameFnNeedleV195='function frameDetailV89(h){';",
-      "    if(src.includes(frameFnNeedleV195)){",
+      "    const frameStyleNeedleV195=\"  const style=String(h.style||'差し');\";",
+      "    if(src.includes(frameStyleNeedleV195)){",
       "      const nlV195=String.fromCharCode(10);",
-      "      const frameFnInsertV195=[",
-      "        'function frameDetailV89(h){',",
-      "        \"  const fV195=Number(h&&h.frame||1);\",",
-      "        \"  const dV195=Number(E.distance&&E.distance.value||0);\",",
-      "        \"  const courseV195=String(E.course&&E.course.value||'');\",",
+      "      const frameStyleInsertV195=[",
+      "        frameStyleNeedleV195,",
       "        \"  const surfaceV195=String(E.surface&&E.surface.value||'');\",",
-      "        \"  const styleV195=String(h&&h.style||'差し');\",",
-      "        \"  if(courseV195==='札幌競馬場'&&surfaceV195==='芝'&&dV195===1200){\",",
+      "        \"  if(course==='札幌競馬場'&&surfaceV195==='芝'&&d===1200){\",",
       "        \"    const g3V195=(typeof currentRaceClassLabelV133!=='undefined'&&String(currentRaceClassLabelV133||'')==='G3');\",",
       "        \"    const normalV195={1:-0.16,2:0.08,3:-0.12,4:-0.03,5:-0.03,6:0.02,7:0.08,8:0.30};\",",
       "        \"    const g3FrameV195={1:-0.18,2:-0.14,3:-0.10,4:-0.04,5:0.08,6:0.16,7:0.24,8:0.22};\",",
       "        \"    const tableV195=g3V195?g3FrameV195:normalV195;\",",
-      "        \"    let zV195=Number(tableV195[fV195]||0);\",",
-      "        \"    if((styleV195==='差し'||styleV195==='追込')&&fV195>=6)zV195+=0.04;\",",
-      "        \"    if((styleV195==='逃げ'||styleV195==='先行')&&fV195<=4)zV195+=0.03;\",",
+      "        \"    let zV195=Number(tableV195[f]||0);\",",
+      "        \"    if((style==='差し'||style==='追込')&&f>=6)zV195+=0.04;\",",
+      "        \"    if((style==='逃げ'||style==='先行')&&f<=4)zV195+=0.03;\",",
       "        \"    zV195=clampV81(zV195,-0.35,0.35);\",",
-      "        \"    const sideV195=fV195<=3?'内':fV195>=6?'外':'中';\",",
-      "        \"    return {bonus:zV195,reason:'札幌 芝1200m・'+styleV195+'・'+sideV195+'枠（近年枠実績を縮小反映 v195）'};\",",
+      "        \"    const sideV195=f<=3?'内':f>=6?'外':'中';\",",
+      "        \"    return {bonus:zV195,reason:'札幌 芝1200m・'+style+'・'+sideV195+'枠（近年枠実績を縮小反映 v195）'};\",",
       "        \"  }\"",
       "      ].join(nlV195);",
-      "      src=src.replace(frameFnNeedleV195,frameFnInsertV195);",
+      "      src=src.replace(frameStyleNeedleV195,frameStyleInsertV195);",
       "    }"
     ].join("\n");
 
