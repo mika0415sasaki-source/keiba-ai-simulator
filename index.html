@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v178</title>
+<title>KEIBA AI Simulator v179</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v178 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v179 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -22,14 +22,111 @@
     if(at<0)throw new Error('v178 patch insertion point not found');
     wrapper=wrapper.slice(0,at)+"\n"+precisionPatchV178+wrapper.slice(at);
 
-    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v178');
-    wrapper=wrapper.replaceAll('③-v171','③-v178');
+    const runtimeV179=`
+
+// ---- v179 compact diagnostic UI ----
+(function(){
+  let busyV179=false;
+
+  function plainV179(s){
+    const d=document.createElement('div');
+    d.innerHTML=String(s||'');
+    return String(d.textContent||'').replace(/\\s+/g,' ').trim();
+  }
+
+  function youngRaceV179(){
+    try{
+      if(typeof horses!=='undefined'&&Array.isArray(horses)&&horses.some(h=>Number(h&&h.age||0)===2))return true;
+    }catch(e){}
+    try{
+      const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;
+      const t=String(c&&(c.title||c.header||c.name||c.raceName)||'');
+      if(/2歳|新馬/.test(t))return true;
+    }catch(e){}
+    return false;
+  }
+
+  function normalizeCareerV179(part,young){
+    const t=plainV179(part);
+    if(/^5走未満\\/未取得[:：]/.test(t)){
+      if(/HTTP\\s*429|429|タイムアウト|timeout|aborted|Fetch|取得失敗|取得エラー/i.test(t)){
+        return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
+      }
+      if(young){
+        const body=t.replace(/^5走未満\\/未取得[:：]\\s*/,'');
+        return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
+      }
+      return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
+    }
+    if(young&&/^5走未満[:：]/.test(t)){
+      const body=t.replace(/^5走未満[:：]\\s*/,'');
+      return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
+    }
+    return part;
+  }
+
+  function compactEntryStatusV179(){
+    const el=document.getElementById('jraEntryStatus');
+    if(!el||busyV179)return;
+    const html=String(el.innerHTML||'');
+    if(!html||html.indexOf('class="v179-history"')>=0)return;
+
+    let parts=html.split(/<br\\s*\\/?\\s*>/i);
+    const young=youngRaceV179();
+    parts=parts.map(p=>normalizeCareerV179(p,young));
+    const plain=parts.map(plainV179);
+    const start=plain.findIndex(t=>/^v\\d+[:：]/.test(t));
+    let end=-1;
+    if(start>=0){
+      for(let i=start+1;i<plain.length;i++){
+        if(/^(?:今回情報|条件自動反映)[:：]?/.test(plain[i])){end=i;break;}
+      }
+    }
+
+    if(start>=0&&end>start){
+      const history=[
+        '<b>v179：診断欄を見やすく整理。更新履歴を折りたたみ、2歳戦の少キャリア表示を正常化。</b>'
+      ].concat(parts.slice(start,end)).join('<br>');
+      const details='<details class="v179-history" style="margin:7px 0 9px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">更新履歴（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.82">'+history+'</div></details>';
+      parts=parts.slice(0,start).concat([details],parts.slice(end));
+    }
+
+    const next=parts.join('<br>');
+    if(next!==html){
+      busyV179=true;
+      el.innerHTML=next;
+      busyV179=false;
+    }
+  }
+
+  function mountV179(){
+    const el=document.getElementById('jraEntryStatus');
+    if(!el){setTimeout(mountV179,250);return;}
+    compactEntryStatusV179();
+    const mo=new MutationObserver(()=>setTimeout(compactEntryStatusV179,0));
+    mo.observe(el,{childList:true,subtree:true,characterData:true});
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV179,{once:true});
+  else setTimeout(mountV179,0);
+})();
+`;
+
+    const runtimeAnchorV179="src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);";
+    if(!wrapper.includes(runtimeAnchorV179))throw new Error('v179 runtime insertion point not found');
+    wrapper=wrapper.replace(
+      runtimeAnchorV179,
+      "src=src.slice(0,closeScript)+runtimeV165+"+JSON.stringify(runtimeV179)+"+src.slice(closeScript);"
+    );
+
+    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v179');
+    wrapper=wrapper.replaceAll('③-v171','③-v179');
 
     document.open();
     document.write(wrapper);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v178の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v179の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
