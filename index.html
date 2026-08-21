@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v180</title>
+<title>KEIBA AI Simulator v181</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v180 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v181 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -127,144 +127,145 @@
 
     const firstPatchMarker="\n\n    required(\n      'g1.map(q=>q.h.no),g2.map(q=>q.h.no),g3.map(q=>q.h.no),28'";
     const at=wrapper.indexOf(firstPatchMarker);
-    if(at<0)throw new Error('v180 precision patch insertion point not found');
+    if(at<0)throw new Error('v181 precision patch insertion point not found');
     wrapper=wrapper.slice(0,at)+"\n"+precisionPatchV178+wrapper.slice(at);
 
-    const runtimeV180=`
+    const runtimeV181=`
 
-// ---- v180 compact diagnostic UI ----
+// ---- v181 compact status UI ----
 (function(){
-  let lockV180=false;
+  let lockV181=false;
 
-  function textV180(s){
-    const d=document.createElement('div');
-    d.innerHTML=String(s||'');
-    return String(d.textContent||'').replace(/\\s+/g,' ').trim();
+  function escV181(s){
+    return String(s==null?'':s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
   }
 
-  function isYoungV180(){
+  function firstMatchV181(text,re,fallback){
+    const m=String(text||'').match(re);
+    return m&&m[1]?String(m[1]).trim():(fallback||'');
+  }
+
+  function isYoungV181(){
     try{
       const hs=(typeof horses!=='undefined'&&Array.isArray(horses))?horses:[];
       if(hs.some(h=>Number(h&&h.age||0)===2))return true;
       if(hs.length>=6){
         const short=hs.filter(h=>((h&&Array.isArray(h.runs))?h.runs.length:0)<=2).length;
-        if(short/hs.length>=0.8)return true;
+        if(short/hs.length>=0.7)return true;
       }
-    }catch(e){}
-    try{
-      const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;
-      const t=String(c&&(c.title||c.header||c.name||c.raceName)||'');
-      if(/2歳|新馬/.test(t))return true;
     }catch(e){}
     return false;
   }
 
-  function normalizeYoungLineV180(part,young){
-    const t=textV180(part);
-    const hasNetError=/HTTP\\s*429|429|タイムアウト|timeout|aborted|Fetch is aborted|fetch failed|取得失敗|取得エラー/i.test(t);
-
-    if(/^5走未満\\/未取得[:：]/.test(t)){
-      if(hasNetError)return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
-      if(young){
-        const body=t.replace(/^5走未満\\/未取得[:：]\\s*/,'');
-        return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
-      }
-      return part.replace(/5走未満\\/未取得[:：]/,'取得要確認:');
-    }
-
-    if(/^5走未満[:：]/.test(t)&&young){
-      const body=t.replace(/^5走未満[:：]\\s*/,'');
-      return '<span style="color:#8b949e">若駒キャリア正常: '+body+'（少キャリアは正常扱い）</span>';
-    }
-
-    if(/^近走データ[:：]/.test(t)&&young){
-      return part.replace(/[（(]?5走取得\\s*\\d+頭[）)]?/,'（若駒は実キャリア分を取得）');
-    }
-    return part;
-  }
-
-  function compactV180(){
+  function compactV181(){
     const el=document.getElementById('jraEntryStatus');
-    if(!el||lockV180)return;
+    if(!el||lockV181)return;
 
-    let html=String(el.innerHTML||'');
-    if(!html)return;
+    const existing=el.querySelector('[data-v181-compact="1"]');
+    if(existing&&el.children.length===1)return;
 
-    const young=isYoungV180();
-    let parts=html.split(/<br\\s*\\/?\\s*>/i).map(p=>normalizeYoungLineV180(p,young));
-    let labels=parts.map(textV180);
+    const raw=String(el.innerText||el.textContent||'').replace(/\\r/g,'').trim();
+    if(!raw||raw.length<12)return;
 
-    // 更新履歴を丸ごと折りたたむ
-    let histStart=labels.findIndex(t=>/^v(?:171|170|169|167|166|165|163|162|161|160|159|157|156|155|152)[:：]/.test(t));
-    let histEnd=-1;
-    if(histStart>=0){
-      for(let i=histStart+1;i<labels.length;i++){
-        if(/^(?:今回情報|条件自動反映)[:：]?/.test(labels[i])){histEnd=i;break;}
-      }
+    let op=raw;
+    const p=raw.lastIndexOf('今回情報');
+    if(p>=0)op=raw.slice(p);
+
+    const imported=firstMatchV181(raw,/(\\d+)頭を取り込みました/,'');
+    const condition=firstMatchV181(op,/条件自動反映[:：]?\\s*([^\\n]+)/,'');
+    const grade=firstMatchV181(op,/今回レース格[:：]?\\s*([^\\n]+)/,'');
+    const recent=firstMatchV181(op,/近走データ[:：]\\s*([^\\n]+)/,'');
+    const newspaper=firstMatchV181(op,/競馬新聞一次取得[:：]\\s*([^\\n]+)/,'');
+    const blood=firstMatchV181(op,/血統[:：]\\s*([^\\n]+)/,'');
+    const age=firstMatchV181(op,/馬齢[:：]\\s*([^\\n]+)/,'');
+    const jockey=firstMatchV181(op,/騎手[:：]\\s*([^\\n]+)/,'');
+    const raceId=firstMatchV181(op,/race_id\\s+([^\\n]+)/,'');
+
+    const young=isYoungV181() || /新馬|2歳/.test(op);
+    const hasNetError=/HTTP\\s*429|タイムアウト|timeout|Fetch is aborted|fetch failed|取得失敗|取得エラー/i.test(op);
+    const hasMissing=/不足[:：](?!\\s*(?:斤量なし\\s*\\/\\s*血統なし\\s*\\/\\s*オッズなし))/i.test(op);
+
+    const lines=[];
+    if(imported)lines.push('<div style="font-weight:800;color:#3fb950">✅ '+escV181(imported)+'頭取得</div>');
+    if(condition)lines.push('<div><b>条件</b> '+escV181(condition)+'</div>');
+    if(grade)lines.push('<div><b>格</b> '+escV181(grade.replace(/\\s*\\/.*$/,''))+'</div>');
+
+    let dataParts=[];
+    if(newspaper){
+      const m1=newspaper.match(/斤量\\s*(\\d+\\/\\d+)/); if(m1)dataParts.push('斤量'+m1[1]);
+      const m2=newspaper.match(/オッズ\\s*(\\d+\\/\\d+)/); if(m2)dataParts.push('オッズ'+m2[1]);
+      const m3=newspaper.match(/騎手\\s*(\\d+\\/\\d+)/); if(m3)dataParts.push('騎手'+m3[1]);
     }
-    if(histStart>=0&&histEnd>histStart){
-      const history=parts.slice(histStart,histEnd).join('<br>');
-      const fold='<details data-v180-history="1" style="margin:7px 0 8px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">更新履歴（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.82">'+history+'</div></details>';
-      parts=parts.slice(0,histStart).concat([fold],parts.slice(histEnd));
-      labels=parts.map(textV180);
+    const b=blood.match(/(\\d+\\/\\d+)/); if(b)dataParts.push('血統'+b[1]);
+    const a=age.match(/(\\d+\\/\\d+)/); if(a)dataParts.push('馬齢'+a[1]);
+    const j=jockey.match(/(\\d+\\/\\d+)/); if(j&&!dataParts.some(x=>/^騎手/.test(x)))dataParts.push('騎手'+j[1]);
+    if(dataParts.length)lines.push('<div><b>取得</b> '+escV181(dataParts.join('・'))+'</div>');
+
+    if(recent){
+      let r=recent;
+      if(young)r=r.replace(/[（(]?5走取得\\s*\\d+頭[）)]?/,'').trim();
+      lines.push('<div><b>近走</b> '+escV181(r)+(young?' <span style="color:#8b949e">（若駒は実キャリア分）</span>':'')+'</div>');
+    }else if(young){
+      lines.push('<div><b>近走</b> 若駒は実キャリア分で評価</div>');
     }
 
-    // 取得経路などのデバッグ詳細も折りたたむ
-    const keepRe=/^(?:\\d+頭を取り込みました|今回情報|条件自動反映|今回レース格|過去レース格|斤量\\s*\\d+\\/\\d+頭|近走データ|血統[:：]|馬齢[:：]|騎手[:：]|不足[:：]|若駒キャリア正常[:：]|取得要確認[:：]|race_id\\b|更新履歴)/;
-    const debugRe=/^(?:今回格取得元|格サンプル|競馬新聞一次取得|v125直接解析|競馬新聞取得経路|主取得|補完[:：]|馬DB ID|枠サンプル|開催日結果|市場cache|血統DB補完|Vercel血統|v137 live|cache\\b|条件取得)/;
-
-    const visible=[];
-    const debug=[];
-    for(const p of parts){
-      const t=textV180(p);
-      if(!t)continue;
-      if(/更新履歴（タップで表示）/.test(t) || keepRe.test(t))visible.push(p);
-      else if(debugRe.test(t))debug.push(p);
-      else visible.push(p);
+    if(hasNetError||hasMissing){
+      lines.push('<div style="color:#d29922;font-weight:750">⚠️ 一部データの取得を要確認</div>');
+    }else{
+      lines.push('<div style="color:#8b949e">データ状態：正常</div>');
     }
 
-    if(debug.length&&!visible.some(p=>/data-v180-debug=/.test(p))){
-      visible.push(
-        '<details data-v180-debug="1" style="margin:7px 0 3px"><summary style="cursor:pointer;color:#8b949e;font-weight:700">取得詳細・診断ログ（タップで表示）</summary><div style="margin-top:7px;line-height:1.55;opacity:.78">'+debug.join('<br>')+'</div></details>'
-      );
-    }
+    const detailTitle=hasNetError||hasMissing?'詳細ログ・警告を表示':'詳細ログを表示';
+    const html=
+      '<div data-v181-compact="1" style="line-height:1.55">'+
+        '<div style="display:grid;gap:4px">'+lines.join('')+'</div>'+
+        '<details style="margin-top:10px">'+
+          '<summary style="cursor:pointer;color:#8b949e;font-weight:700">'+detailTitle+'</summary>'+
+          '<pre style="white-space:pre-wrap;word-break:break-word;margin:8px 0 0;font:inherit;line-height:1.5;color:#8b949e;opacity:.9">'+escV181(raw)+'</pre>'+
+        '</details>'+
+        (raceId?'<div style="margin-top:6px;color:#6e7681;font-size:.88em">race_id '+escV181(raceId)+'</div>':'')+
+      '</div>';
 
-    const next=visible.join('<br>');
-    if(next!==html){
-      lockV180=true;
-      el.innerHTML=next;
-      lockV180=false;
+    if(el.innerHTML!==html){
+      lockV181=true;
+      el.innerHTML=html;
+      lockV181=false;
     }
   }
 
-  function mountV180(){
+  function mountV181(){
     const body=document.body;
-    if(!body){setTimeout(mountV180,200);return;}
-    compactV180();
-    new MutationObserver(function(){setTimeout(compactV180,0);}).observe(body,{childList:true,subtree:true,characterData:true});
-    setInterval(compactV180,800);
+    if(!body){setTimeout(mountV181,150);return;}
+    compactV181();
+    new MutationObserver(function(){setTimeout(compactV181,0);})
+      .observe(body,{childList:true,subtree:true,characterData:true});
+    setInterval(compactV181,700);
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV180,{once:true});
-  else setTimeout(mountV180,0);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV181,{once:true});
+  else setTimeout(mountV181,0);
 })();
 `;
 
-    const runtimeAnchorV180="src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);";
-    if(!wrapper.includes(runtimeAnchorV180))throw new Error('v180 runtime insertion point not found');
+    const runtimeAnchorV181="src=src.slice(0,closeScript)+runtimeV165+src.slice(closeScript);";
+    if(!wrapper.includes(runtimeAnchorV181))throw new Error('v181 runtime insertion point not found');
     wrapper=wrapper.replace(
-      runtimeAnchorV180,
-      "src=src.slice(0,closeScript)+runtimeV165+"+JSON.stringify(runtimeV180)+"+src.slice(closeScript);"
+      runtimeAnchorV181,
+      "src=src.slice(0,closeScript)+runtimeV165+"+JSON.stringify(runtimeV181)+"+src.slice(closeScript);"
     );
 
-    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v180');
-    wrapper=wrapper.replaceAll('③-v171','③-v180');
+    wrapper=wrapper.replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181');
+    wrapper=wrapper.replaceAll('③-v171','③-v181');
 
     document.open();
     document.write(wrapper);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v180の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v181の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
