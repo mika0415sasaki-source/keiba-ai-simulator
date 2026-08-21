@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v187</title>
+<title>KEIBA AI Simulator v188</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v187 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v188 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -16,139 +16,169 @@
       return r.text();
     });
 
-    const runtimeV187=`
+    const runtimeV188=`
 
-// ---- v187: finalized frame draw + compact import log ----
+// ---- v188: generalized JRA frame assignment (1-18 horses) + compact log ----
 (function(){
-  let frameBusyV187=false;
-  let lastSigV187='';
-  let rerenderingV187=false;
+  let frameBusyV188=false;
+  let rerenderingV188=false;
 
-  function frameFromNoV187(no,n){
-    no=Number(no); n=Number(n);
-    if(!Number.isInteger(no)||!Number.isInteger(n)||n<1||n>18||no<1||no>n)return 0;
-    if(n<=8)return no;
-    const base=Math.floor(n/8),rem=n%8;
-    let cursor=1;
-    for(let frame=1;frame<=8;frame++){
-      const size=base+(rem>0&&frame>8-rem?1:0);
-      if(no>=cursor&&no<cursor+size)return frame;
-      cursor+=size;
-    }
-    return 0;
-  }
-
-  function currentHorsesV187(){
+  function currentHorsesV188(){
     try{
       return (typeof horses!=='undefined'&&Array.isArray(horses))?horses.filter(h=>h&&h.name):[];
     }catch(e){return [];}
   }
 
-  function numbersAreFinalV187(hs){
-    if(!Array.isArray(hs)||hs.length<3||hs.length>18)return false;
-    const nums=hs.map(h=>Number(h&&h.no)).sort((a,b)=>a-b);
-    return !nums.some((x,i)=>!Number.isInteger(x)||x!==i+1);
+  function validFrameV188(v){
+    v=Number(v);
+    return Number.isInteger(v)&&v>=1&&v<=8;
   }
 
-  function applyFramesCoreV187(doRerender){
-    if(frameBusyV187)return false;
-    const hs=currentHorsesV187();
-    if(!numbersAreFinalV187(hs))return false;
-    const n=hs.length;
-    const mapped=hs.map(h=>({h,frame:frameFromNoV187(h.no,n)}));
-    if(mapped.some(x=>x.frame<1||x.frame>8))return false;
+  // JRA標準枠配分。1〜8頭は1頭1枠、9頭以上は外枠側から余りを配分。
+  // 9頭: 1/1/1/1/1/1/1/2
+  // 10頭:1/1/1/1/1/1/2/2
+  // 16頭:2/2/2/2/2/2/2/2
+  // 17頭:2/2/2/2/2/2/2/3
+  // 18頭:2/2/2/2/2/2/3/3
+  function standardFrameFromNoV188(no,n){
+    no=Number(no); n=Number(n);
+    if(!Number.isInteger(no)||!Number.isInteger(n)||n<1||n>18||no<1||no>n)return 0;
+    if(n<=8)return no;
+    const base=Math.floor(n/8);
+    const extra=n%8;
+    const firstExtraFrame=9-extra;
+    let firstNo=1;
+    for(let frame=1;frame<=8;frame++){
+      const size=base+(extra>0&&frame>=firstExtraFrame?1:0);
+      if(no>=firstNo&&no<firstNo+size)return frame;
+      firstNo+=size;
+    }
+    return 0;
+  }
 
-    const sig=mapped.slice().sort((a,b)=>Number(a.h.no)-Number(b.h.no))
-      .map(x=>String(x.h.no)+':'+x.frame+':'+String(x.h.name||''))
-      .join('|');
-    const changed=window.__keibaFrameConfirmedV167!==true ||
-      window.__keibaFrameConfirmedV166!==true ||
-      mapped.some(x=>Number(x.h.frame)!==x.frame||x.h.frameConfirmedV165!==true);
+  function numbersContiguousV188(hs){
+    if(!Array.isArray(hs)||hs.length<1||hs.length>18)return false;
+    const nums=hs.map(h=>Number(h&&h.no)).sort((a,b)=>a-b);
+    return nums.every((x,i)=>Number.isInteger(x)&&x===i+1);
+  }
 
-    frameBusyV187=true;
+  function sourceFramesReliableV188(hs){
+    if(!Array.isArray(hs)||!hs.length)return false;
+    const allValid=hs.every(h=>validFrameV188(h&&h.frame));
+    if(!allValid)return false;
+    const allConfirmed=hs.every(h=>h&&h.frameConfirmedV165===true);
+    const globalConfirmed=window.__keibaFrameConfirmedV167===true||window.__keibaFrameConfirmedV166===true;
+    return allConfirmed||globalConfirmed;
+  }
+
+  function resolveFramesV188(doRerender){
+    if(frameBusyV188)return {ok:false,mode:'busy'};
+    const hs=currentHorsesV188();
+    if(!hs.length||hs.length>18)return {ok:false,mode:'none'};
+
+    let mode='';
+    let mapped=[];
+
+    // 1) 取得元から枠が確定取得できているなら、その枠を一切上書きしない。
+    if(sourceFramesReliableV188(hs)){
+      mode='source';
+      mapped=hs.map(h=>({h,frame:Number(h.frame)}));
+    }
+    // 2) 枠取得フラグが落ちていても、馬番が1〜Nで連続ならJRA標準配分から一意に復元できる。
+    else if(numbersContiguousV188(hs)){
+      mode='standard';
+      mapped=hs.map(h=>({h,frame:standardFrameFromNoV188(h.no,hs.length)}));
+      if(mapped.some(x=>!validFrameV188(x.frame)))return {ok:false,mode:'invalid'};
+    }
+    // 3) 欠番がある場合は、取消後の可能性があるため頭数から推測しない。
+    else{
+      return {ok:false,mode:'gap'};
+    }
+
+    const changed=mapped.some(x=>Number(x.h.frame)!==x.frame||x.h.frameConfirmedV165!==true) ||
+      window.__keibaFrameConfirmedV167!==true || window.__keibaFrameConfirmedV166!==true;
+
+    frameBusyV188=true;
     try{
       mapped.forEach(x=>{
         x.h.frame=x.frame;
         x.h.frameConfirmedV165=true;
+        x.h.frameResolvedByV188=mode;
       });
       window.__keibaFrameConfirmedV166=true;
       window.__keibaFrameConfirmedV167=true;
-      window.__keibaFrameRecoveryV187=true;
-      lastSigV187=sig;
+      window.__keibaFrameResolvedV188=mode;
 
       try{
-        if(typeof E!=='undefined'&&E&&E.bulk&&typeof compactHorseCsv==='function'){
-          E.bulk.value=compactHorseCsv(horses);
-        }
+        if(typeof E!=='undefined'&&E&&E.bulk&&typeof compactHorseCsv==='function')E.bulk.value=compactHorseCsv(horses);
       }catch(e){}
 
-      if(changed&&doRerender&&!rerenderingV187){
-        rerenderingV187=true;
-        try{ if(typeof lastStats!=='undefined')lastStats=null; }catch(e){}
-        try{ if(typeof renderRunners==='function')renderRunners(); }catch(e){}
-        try{ if(typeof renderStats==='function')renderStats(); }catch(e){}
-        try{ if(typeof draw==='function')draw(); }catch(e){}
-        rerenderingV187=false;
+      if(changed&&doRerender&&!rerenderingV188){
+        rerenderingV188=true;
+        try{if(typeof lastStats!=='undefined')lastStats=null;}catch(e){}
+        try{if(typeof renderRunners==='function')renderRunners();}catch(e){}
+        try{if(typeof renderStats==='function')renderStats();}catch(e){}
+        try{if(typeof draw==='function')draw();}catch(e){}
+        rerenderingV188=false;
       }
     }finally{
-      frameBusyV187=false;
+      frameBusyV188=false;
     }
-    return true;
+    return {ok:true,mode};
   }
 
-  // AI診断が枠評価へ入る瞬間にも必ず確定状態を先に入れる。
+  // 枠補正計算の直前でも必ず解決する。
   try{
     if(typeof frameDetailV89==='function'){
-      const originalFrameDetailV187=frameDetailV89;
+      const originalFrameDetailV188=frameDetailV89;
       frameDetailV89=function(h){
-        applyFramesCoreV187(false);
-        return originalFrameDetailV187(h);
+        resolveFramesV188(false);
+        return originalFrameDetailV188(h);
       };
     }
   }catch(e){}
 
-  function escV187(s){
-    return String(s==null?'':s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function escV188(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');
   }
 
-  function conciseTextV187(raw){
+  function compactSummaryV188(raw){
     raw=String(raw||'').replace(/\r/g,'');
     const imported=(raw.match(/(\d+)頭を取り込みました/)||[])[1];
     const condition=(raw.match(/条件自動反映[:：]?\s*([^\n]+)/)||[])[1];
     const grade=(raw.match(/今回レース格[:：]?\s*([^\n]+)/)||[])[1];
     const recent=(raw.match(/近走データ[:：]\s*([^\n]+)/)||[])[1];
-    const pieces=[];
-    if(imported)pieces.push('✅ '+imported+'頭取得');
-    if(condition)pieces.push('条件 '+condition.replace(/\s*\/.*$/,''));
-    if(grade)pieces.push('格 '+grade.replace(/\s*\/.*$/,''));
-    if(recent)pieces.push('近走 '+recent.replace(/\s*\/.*$/,''));
-    if(applyFramesCoreV187(false))pieces.push('枠順確定・枠補正ON');
-    return pieces.join(' ｜ ')||'取得状況';
+    const f=resolveFramesV188(false);
+    const p=[];
+    if(imported)p.push('✅ '+imported+'頭取得');
+    if(condition)p.push('条件 '+condition.replace(/\s*\/.*$/,''));
+    if(grade)p.push('格 '+grade.replace(/\s*\/.*$/,''));
+    if(recent)p.push('近走 '+recent.replace(/\s*\/.*$/,''));
+    if(f.ok)p.push(f.mode==='source'?'枠順確定・取得元':'枠順確定・JRA標準配分');
+    else if(f.mode==='gap')p.push('枠順は取得元確認待ち（欠番あり）');
+    return p.join(' ｜ ')||'取得状況';
   }
 
-  function compactLogV187(){
+  function compactLogV188(){
     const st=document.getElementById('jraEntryStatus');
     if(!st)return;
-
-    let details=document.getElementById('jraEntryStatusDetailsV187');
-    let summaryLine=document.getElementById('jraEntryCompactV187');
+    let details=document.getElementById('jraEntryStatusDetailsV188');
+    let summaryLine=document.getElementById('jraEntryCompactV188');
 
     if(!details){
       const parent=st.parentNode;
       if(!parent)return;
       summaryLine=document.createElement('div');
-      summaryLine.id='jraEntryCompactV187';
+      summaryLine.id='jraEntryCompactV188';
       summaryLine.style.cssText='margin-top:7px;padding:9px 10px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#c9d1d9;font-weight:700;line-height:1.5';
 
       details=document.createElement('details');
-      details.id='jraEntryStatusDetailsV187';
+      details.id='jraEntryStatusDetailsV188';
       details.style.cssText='margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117';
       const sum=document.createElement('summary');
       sum.textContent='取得状況・詳細ログ（必要な時だけ開く）';
       sum.style.cssText='cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700';
       details.appendChild(sum);
-
       parent.insertBefore(summaryLine,st);
       parent.insertBefore(details,st);
       details.appendChild(st);
@@ -157,10 +187,10 @@
     }
 
     const raw=String(st.innerText||st.textContent||'');
-    if(summaryLine)summaryLine.innerHTML=escV187(conciseTextV187(raw));
+    if(summaryLine)summaryLine.innerHTML=escV188(compactSummaryV188(raw));
 
-    // ログ本文に古い未確定表示が残っても、実データが揃っていれば表示を正す。
-    if(applyFramesCoreV187(false)){
+    const f=resolveFramesV188(false);
+    if(f.ok){
       let html=String(st.innerHTML||'');
       html=html.replace(/枠順:\s*未確定・枠補正OFF/g,'枠順: 確定・枠補正ON');
       html=html.replace(/枠順未確定/g,'枠順確定');
@@ -168,63 +198,57 @@
     }
   }
 
-  function refreshV187(){
-    const ok=applyFramesCoreV187(true);
-    compactLogV187();
-    if(ok){
+  function refreshV188(){
+    const f=resolveFramesV188(true);
+    compactLogV188();
+    if(f.ok){
       try{
         const ai=document.getElementById('aiSummary');
-        if(ai&&/枠順未確定/.test(ai.textContent||'')){
-          if(typeof lastStats!=='undefined')lastStats=null;
-          if(typeof renderStats==='function'&&!rerenderingV187){
-            rerenderingV187=true;
-            renderStats();
-            rerenderingV187=false;
-          }
+        if(ai&&/枠順未確定/.test(ai.textContent||'')&&!rerenderingV188&&typeof renderStats==='function'){
+          rerenderingV188=true;
+          try{if(typeof lastStats!=='undefined')lastStats=null;}catch(e){}
+          renderStats();
+          rerenderingV188=false;
         }
       }catch(e){}
     }
   }
 
-  function mountV187(){
-    refreshV187();
+  function mountV188(){
+    refreshV188();
     const btn=document.getElementById('fetchJraEntry');
-    if(btn&&!btn.dataset.v187hook){
-      btn.dataset.v187hook='1';
+    if(btn&&!btn.dataset.v188hook){
+      btn.dataset.v188hook='1';
       btn.addEventListener('click',function(){
-        setTimeout(refreshV187,300);
-        setTimeout(refreshV187,1200);
-        setTimeout(refreshV187,2500);
+        setTimeout(refreshV188,250);
+        setTimeout(refreshV188,900);
+        setTimeout(refreshV188,2200);
       });
     }
-    try{
-      new MutationObserver(function(){setTimeout(refreshV187,0);})
-        .observe(document.body,{childList:true,subtree:true,characterData:true});
-    }catch(e){}
-    setInterval(refreshV187,700);
+    setInterval(refreshV188,900);
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV187,{once:true});
-  else setTimeout(mountV187,0);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV188,{once:true});
+  else setTimeout(mountV188,0);
 })();
 `;
 
     const runtimeStart=outer.indexOf('    const runtimeV181=`');
     const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
-    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v187 runtime insertion point not found');
-    outer=outer.slice(0,runtimeStart)+'    const runtimeV181='+JSON.stringify(runtimeV187)+';\n\n'+outer.slice(runtimeAnchor);
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v188 runtime insertion point not found');
+    outer=outer.slice(0,runtimeStart)+'    const runtimeV181='+JSON.stringify(runtimeV188)+';\n\n'+outer.slice(runtimeAnchor);
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v187</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v187 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v187')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v187')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v187の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v188</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v188 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v188')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v188')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v188の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v187の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v188の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
