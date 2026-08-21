@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v185</title>
+<title>KEIBA AI Simulator v186</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v185 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v186 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -17,49 +17,157 @@
     });
 
     // 取得ログは静的details内へ入れる。既存の取込・メモリ処理には触れない。
-    const staticPatchV185=[
+    const staticPatchV186=[
       "    required(",
       "      '<div id=\"jraEntryStatus\" class=\"small\" style=\"margin-top:5px\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div>',",
       "      '<details id=\"jraEntryStatusDetails\" style=\"margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117\"><summary style=\"cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700\">取得状況・詳細ログ（タップで表示）</summary><div id=\"jraEntryStatus\" class=\"small\" style=\"margin:0;padding:0 10px 10px;white-space:normal\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div></details>',",
-      "      'v185 static collapse entry diagnostics'",
+      "      'v186 static collapse entry diagnostics'",
       "    );"
     ].join("\n");
 
     const insertNeedle='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+wrapper.slice(at);';
-    if(!outer.includes(insertNeedle))throw new Error('v185 static status insertion point not found');
-    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV185)+'+wrapper.slice(at);';
+    if(!outer.includes(insertNeedle))throw new Error('v186 static status insertion point not found');
+    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV186)+'+wrapper.slice(at);';
     outer=outer.replace(insertNeedle,insertReplacement);
 
-    // v185: 枠順補正だけを独立JSで追加。DOM・メモリ・取込本体は一切移動しない。
-    const runtimeV185=`
+    // v186: 枠順確定処理を「本体と同じscriptスコープ」に直接注入する。
+    // v185の外部JS方式では horses/currentRaceContext に届かない場合があったため廃止。
+    const runtimeV186=`
+
+// ---- v186 finalized frame draw recovery (same scope as simulator) ----
 (function(){
-  try{
-    if(document.getElementById('frameV185Script'))return;
-    var s=document.createElement('script');
-    s.id='frameV185Script';
-    s.src='./frame-v185.js?v=185';
-    s.async=true;
-    (document.head||document.documentElement).appendChild(s);
-  }catch(e){console.warn('v185 frame helper load failed',e);}
+  let lastFrameSigV186='';
+  let frameBusyV186=false;
+
+  function ymdUtcV186(v){
+    const s=String(v||'').replace(/\\D/g,'').slice(0,8);
+    if(s.length!==8)return NaN;
+    const y=Number(s.slice(0,4)),m=Number(s.slice(4,6)),d=Number(s.slice(6,8));
+    if(!y||!m||!d)return NaN;
+    return Date.UTC(y,m-1,d);
+  }
+
+  function raceDaysV186(){
+    try{
+      const c=(typeof currentRaceContextV152!=='undefined'&&currentRaceContextV152)?currentRaceContextV152:null;
+      const t=ymdUtcV186(c&&c.date);
+      if(!Number.isFinite(t))return null;
+      const now=new Date();
+      const today=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate());
+      return Math.round((t-today)/86400000);
+    }catch(e){return null;}
+  }
+
+  function frameFromNoV186(no,n){
+    no=Number(no); n=Number(n);
+    if(!Number.isInteger(no)||!Number.isInteger(n)||n<1||n>18||no<1||no>n)return 0;
+    if(n<=8)return no;
+    const base=Math.floor(n/8),rem=n%8;
+    let cursor=1;
+    for(let frame=1;frame<=8;frame++){
+      const size=base+(rem>0&&frame>8-rem?1:0);
+      if(no>=cursor&&no<cursor+size)return frame;
+      cursor+=size;
+    }
+    return 0;
+  }
+
+  function finalNumbersV186(hs){
+    if(!Array.isArray(hs)||hs.length<3||hs.length>18)return false;
+    const nums=hs.map(h=>Number(h&&h.no)).sort((a,b)=>a-b);
+    if(nums.some((x,i)=>!Number.isInteger(x)||x!==i+1))return false;
+    const du=raceDaysV186();
+    // 枠発表前の暫定並びを確定扱いしない。レース3日前〜当日だけ自動復元。
+    if(du===null||du<0||du>3)return false;
+    return true;
+  }
+
+  function markStatusV186(){
+    try{
+      const det=document.getElementById('jraEntryStatusDetails');
+      if(det){
+        const sum=det.querySelector('summary');
+        if(sum&&!sum.querySelector('[data-frame-v186]')){
+          const sp=document.createElement('span');
+          sp.setAttribute('data-frame-v186','1');
+          sp.textContent=' ・ 枠順確定／枠補正ON';
+          sp.style.color='#3fb950';
+          sp.style.fontWeight='800';
+          sum.appendChild(sp);
+        }
+      }
+      const st=document.getElementById('jraEntryStatus');
+      if(st){
+        let h=String(st.innerHTML||'');
+        h=h.replace(/枠順:\s*未確定・枠補正OFF/g,'枠順: 確定・枠補正ON（v186）');
+        h=h.replace(/枠順未確定/g,'枠順確定');
+        if(h!==st.innerHTML)st.innerHTML=h;
+      }
+    }catch(e){}
+  }
+
+  function applyFramesV186(){
+    if(frameBusyV186)return;
+    try{
+      const hs=(typeof horses!=='undefined'&&Array.isArray(horses))?horses.filter(h=>h&&h.name):[];
+      if(!finalNumbersV186(hs))return;
+      const n=hs.length;
+      const mapped=hs.map(h=>({h:h,frame:frameFromNoV186(Number(h.no),n)}));
+      if(mapped.some(x=>x.frame<1||x.frame>8))return;
+
+      const sig=mapped.slice().sort((a,b)=>Number(a.h.no)-Number(b.h.no))
+        .map(x=>Number(x.h.no)+':'+x.frame+':'+String(x.h.name||''))
+        .join('|');
+      const need=window.__keibaFrameConfirmedV167!==true ||
+        window.__keibaFrameConfirmedV166!==true ||
+        mapped.some(x=>Number(x.h.frame)!==x.frame||x.h.frameConfirmedV165!==true);
+
+      if(!need&&sig===lastFrameSigV186){markStatusV186();return;}
+
+      frameBusyV186=true;
+      mapped.forEach(x=>{
+        x.h.frame=x.frame;
+        x.h.frameConfirmedV165=true;
+      });
+      window.__keibaFrameConfirmedV166=true;
+      window.__keibaFrameConfirmedV167=true;
+      window.__keibaFrameRecoveryV186=true;
+      lastFrameSigV186=sig;
+
+      try{ if(typeof E!=='undefined'&&E&&E.bulk&&typeof compactHorseCsv==='function')E.bulk.value=compactHorseCsv(horses); }catch(e){}
+      try{ if(typeof lastStats!=='undefined')lastStats=null; }catch(e){}
+      try{ if(typeof renderRunners==='function')renderRunners(); }catch(e){}
+      try{ if(typeof renderStats==='function')renderStats(); }catch(e){}
+      try{ if(typeof draw==='function')draw(); }catch(e){}
+      markStatusV186();
+    }catch(e){
+      console.warn('v186 frame recovery failed',e);
+    }finally{
+      frameBusyV186=false;
+    }
+  }
+
+  setTimeout(applyFramesV186,0);
+  setInterval(applyFramesV186,500);
 })();
 `;
 
     const runtimeStart=outer.indexOf('    const runtimeV181=`');
     const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
-    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v185 runtime insertion point not found');
-    outer=outer.slice(0,runtimeStart)+'    const runtimeV181='+JSON.stringify(runtimeV185)+';\n\n'+outer.slice(runtimeAnchor);
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v186 runtime insertion point not found');
+    outer=outer.slice(0,runtimeStart)+'    const runtimeV181='+JSON.stringify(runtimeV186)+';\n\n'+outer.slice(runtimeAnchor);
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v185</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v185 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v185')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v185')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v185の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v186</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v186 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v186')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v186')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v186の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v185の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v186の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
