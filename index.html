@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v191</title>
+<title>KEIBA AI Simulator v193</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v191 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v193 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -58,6 +58,38 @@
     if(!outer.includes(precisionMarkerV190))throw new Error('v191 wrapper patch insertion point not found');
     outer=outer.replace(precisionMarkerV190,frameWrapperPatchV190+'\n'+historyWrapperPatchV191+'\n'+precisionMarkerV190);
 
+    // v193: 札幌芝1200mの枠補正を、特定レースや特定頭数に固定せず全出走馬へ適用。
+    // 枠だけで評価が暴れないよう±0.5に制限し、脚質との組み合わせで小幅調整する。
+    const sapporoPrecisionPatchV193=`
+    const sapporoFrameNeedleV193=[
+      "function frameDetailV89(h){",
+      "  const f=Number(h.frame||1);",
+      "  const d=Number(E.distance.value||1800);",
+      "  const course=String(E.course.value||'');",
+      "  const style=String(h.style||'差し');"
+    ].join("\\n");
+    const sapporoFrameReplacementV193=sapporoFrameNeedleV193+[
+      "",
+      "  const surfaceV193=String(E.surface&&E.surface.value||'');",
+      "  if(course==='札幌競馬場'&&surfaceV193==='芝'&&d===1200){",
+      "    const byFrameV193={1:-0.20,2:-0.10,3:0.00,4:0.10,5:0.30,6:0.40,7:0.30,8:0.10};",
+      "    let zV193=Number(byFrameV193[f]??0);",
+      "    if((style==='逃げ'||style==='先行')&&f<=4)zV193+=0.10;",
+      "    if(style==='差し'&&f>=5&&f<=7)zV193+=0.10;",
+      "    if(style==='追込'&&f<=2)zV193-=0.10;",
+      "    zV193=clampV81(zV193,-0.50,0.50);",
+      "    const sideV193=f<=3?'内':f>=6?'外':'中';",
+      "    return {bonus:zV193,reason:'札幌 芝1200m・'+style+'・'+sideV193+'枠（枠×脚質補正）'};",
+      "  }"
+    ].join("\\n");
+    if(!src.includes(sapporoFrameNeedleV193))throw new Error('v193 sapporo frame target not found');
+    src=src.replace(sapporoFrameNeedleV193,sapporoFrameReplacementV193);
+`;
+    const precisionEndMarkerV193="\n`;\n\n    const firstPatchMarker=";
+    const precisionEndAtV193=outer.indexOf(precisionEndMarkerV193);
+    if(precisionEndAtV193<0)throw new Error('v193 precision patch insertion point not found');
+    outer=outer.slice(0,precisionEndAtV193)+sapporoPrecisionPatchV193+outer.slice(precisionEndAtV193);
+
     // 長文ログは取得処理から分離したまま折りたたむ。開いても高さを制限する。
     const staticPatchV190=[
       "    required(",
@@ -68,27 +100,27 @@
     ].join("\n");
 
     const insertNeedle='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+wrapper.slice(at);';
-    if(!outer.includes(insertNeedle))throw new Error('v191 static status insertion point not found');
+    if(!outer.includes(insertNeedle))throw new Error('v193 static status insertion point not found');
     const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV190)+'+wrapper.slice(at);';
     outer=outer.replace(insertNeedle,insertReplacement);
 
     // 取得中へ割り込む常駐ランタイムは使わない。
     const runtimeStart=outer.indexOf('    const runtimeV181=`');
     const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
-    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v191 runtime removal point not found');
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v193 runtime removal point not found');
     outer=outer.slice(0,runtimeStart)+'    const runtimeV181="";\n\n'+outer.slice(runtimeAnchor);
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v191</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v191 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v191')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v191')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v191の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v193</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v193 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v193')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v193')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v193の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v191の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v193の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
