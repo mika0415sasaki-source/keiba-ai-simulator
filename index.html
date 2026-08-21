@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v189</title>
+<title>KEIBA AI Simulator v190</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v189 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v190 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -16,38 +16,56 @@
       return r.text();
     });
 
-    // v189: restore the proven v183 import path exactly.
-    // Keep diagnostic log collapsed without moving/replacing it at runtime.
-    const staticPatchV189=[
+    // v190: v171が取得した馬番1..Nを、JRA標準枠配分で確定枠へ変換する。
+    // 取得処理・メモリ・補完経路そのものは変更しない。
+    const frameWrapperPatchV190=`
+    const frameNeedleV190='"  const frameConfirmedV165=frameMarkerCountV165>=2&&frameNameHitsV165>=Math.min(2,Math.max(1,(parsed||[]).length));",';
+    const frameReplacementV190=[
+      '"  const frameNumsV190=(parsed||[]).map(h=>Number(h&&h.no)).sort((a,b)=>a-b);",',
+      '"  const frameNumbersFinalV190=frameNumsV190.length>=1&&frameNumsV190.length<=18&&frameNumsV190.every((x,i)=>Number.isInteger(x)&&x===i+1);",',
+      '"  function frameFromNoV190(no,n){ if(!Number.isInteger(no)||!Number.isInteger(n)||n<1||n>18||no<1||no>n)return 0; if(n<=8)return no; const base=Math.floor(n/8),extra=n%8,firstExtra=9-extra; let cur=1; for(let f=1;f<=8;f++){ const size=base+(extra>0&&f>=firstExtra?1:0); if(no>=cur&&no<cur+size)return f; cur+=size; } return 0; }",',
+      '"  if(frameNumbersFinalV190){(parsed||[]).forEach(h=>{h.frame=frameFromNoV190(Number(h.no),frameNumsV190.length);});}",',
+      '"  const frameConfirmedV165=(frameMarkerCountV165>=2&&frameNameHitsV165>=Math.min(2,Math.max(1,(parsed||[]).length)))||frameNumbersFinalV190;",'
+    ].join("\\n        ");
+    if(!wrapper.includes(frameNeedleV190))throw new Error('v190 frame confirmation target not found');
+    wrapper=wrapper.replace(frameNeedleV190,frameReplacementV190);
+`;
+
+    const precisionMarkerV190='    const precisionPatchV178=`';
+    if(!outer.includes(precisionMarkerV190))throw new Error('v190 wrapper patch insertion point not found');
+    outer=outer.replace(precisionMarkerV190,frameWrapperPatchV190+'\n'+precisionMarkerV190);
+
+    // 長文ログは取得処理から分離したまま折りたたむ。開いても高さを制限する。
+    const staticPatchV190=[
       "    required(",
       "      '<div id=\"jraEntryStatus\" class=\"small\" style=\"margin-top:5px\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div>',",
-      "      '<details id=\"jraEntryStatusDetails\" style=\"margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117\"><summary style=\"cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700\">取得状況・詳細ログ（タップで表示）</summary><div id=\"jraEntryStatus\" class=\"small\" style=\"margin:0;padding:0 10px 10px;white-space:normal\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div></details>',",
-      "      'v189 static collapse entry diagnostics'",
+      "      '<details id=\"jraEntryStatusDetailsV190\" style=\"margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117\"><summary style=\"cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700\">取得状況・詳細ログ（タップで表示）</summary><div id=\"jraEntryStatus\" class=\"small\" style=\"margin:0;padding:0 10px 10px;white-space:normal;max-height:110px;overflow:auto\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div></details>',",
+      "      'v190 compact entry diagnostics'",
       "    );"
     ].join("\n");
 
     const insertNeedle='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+wrapper.slice(at);';
-    if(!outer.includes(insertNeedle))throw new Error('v189 static status insertion point not found');
-    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV189)+'+wrapper.slice(at);';
+    if(!outer.includes(insertNeedle))throw new Error('v190 static status insertion point not found');
+    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV190)+'+wrapper.slice(at);';
     outer=outer.replace(insertNeedle,insertReplacement);
 
-    // Remove every post-load runtime overlay. This is the part that interfered with importing.
+    // 取得中へ割り込む常駐ランタイムは使わない。
     const runtimeStart=outer.indexOf('    const runtimeV181=`');
     const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
-    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v189 runtime removal point not found');
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v190 runtime removal point not found');
     outer=outer.slice(0,runtimeStart)+'    const runtimeV181="";\n\n'+outer.slice(runtimeAnchor);
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v189</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v189 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v189')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v189')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v189の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v190</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v190 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v190')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v190')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v190の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v189の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v190の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
