@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v182</title>
+<title>KEIBA AI Simulator v183</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v182 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v183 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -16,136 +16,38 @@
       return r.text();
     });
 
-    const runtimeV182=`
-// ---- v182: status log is always collapsed ----
-(function(){
-  let currentElV182=null;
-  let currentWrapV182=null;
-  let currentSummaryV182=null;
+    // v183: jraEntryStatusそのものを静的details内へ入れる。
+    // 後からinnerHTML/textContentを書き換えられても、長文ログは開かない限り見えない。
+    const staticPatchV183=[
+      "    required(",
+      "      '<div id=\"jraEntryStatus\" class=\"small\" style=\"margin-top:5px\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div>',",
+      "      '<details id=\"jraEntryStatusDetails\" style=\"margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117\"><summary style=\"cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700\">取得状況・詳細ログ（タップで表示）</summary><div id=\"jraEntryStatus\" class=\"small\" style=\"margin:0;padding:0 10px 10px;white-space:normal\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div></details>',",
+      "      'v183 static collapse entry diagnostics'",
+      "    );"
+    ].join("\n");
 
-  function escV182(s){
-    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function oneV182(text,re){
-    const m=String(text||'').match(re);
-    return m&&m[1]?String(m[1]).trim():'';
-  }
-  function shortConditionV182(s){
-    return String(s||'')
-      .replace(/競馬場/g,'')
-      .replace(/馬場\\s*/g,'')
-      .replace(/ペース\\s*/g,'')
-      .replace(/\\(手動保持\\)/g,'')
-      .replace(/\\s*\\/\\s*/g,' / ')
-      .replace(/\\s+/g,' ')
-      .trim();
-  }
-  function statusTextV182(raw){
-    let op=String(raw||'');
-    const p=op.lastIndexOf('今回情報');
-    if(p>=0)op=op.slice(p);
+    const insertNeedle='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+wrapper.slice(at);';
+    if(!outer.includes(insertNeedle))throw new Error('v183 static status insertion point not found');
+    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV183)+'+wrapper.slice(at);';
+    outer=outer.replace(insertNeedle,insertReplacement);
 
-    const imported=oneV182(raw,/(\\d+)頭を取り込みました/);
-    const condition=shortConditionV182(oneV182(op,/条件自動反映[:：]?\\s*([^\\n]+)/));
-    let grade=oneV182(op,/今回レース格[:：]?\\s*([^\\n]+)/);
-    if(grade)grade=grade.split('/')[0].trim();
-    const recent=oneV182(op,/近走データ[:：]\\s*([^\\n]+)/);
-    const newspaper=oneV182(op,/競馬新聞一次取得[:：]\\s*([^\\n]+)/);
-    const blood=oneV182(op,/血統[:：]\\s*([^\\n]+)/);
+    // v181/v182の後付けDOM変換は停止。静的detailsだけで確実に折りたたむ。
+    const runtimeStart=outer.indexOf('    const runtimeV181=`');
+    const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v183 runtime removal point not found');
+    outer=outer.slice(0,runtimeStart)+'    const runtimeV181="";\n\n'+outer.slice(runtimeAnchor);
 
-    const bits=[];
-    const grab=function(label,src){
-      const m=String(src||'').match(new RegExp(label+'\\\\s*(\\\\d+\\\\/\\\\d+)'));
-      if(m)bits.push(label+m[1]);
-    };
-    grab('斤量',newspaper);grab('オッズ',newspaper);grab('騎手',newspaper);grab('血統',blood);
-
-    const problem=/HTTP\\s*429|Fetch is aborted|タイムアウト|timeout|取得要確認|取得失敗|取得エラー/i.test(op);
-    const lines=[];
-    if(imported)lines.push('<b style="color:#3fb950">✅ '+escV182(imported)+'頭取得</b>');
-    if(condition)lines.push('<span><b>条件</b> '+escV182(condition)+'</span>');
-    if(grade)lines.push('<span><b>格</b> '+escV182(grade)+'</span>');
-    if(bits.length)lines.push('<span><b>取得</b> '+escV182(bits.join('・'))+'</span>');
-    if(recent)lines.push('<span><b>近走</b> '+escV182(recent.replace(/\\s*\\(5走取得\\s*\\d+頭\\)/,'').trim())+'</span>');
-    lines.push(problem?'<b style="color:#d29922">⚠️ 一部データを要確認</b>':'<span style="color:#8b949e">データ状態：正常</span>');
-    return lines.join('<br>');
-  }
-
-  function updateV182(){
-    if(!currentElV182||!currentSummaryV182)return;
-    const raw=String(currentElV182.innerText||currentElV182.textContent||'').replace(/\\r/g,'').trim();
-    if(!raw)return;
-    currentSummaryV182.innerHTML=statusTextV182(raw);
-  }
-
-  function ensureV182(){
-    const el=document.getElementById('jraEntryStatus');
-    if(!el)return;
-
-    let wrap=el.closest('[data-v182-status-wrap="1"]');
-    if(!wrap){
-      wrap=document.createElement('div');
-      wrap.setAttribute('data-v182-status-wrap','1');
-      wrap.style.cssText='margin:8px 0 10px;';
-
-      const summary=document.createElement('div');
-      summary.setAttribute('data-v182-status-summary','1');
-      summary.style.cssText='padding:10px 12px;border:1px solid #30363d;border-radius:10px;background:#0d1117;line-height:1.55;font-size:.94em;';
-
-      const details=document.createElement('details');
-      details.style.cssText='margin-top:6px;border:1px solid #30363d;border-radius:10px;background:#0d1117;';
-      const head=document.createElement('summary');
-      head.textContent='取得詳細ログ（タップで表示）';
-      head.style.cssText='cursor:pointer;padding:10px 12px;color:#8b949e;font-weight:700;';
-
-      const parent=el.parentNode;
-      if(!parent)return;
-      parent.insertBefore(wrap,el);
-      wrap.appendChild(summary);
-      wrap.appendChild(details);
-      details.appendChild(head);
-      details.appendChild(el);
-      el.style.marginTop='0';
-      el.style.borderTop='1px solid #30363d';
-      el.style.paddingTop='10px';
-      details.open=false;
-    }
-
-    currentElV182=el;
-    currentWrapV182=wrap;
-    currentSummaryV182=wrap.querySelector('[data-v182-status-summary="1"]');
-    updateV182();
-  }
-
-  function mountV182(){
-    ensureV182();
-    new MutationObserver(function(){setTimeout(function(){ensureV182();updateV182();},0);})
-      .observe(document.body,{childList:true,subtree:true,characterData:true});
-    setInterval(function(){ensureV182();updateV182();},700);
-  }
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountV182,{once:true});
-  else setTimeout(mountV182,0);
-})();
-// ---- /v182 ----
-`;
-
-    const start=outer.indexOf('    const runtimeV181=`');
-    const anchor=outer.indexOf('    const runtimeAnchorV181=',start);
-    if(start<0||anchor<0)throw new Error('v182 runtime patch target not found');
-    outer=outer.slice(0,start)+'    const runtimeV181='+JSON.stringify(runtimeV182)+';\n\n'+outer.slice(anchor);
-
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v182</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v182 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v182')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v182')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v182の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v183</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v183 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v183')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v183')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v183の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v182の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v183の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
