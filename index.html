@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v191</title>
+<title>KEIBA AI Simulator v194</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v191 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v194 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -72,23 +72,26 @@
     const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV190)+'+wrapper.slice(at);';
     outer=outer.replace(insertNeedle,insertReplacement);
 
-    // 取得中へ割り込む常駐ランタイムは使わない。
+    // v194: v191安定版の内部処理は維持し、札幌芝1200m枠補正だけを独立ランタイムで追加。
     const runtimeStart=outer.indexOf('    const runtimeV181=`');
     const runtimeAnchor=outer.indexOf('    const runtimeAnchorV181=',runtimeStart);
-    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v191 runtime removal point not found');
-    outer=outer.slice(0,runtimeStart)+'    const runtimeV181="";\n\n'+outer.slice(runtimeAnchor);
+    if(runtimeStart<0||runtimeAnchor<0)throw new Error('v194 runtime insertion point not found');
+    const runtimePatchV194=`    const runtimeV181="\\n(function(){var s=document.createElement('script');s.src='./sapporo-v194.js?v=194';document.head.appendChild(s);})();\\n";
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v191</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v191 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v191')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v191')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v191の読み込みに失敗しました。');
+`;
+    outer=outer.slice(0,runtimeStart)+runtimePatchV194+outer.slice(runtimeAnchor);
+
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v194</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v194 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v194')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v194')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v194の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v191の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v194の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
