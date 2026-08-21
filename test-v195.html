@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Simulator v195 TEST</title>
+<meta name="theme-color" content="#161b22">
+</head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v195 TEST を読み込み中…</div>
+<script>
+(async function(){
+  try{
+    let src=await fetch('./index.html?v=194',{cache:'no-store'}).then(function(r){
+      if(!r.ok)throw new Error('stable v194 source HTTP '+r.status);
+      return r.text();
+    });
+
+    // 本番v194は一切変更せず、札幌芝1200mの枠補正サイドカーだけTEST版へ差し替える。
+    if(!src.includes("./sapporo-v194.js?v=194")){
+      throw new Error('v194 frame sidecar target not found');
+    }
+    src=src.replace("./sapporo-v194.js?v=194","./sapporo-frame-v195-test.js?v=195");
+
+    // 見分けやすいよう表示だけTEST表記にする。内部の取得・メモリ・シミュレーション処理はv194のまま。
+    src=src.replaceAll('KEIBA AI Simulator v194','KEIBA AI Simulator v195 TEST');
+    src=src.replaceAll('v194の読み込みに失敗しました。','v195 TESTの読み込みに失敗しました。');
+
+    document.open();
+    document.write(src);
+    document.close();
+  }catch(err){
+    document.getElementById('boot').innerHTML='<b>v195 TESTの読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>本番v194には影響しません。';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
