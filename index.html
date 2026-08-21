@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v195</title>
+<title>KEIBA AI Simulator v196</title>
 <meta name="theme-color" content="#161b22">
 </head>
 <body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v195 を読み込み中…</div>
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v196 を読み込み中…</div>
 <script>
 (async function(){
   try{
@@ -84,9 +84,62 @@
       "    }"
     ].join("\n");
 
+    // v196: 実オッズだけをnetkeiba公式オッズAPIから補完。
+    // 未発売時は何も入れず、妙味・市場補正を従来どおり停止する。
+    const oddsPrecisionPatchV196=[
+      "    const oddsHelperMarkerV196='fetchJraEntry.onclick=async()=>{';",
+      "    if(src.includes(oddsHelperMarkerV196)&&!src.includes('fetchNetkeibaOfficialOddsV196')){",
+      "      const nlOddsV196=String.fromCharCode(10);",
+      "      const helperOddsV196=[",
+      "        \"async function fetchNetkeibaOfficialOddsV196(raceId,parsed){\",",
+      "        \"  const rid=(String(raceId||'').match(/\\\\d{12}/)||[])[0]||'';\",",
+      "        \"  const list=Array.isArray(parsed)?parsed:[];\",",
+      "        \"  if(!rid||!list.length)return {filled:0,via:'',published:false};\",",
+      "        \"  const api='https://race.netkeiba.com/api/api_get_jra_odds.html?pid=api_get_jra_odds&race_id='+encodeURIComponent(rid)+'&type=1&action=init&sort=odds&compress=0&output=json';\",",
+      "        \"  const routes=[\",",
+      "        \"    {name:'direct-api',url:api,ms:2500},\",",
+      "        \"    {name:'allorigins-api',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(api),ms:4500},\",",
+      "        \"    {name:'corsproxy-api',url:'https://corsproxy.io/?url='+encodeURIComponent(api),ms:4500}\",",
+      "        \"  ];\",",
+      "        \"  for(const rt of routes){\",",
+      "        \"    try{\",",
+      "        \"      let raw=String(await fetchTextTimeoutV63(rt.url,rt.ms)||'').trim();\",",
+      "        \"      const jm=raw.match(/^[^(]+\\\\(([\\\\s\\\\S]+)\\\\)\\\\s*;?\\\\s*$/);\",",
+      "        \"      if(jm)raw=jm[1];\",",
+      "        \"      const js=JSON.parse(raw);\",",
+      "        \"      if(!js||js.status==='NG'||!js.data||!js.data.odds)continue;\",",
+      "        \"      const tan=js.data.odds['1']||{};\",",
+      "        \"      let filled=0;\",",
+      "        \"      list.forEach(h=>{\",",
+      "        \"        const n=parseInt(h&&h.no,10); if(!(n>=1&&n<=18))return;\",",
+      "        \"        const v=tan[String(n)]||tan[String(n).padStart(2,'0')];\",",
+      "        \"        const o=Array.isArray(v)?Number(v[0]):Number(v);\",",
+      "        \"        if(Number.isFinite(o)&&o>=1&&o<=999.9){h.odds=o;filled++;}\",",
+      "        \"      });\",",
+      "        \"      if(filled){\",",
+      "        \"        list.filter(h=>Number(h&&h.odds)>=1).slice().sort((a,b)=>Number(a.odds)-Number(b.odds)).forEach((h,i)=>{h.popularity=i+1;});\",",
+      "        \"        return {filled,via:rt.name,published:true};\",",
+      "        \"      }\",",
+      "        \"    }catch(e){}\",",
+      "        \"  }\",",
+      "        \"  return {filled:0,via:'',published:false};\",",
+      "        \"}\"",
+      "      ].join(nlOddsV196);",
+      "      src=src.replace(oddsHelperMarkerV196,helperOddsV196+nlOddsV196+nlOddsV196+oddsHelperMarkerV196);",
+      "    }",
+      "    const oddsCallNeedleV196=\"  const primaryWeightN=parsed.filter(h=>Number(h.carried)>=48&&Number(h.carried)<=62).length;\";",
+      "    if(src.includes(oddsCallNeedleV196)){",
+      "      const oddsCallV196=[",
+      "        \"  const officialOddsV196=await fetchNetkeibaOfficialOddsV196(raceId,parsed);\",",
+      "        oddsCallNeedleV196",
+      "      ].join(String.fromCharCode(10));",
+      "      src=src.replace(oddsCallNeedleV196,oddsCallV196);",
+      "    }"
+    ].join("\n");
+
     const precisionInnerNeedleV195='    const helperV178=[';
-    if(!outer.includes(precisionInnerNeedleV195))throw new Error('v195 frame precision insertion point not found');
-    outer=outer.replace(precisionInnerNeedleV195,framePrecisionPatchV195+'\n\n'+precisionInnerNeedleV195);
+    if(!outer.includes(precisionInnerNeedleV195))throw new Error('v196 precision insertion point not found');
+    outer=outer.replace(precisionInnerNeedleV195,oddsPrecisionPatchV196+'\n\n'+framePrecisionPatchV195+'\n\n'+precisionInnerNeedleV195);
 
     // 長文ログは取得処理から分離したまま折りたたむ。開いても高さを制限する。
     const staticPatchV190=[
@@ -102,20 +155,20 @@
     const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV190)+'+wrapper.slice(at);';
     outer=outer.replace(insertNeedle,insertReplacement);
 
-    // v195ではv181のコンパクト表示ランタイムを残す。
-    // v194の外部ランタイム差し替えは使わない（枠補正は上の本体直接パッチで反映）。
+    // v196ではv181のコンパクト表示ランタイムを残す。
+    // 枠補正・メモリ・シミュレーション本体はv195から変更しない。
 
-    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v195</title>');
-    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v195 を読み込み中…');
-    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v195')");
-    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v195')");
-    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v195の読み込みに失敗しました。');
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v196</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v196 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v196')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v196')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v196の読み込みに失敗しました。');
 
     document.open();
     document.write(outer);
     document.close();
   }catch(err){
-    document.getElementById('boot').innerHTML='<b>v195の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    document.getElementById('boot').innerHTML='<b>v196の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
     console.error(err);
   }
 })();
