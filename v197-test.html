@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Simulator v197 TEST</title>
+<meta name="theme-color" content="#161b22">
+</head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v197 TEST を読み込み中…</div>
+<script>
+(async function(){
+  try{
+    let html=await fetch('./index.html?v=196',{cache:'no-store'}).then(function(r){
+      if(!r.ok)throw new Error('v196 source HTTP '+r.status);
+      return r.text();
+    });
+    const needle='    document.open();\n    document.write(outer);';
+    if(!html.includes(needle))throw new Error('v196 test insertion point not found');
+    const runtimeTag='<scr'+'ipt src="./v197-test-runtime.js?v=197"></scr'+'ipt>';
+    const inject="    outer=outer.replace('</body>',"+JSON.stringify(runtimeTag+'</body>')+");\n"+needle;
+    html=html.replace(needle,inject);
+    html=html.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v197 TEST');
+    html=html.replaceAll('v196の読み込みに失敗しました。','v197 TESTの読み込みに失敗しました。');
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(err){
+    document.getElementById('boot').innerHTML='<b>v197 TESTの読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err);
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
