@@ -32,6 +32,55 @@
       return await r.text();
     }finally{clearTimeout(t);}
   }
+
+  // v197.6 TEST: renderStats already calculates the same heavy deterministic values.
+  // Cache those exact results so pressing simulation does not calculate them all again
+  // on Safari's main thread immediately before starting the Worker.
+  let memoEpochV197=1;
+  const breakdownMemoV197=new WeakMap();
+  const metricsMemoV197=new WeakMap();
+  function bumpMemoV197(){memoEpochV197++;}
+  function installMemoV197(){
+    try{
+      if(window.__keibaV197MemoInstalled)return true;
+      if(typeof totalBreakdownV86!=='function'||typeof pastFiveMetricsV81!=='function')return false;
+      const originalBreakdown=totalBreakdownV86;
+      const originalMetrics=pastFiveMetricsV81;
+      const memoBreakdown=function(h){
+        if(!h||typeof h!=='object')return originalBreakdown(h);
+        const c=breakdownMemoV197.get(h);
+        if(c&&c.epoch===memoEpochV197)return c.value;
+        const value=originalBreakdown(h);
+        breakdownMemoV197.set(h,{epoch:memoEpochV197,value:value});
+        return value;
+      };
+      const memoMetrics=function(h){
+        if(!h||typeof h!=='object')return originalMetrics(h);
+        const c=metricsMemoV197.get(h);
+        if(c&&c.epoch===memoEpochV197)return c.value;
+        const value=originalMetrics(h);
+        metricsMemoV197.set(h,{epoch:memoEpochV197,value:value});
+        return value;
+      };
+      try{window.totalBreakdownV86=memoBreakdown;}catch(e){}
+      try{window.pastFiveMetricsV81=memoMetrics;}catch(e){}
+      try{totalBreakdownV86=memoBreakdown;}catch(e){}
+      try{pastFiveMetricsV81=memoMetrics;}catch(e){}
+      window.__keibaV197MemoInstalled=true;
+      document.addEventListener('change',function(ev){
+        const t=ev&&ev.target;
+        if(!t)return;
+        if(t.matches&&t.matches('#course,#surface,#variant,#distance,#going,#pace,#runners input,#runners select'))bumpMemoV197();
+      },true);
+      const apply=document.getElementById('apply');
+      if(apply)apply.addEventListener('click',bumpMemoV197,true);
+      return true;
+    }catch(e){
+      console.warn('v197 memo unavailable',e);
+      return false;
+    }
+  }
+
   async function exactMeta(raceId){
     const raceNo=Number(raceId.slice(-2));
     const mobile='https://race.sp.netkeiba.com/race/shutuba.html?race_id='+raceId+'&rf=prs';
@@ -89,8 +138,6 @@
     }
   }
 
-  // v197.5 TEST: the Monte Carlo loop runs in a Web Worker so Safari's
-  // main thread remains available for layout, scrolling and canvas painting.
   async function simCacheAsyncV197(){
     const basePace=paceName();
     const out=[];
@@ -113,7 +160,6 @@
         frameNorm:frameKnown?(frame-4.5)/3.5:0,
         sd:Math.max(4.6,Number(m&&m.volatility||0)*1.35)
       });
-      // One horse at a time, then let Safari paint before the next fixed-value calculation.
       await nextPaint();
     }
     return {basePace:basePace,cache:out};
@@ -122,7 +168,7 @@
   function workerBatchV197(n,bundle){
     return new Promise(function(resolve,reject){
       let worker;
-      try{worker=new Worker('./v197-worker.js?v=1975');}
+      try{worker=new Worker('./v197-worker.js?v=1976');}
       catch(e){reject(e);return;}
       const kill=setTimeout(function(){try{worker.terminate();}catch(e){} reject(new Error('worker timeout'));},120000);
       worker.onmessage=function(ev){
@@ -146,7 +192,6 @@
     });
   }
 
-  // Safe fallback used only if Worker creation fails.
   async function batchFallbackV197(n,bundle){
     const s=horses.map(()=>({w:0,p2:0,p3:0}));
     function fastScore(c,scenario){
@@ -204,6 +249,7 @@
   function installFastSimulationV197(){
     try{
       if(typeof horses==='undefined'||typeof score!=='function'||typeof pastFiveMetricsV81!=='function'||typeof paceAdjV82!=='function'||typeof setSimulationBusyV95!=='function')return false;
+      installMemoV197();
       const playBtn=document.getElementById('play');
       const batchBtn=document.getElementById('batch');
       const navPlay=document.getElementById('navPlay');
@@ -242,6 +288,7 @@
     if(btn.dataset.v197Bound)return;
     btn.dataset.v197Bound='1';
     btn.addEventListener('click',function(){
+      bumpMemoV197();
       lastDone='';
       const timer=setInterval(function(){
         const b=document.getElementById('fetchJraEntry');
