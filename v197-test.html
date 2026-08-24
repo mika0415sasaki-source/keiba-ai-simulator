@@ -19,10 +19,8 @@
     const needle='    document.open();\n    document.write(outer);';
     if(!html.includes(needle))throw new Error('v196 test insertion point not found');
 
-    // IMPORTANT: never place a literal </script> inside the fetched v196 inline script.
-    // Safari's HTML parser closes the script even when that text appears inside a JS string.
     const inject=[
-      "    const runtimeTagV197='<scr'+'ipt src=\"./v197-test-runtime.js?v=197.1\"></scr'+'ipt>';",
+      "    const runtimeTagV197='<scr'+'ipt src=\"./v197-test-runtime.js?v=197.2\"></scr'+'ipt>';",
       "    outer=outer.replace('</body>',runtimeTagV197+'</body>');",
       needle
     ].join('\n');
