@@ -3,39 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v198</title>
+<title>KEIBA AI Simulator v199</title>
 <meta name="theme-color" content="#161b22">
+<style>
+html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
+#app{border:0;width:100%;height:100%;display:block;background:#0d1117}
+#boot{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding-top:140px;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;z-index:5}
+</style>
 </head>
-<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v198 を読み込み中…</div>
+<body>
+<div id="boot">KEIBA AI Simulator v199 を読み込み中…</div>
+<iframe id="app" src="./v196-live.html?v=196stable"></iframe>
 <script>
-(async function(){
-  try{
-    let src=await fetch('./v196-live.html?v=196stable',{cache:'no-store'}).then(function(r){
-      if(!r.ok)throw new Error('v196 stable HTTP '+r.status);
-      return r.text();
-    });
+(function(){
+  const frame=document.getElementById('app');
+  const boot=document.getElementById('boot');
+  let injected=false;
 
-    src=src.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v198');
-    src=src.replaceAll('③-v196','③-v198');
-
-    const needle='    document.open();\n    document.write(outer);';
-    const replacement=[
-      "    outer=outer.replace('</body>','<script src=\"./race-meta-guard-v198.js?v=198\"></scr'+'ipt></body>');",
-      '',
-      '    document.open();',
-      '    document.write(outer);'
-    ].join('\n');
-    if(!src.includes(needle))throw new Error('v198 guard insertion point not found');
-    src=src.replace(needle,replacement);
-
-    document.open();
-    document.write(src);
-    document.close();
-  }catch(err){
-    document.getElementById('boot').innerHTML='<b>v198の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
-    console.error(err);
+  function renameVersion(d,w){
+    try{
+      d.title='KEIBA AI Simulator v199';
+      const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
+      let n;
+      while((n=walker.nextNode())){
+        if(String(n.nodeValue||'').includes('KEIBA AI Simulator v196')){
+          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v199');
+        }
+      }
+    }catch(e){}
   }
+
+  function inject(){
+    if(injected)return;
+    try{
+      const w=frame.contentWindow;
+      const d=frame.contentDocument||w.document;
+      if(!d||!d.body||!d.getElementById('fetchJraEntry'))return false;
+      renameVersion(d,w);
+      const s=d.createElement('script');
+      s.src='./race-meta-guard-v198.js?v=199';
+      s.onload=function(){
+        injected=true;
+        renameVersion(d,w);
+        if(boot)boot.style.display='none';
+      };
+      s.onerror=function(){
+        if(boot)boot.textContent='v199 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
+      };
+      d.body.appendChild(s);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  frame.addEventListener('load',function(){
+    let tries=0;
+    const timer=setInterval(function(){
+      tries++;
+      if(inject()||tries>80)clearInterval(timer);
+    },120);
+  });
+
+  let tries=0;
+  const timer=setInterval(function(){
+    tries++;
+    if(inject()||tries>120){
+      clearInterval(timer);
+      if(!injected&&boot)boot.textContent='v199の起動に時間がかかっています。ページを再読み込みしてください。';
+    }
+  },150);
 })();
 </script>
 </body>
