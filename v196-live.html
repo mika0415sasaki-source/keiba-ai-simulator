@@ -1,1 +1,177 @@
-<!-- placeholder -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Simulator v196</title>
+<meta name="theme-color" content="#161b22">
+</head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v196 を読み込み中…</div>
+<script>
+(async function(){
+  try{
+    let outer=await fetch('./v181.html?v=181',{cache:'no-store'}).then(function(r){
+      if(!r.ok)throw new Error('v181 source HTTP '+r.status);
+      return r.text();
+    });
+
+    // v190: v171が取得した馬番1..Nを、JRA標準枠配分で確定枠へ変換する。
+    // 取得処理・メモリ・補完経路そのものは変更しない。
+    const frameWrapperPatchV190=`
+    const frameNeedleV190='"  const frameConfirmedV165=frameMarkerCountV165>=2&&frameNameHitsV165>=Math.min(2,Math.max(1,(parsed||[]).length));",';
+    const frameReplacementV190=[
+      '"  const frameNumsV190=(parsed||[]).map(h=>Number(h&&h.no)).sort((a,b)=>a-b);",',
+      '"  const frameNumbersFinalV190=frameNumsV190.length>=1&&frameNumsV190.length<=18&&frameNumsV190.every((x,i)=>Number.isInteger(x)&&x===i+1);",',
+      '"  function frameFromNoV190(no,n){ if(!Number.isInteger(no)||!Number.isInteger(n)||n<1||n>18||no<1||no>n)return 0; if(n<=8)return no; const base=Math.floor(n/8),extra=n%8,firstExtra=9-extra; let cur=1; for(let f=1;f<=8;f++){ const size=base+(extra>0&&f>=firstExtra?1:0); if(no>=cur&&no<cur+size)return f; cur+=size; } return 0; }",',
+      '"  if(frameNumbersFinalV190){(parsed||[]).forEach(h=>{h.frame=frameFromNoV190(Number(h.no),frameNumsV190.length);});}",',
+      '"  const frameConfirmedV165=(frameMarkerCountV165>=2&&frameNameHitsV165>=Math.min(2,Math.max(1,(parsed||[]).length)))||frameNumbersFinalV190;",'
+    ].join("\\n        ");
+    if(!wrapper.includes(frameNeedleV190))throw new Error('v190 frame confirmation target not found');
+    wrapper=wrapper.replace(frameNeedleV190,frameReplacementV190);
+`;
+
+    // v191: 「本当に0走」と「取得失敗で0走」を分離。
+    // 取得失敗の0走は履歴信頼度による平均回帰をかけず、近走不足を理由に評価を下げない。
+    const historyWrapperPatchV191=`
+    const historyNeedle1V191='"      const youngConfidenceV170=[.72,.80,.86,.91,.96];",';
+    const historyReplacement1V191=[
+      '"      const statusTextV191=String((document.getElementById(\\'jraEntryStatus\\')||{}).textContent||\\'\\');",',
+      '"      const horseTagV191=String(r.h.no||\\'\\')+\\' \\'+String(r.h.name||\\'\\');",',
+      '"      const tagAtV191=horseTagV191.trim()?statusTextV191.indexOf(horseTagV191):-1;",',
+      '"      const horseErrV191=tagAtV191>=0?statusTextV191.slice(tagAtV191,tagAtV191+220):\\'\\';",',
+      '"      const errLowV191=horseErrV191.toLowerCase();",',
+      '"      const historyFetchFailedV191=historyCountV165===0&&(errLowV191.includes(\\'fetch is aborted\\')||errLowV191.includes(\\'http 429\\')||errLowV191.includes(\\'タイムアウト\\')||errLowV191.includes(\\'timeout\\')||errLowV191.includes(\\'fetch failed\\')||errLowV191.includes(\\'aborterror\\')||errLowV191.includes(\\'network\\')||errLowV191.includes(\\'取得エラー\\')||errLowV191.includes(\\'取得失敗\\'));",',
+      '"      r.historyFetchFailedV191=historyFetchFailedV191;",',
+      '"      const youngConfidenceV170=[.72,.80,.86,.91,.96];",'
+    ].join("\\n        ");
+    if(!wrapper.includes(historyNeedle1V191))throw new Error('v191 history failure target 1 not found');
+    wrapper=wrapper.replace(historyNeedle1V191,historyReplacement1V191);
+
+    const historyNeedle2V191='"      const historyConfidenceV165=youngCareerV170?youngConfidenceV170[historyCountV165]:(.35+.13*historyCountV165);",';
+    const historyReplacement2V191='"      const historyConfidenceV165=historyFetchFailedV191?1:(youngCareerV170?youngConfidenceV170[historyCountV165]:(.35+.13*historyCountV165));",';
+    if(!wrapper.includes(historyNeedle2V191))throw new Error('v191 history failure target 2 not found');
+    wrapper=wrapper.replace(historyNeedle2V191,historyReplacement2V191);
+`;
+
+    const precisionMarkerV190='    const precisionPatchV178=`';
+    if(!outer.includes(precisionMarkerV190))throw new Error('v191 wrapper patch insertion point not found');
+    outer=outer.replace(precisionMarkerV190,frameWrapperPatchV190+'\n'+historyWrapperPatchV191+'\n'+precisionMarkerV190);
+
+    // v195: frameDetailV89の既存先頭部を壊さず、style取得直後に札幌芝1200m補正を直接挿入。
+    // これによりv171の枠確定ガードと競合しない。その他の条件は従来ロジックを変更しない。
+    const framePrecisionPatchV195=[
+      "    const frameStyleNeedleV195=\"  const style=String(h.style||'差し');\";",
+      "    if(src.includes(frameStyleNeedleV195)){",
+      "      const nlV195=String.fromCharCode(10);",
+      "      const frameStyleInsertV195=[",
+      "        frameStyleNeedleV195,",
+      "        \"  const surfaceV195=String(E.surface&&E.surface.value||'');\",",
+      "        \"  if(course==='札幌競馬場'&&surfaceV195==='芝'&&d===1200){\",",
+      "        \"    const g3V195=(typeof currentRaceClassLabelV133!=='undefined'&&String(currentRaceClassLabelV133||'')==='G3');\",",
+      "        \"    const normalV195={1:-0.16,2:0.08,3:-0.12,4:-0.03,5:-0.03,6:0.02,7:0.08,8:0.30};\",",
+      "        \"    const g3FrameV195={1:-0.18,2:-0.14,3:-0.10,4:-0.04,5:0.08,6:0.16,7:0.24,8:0.22};\",",
+      "        \"    const tableV195=g3V195?g3FrameV195:normalV195;\",",
+      "        \"    let zV195=Number(tableV195[f]||0);\",",
+      "        \"    if((style==='差し'||style==='追込')&&f>=6)zV195+=0.04;\",",
+      "        \"    if((style==='逃げ'||style==='先行')&&f<=4)zV195+=0.03;\",",
+      "        \"    zV195=clampV81(zV195,-0.35,0.35);\",",
+      "        \"    const sideV195=f<=3?'内':f>=6?'外':'中';\",",
+      "        \"    return {bonus:zV195,reason:'札幌 芝1200m・'+style+'・'+sideV195+'枠（近年枠実績を縮小反映 v195）'};\",",
+      "        \"  }\"",
+      "      ].join(nlV195);",
+      "      src=src.replace(frameStyleNeedleV195,frameStyleInsertV195);",
+      "    }"
+    ].join("\n");
+
+    // v196: 実オッズだけをnetkeiba公式オッズAPIから補完。
+    // 未発売時は何も入れず、妙味・市場補正を従来どおり停止する。
+    const oddsPrecisionPatchV196=[
+      "    const oddsHelperMarkerV196='fetchJraEntry.onclick=async()=>{';",
+      "    if(src.includes(oddsHelperMarkerV196)&&!src.includes('fetchNetkeibaOfficialOddsV196')){",
+      "      const nlOddsV196=String.fromCharCode(10);",
+      "      const helperOddsV196=[",
+      "        \"async function fetchNetkeibaOfficialOddsV196(raceId,parsed){\",",
+      "        \"  const rid=(String(raceId||'').match(/\\\\d{12}/)||[])[0]||'';\",",
+      "        \"  const list=Array.isArray(parsed)?parsed:[];\",",
+      "        \"  if(!rid||!list.length)return {filled:0,via:'',published:false};\",",
+      "        \"  const api='https://race.netkeiba.com/api/api_get_jra_odds.html?pid=api_get_jra_odds&race_id='+encodeURIComponent(rid)+'&type=1&action=init&sort=odds&compress=0&output=json';\",",
+      "        \"  const routes=[\",",
+      "        \"    {name:'direct-api',url:api,ms:2500},\",",
+      "        \"    {name:'allorigins-api',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(api),ms:4500},\",",
+      "        \"    {name:'corsproxy-api',url:'https://corsproxy.io/?url='+encodeURIComponent(api),ms:4500}\",",
+      "        \"  ];\",",
+      "        \"  for(const rt of routes){\",",
+      "        \"    try{\",",
+      "        \"      let raw=String(await fetchTextTimeoutV63(rt.url,rt.ms)||'').trim();\",",
+      "        \"      const jm=raw.match(/^[^(]+\\\\(([\\\\s\\\\S]+)\\\\)\\\\s*;?\\\\s*$/);\",",
+      "        \"      if(jm)raw=jm[1];\",",
+      "        \"      const js=JSON.parse(raw);\",",
+      "        \"      if(!js||js.status==='NG'||!js.data||!js.data.odds)continue;\",",
+      "        \"      const tan=js.data.odds['1']||{};\",",
+      "        \"      let filled=0;\",",
+      "        \"      list.forEach(h=>{\",",
+      "        \"        const n=parseInt(h&&h.no,10); if(!(n>=1&&n<=18))return;\",",
+      "        \"        const v=tan[String(n)]||tan[String(n).padStart(2,'0')];\",",
+      "        \"        const o=Array.isArray(v)?Number(v[0]):Number(v);\",",
+      "        \"        if(Number.isFinite(o)&&o>=1&&o<=999.9){h.odds=o;filled++;}\",",
+      "        \"      });\",",
+      "        \"      if(filled){\",",
+      "        \"        list.filter(h=>Number(h&&h.odds)>=1).slice().sort((a,b)=>Number(a.odds)-Number(b.odds)).forEach((h,i)=>{h.popularity=i+1;});\",",
+      "        \"        return {filled,via:rt.name,published:true};\",",
+      "        \"      }\",",
+      "        \"    }catch(e){}\",",
+      "        \"  }\",",
+      "        \"  return {filled:0,via:'',published:false};\",",
+      "        \"}\"",
+      "      ].join(nlOddsV196);",
+      "      src=src.replace(oddsHelperMarkerV196,helperOddsV196+nlOddsV196+nlOddsV196+oddsHelperMarkerV196);",
+      "    }",
+      "    const oddsCallNeedleV196=\"  const primaryWeightN=parsed.filter(h=>Number(h.carried)>=48&&Number(h.carried)<=62).length;\";",
+      "    if(src.includes(oddsCallNeedleV196)){",
+      "      const oddsCallV196=[",
+      "        \"  const officialOddsV196=await fetchNetkeibaOfficialOddsV196(raceId,parsed);\",",
+      "        oddsCallNeedleV196",
+      "      ].join(String.fromCharCode(10));",
+      "      src=src.replace(oddsCallNeedleV196,oddsCallV196);",
+      "    }"
+    ].join("\n");
+
+    const precisionInnerNeedleV195='    const helperV178=[';
+    if(!outer.includes(precisionInnerNeedleV195))throw new Error('v196 precision insertion point not found');
+    outer=outer.replace(precisionInnerNeedleV195,oddsPrecisionPatchV196+'\n\n'+framePrecisionPatchV195+'\n\n'+precisionInnerNeedleV195);
+
+    // 長文ログは取得処理から分離したまま折りたたむ。開いても高さを制限する。
+    const staticPatchV190=[
+      "    required(",
+      "      '<div id=\"jraEntryStatus\" class=\"small\" style=\"margin-top:5px\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div>',",
+      "      '<details id=\"jraEntryStatusDetailsV190\" style=\"margin-top:7px;border:1px solid #30363d;border-radius:8px;background:#0d1117\"><summary style=\"cursor:pointer;padding:9px 10px;color:#8b949e;font-weight:700\">取得状況・詳細ログ（タップで表示）</summary><div id=\"jraEntryStatus\" class=\"small\" style=\"margin:0;padding:0 10px 10px;white-space:normal;max-height:110px;overflow:auto\">JRA出馬表URL・netkeiba競馬新聞URLのどちらでも取込できます。URL欄へ貼り付けて「出馬表を取得」を押してください。</div></details>',",
+      "      'v190 compact entry diagnostics'",
+      "    );"
+    ].join("\n");
+
+    const insertNeedle='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+wrapper.slice(at);';
+    if(!outer.includes(insertNeedle))throw new Error('v191 static status insertion point not found');
+    const insertReplacement='wrapper=wrapper.slice(0,at)+"\\n"+precisionPatchV178+"\\n"+'+JSON.stringify(staticPatchV190)+'+wrapper.slice(at);';
+    outer=outer.replace(insertNeedle,insertReplacement);
+
+    // v196ではv181のコンパクト表示ランタイムを残す。
+    // 枠補正・メモリ・シミュレーション本体はv195から変更しない。
+
+    outer=outer.replace('<title>KEIBA AI Simulator v181</title>','<title>KEIBA AI Simulator v196</title>');
+    outer=outer.replace('KEIBA AI Simulator v181 を読み込み中…','KEIBA AI Simulator v196 を読み込み中…');
+    outer=outer.replace("replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v181')","replaceAll('KEIBA AI Simulator v171','KEIBA AI Simulator v196')");
+    outer=outer.replace("replaceAll('③-v171','③-v181')","replaceAll('③-v171','③-v196')");
+    outer=outer.replace(/v181の読み込みに失敗しました。/g,'v196の読み込みに失敗しました。');
+
+    document.open();
+    document.write(outer);
+    document.close();
+  }catch(err){
+    document.getElementById('boot').innerHTML='<b>v196の読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err)+'<br><br>ページを再読み込みしてください。';
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
