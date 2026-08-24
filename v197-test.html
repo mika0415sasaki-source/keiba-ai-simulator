@@ -13,7 +13,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 </head>
 <body>
 <div id="boot">KEIBA AI Simulator v197 TEST を読み込み中…</div>
-<iframe id="app" src="./index.html?v=196197test6"></iframe>
+<iframe id="app" src="./index.html?v=196197test7"></iframe>
 <script>
 (function(){
   const frame=document.getElementById('app');
@@ -28,14 +28,22 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       const s=d.createElement('script');
       s.src='./v197-test-runtime.js?v=197.6';
       s.onload=function(){
-        injected=true;
-        if(boot)boot.style.display='none';
+        const g=d.createElement('script');
+        g.src='./v197-meta-fix.js?v=197.7';
+        g.onload=function(){
+          injected=true;
+          if(boot)boot.style.display='none';
+        };
+        g.onerror=function(){
+          if(boot)boot.textContent='v197 TEST条件確認処理の読み込みに失敗しました。v196本体は無傷です。';
+        };
+        d.body.appendChild(g);
       };
       s.onerror=function(){
         if(boot)boot.textContent='v197 TEST追加処理の読み込みに失敗しました。v196本体は無傷です。';
       };
       d.body.appendChild(s);
-      setTimeout(function(){if(!injected&&boot)boot.style.display='none';},2500);
+      setTimeout(function(){if(!injected&&boot)boot.style.display='none';},3000);
     }catch(e){
       if(boot)boot.textContent='v197 TESTの起動に失敗しました: '+String(e&&e.message||e);
     }
