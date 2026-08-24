@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v199</title>
+<title>KEIBA AI Simulator v200</title>
 <meta name="theme-color" content="#161b22">
 <style>
 html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
@@ -12,7 +12,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI Simulator v199 を読み込み中…</div>
+<div id="boot">KEIBA AI Simulator v200 を読み込み中…</div>
 <iframe id="app" src="./v196-live.html?v=196stable"></iframe>
 <script>
 (function(){
@@ -22,12 +22,12 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 
   function renameVersion(d,w){
     try{
-      d.title='KEIBA AI Simulator v199';
+      d.title='KEIBA AI Simulator v200';
       const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
       let n;
       while((n=walker.nextNode())){
         if(String(n.nodeValue||'').includes('KEIBA AI Simulator v196')){
-          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v199');
+          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v200');
         }
       }
     }catch(e){}
@@ -41,14 +41,14 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       if(!d||!d.body||!d.getElementById('fetchJraEntry'))return false;
       renameVersion(d,w);
       const s=d.createElement('script');
-      s.src='./race-meta-guard-v198.js?v=199';
+      s.src='./race-meta-guard-v200.js?v=200';
       s.onload=function(){
         injected=true;
         renameVersion(d,w);
         if(boot)boot.style.display='none';
       };
       s.onerror=function(){
-        if(boot)boot.textContent='v199 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
+        if(boot)boot.textContent='v200 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
       };
       d.body.appendChild(s);
       return true;
@@ -70,7 +70,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
     tries++;
     if(inject()||tries>120){
       clearInterval(timer);
-      if(!injected&&boot)boot.textContent='v199の起動に時間がかかっています。ページを再読み込みしてください。';
+      if(!injected&&boot)boot.textContent='v200の起動に時間がかかっています。ページを再読み込みしてください。';
     }
   },150);
 })();
