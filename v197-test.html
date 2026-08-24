@@ -15,13 +15,22 @@
       if(!r.ok)throw new Error('v196 source HTTP '+r.status);
       return r.text();
     });
+
     const needle='    document.open();\n    document.write(outer);';
     if(!html.includes(needle))throw new Error('v196 test insertion point not found');
-    const runtimeTag='<scr'+'ipt src="./v197-test-runtime.js?v=197"></scr'+'ipt>';
-    const inject="    outer=outer.replace('</body>',"+JSON.stringify(runtimeTag+'</body>')+");\n"+needle;
+
+    // IMPORTANT: never place a literal </script> inside the fetched v196 inline script.
+    // Safari's HTML parser closes the script even when that text appears inside a JS string.
+    const inject=[
+      "    const runtimeTagV197='<scr'+'ipt src=\"./v197-test-runtime.js?v=197.1\"></scr'+'ipt>';",
+      "    outer=outer.replace('</body>',runtimeTagV197+'</body>');",
+      needle
+    ].join('\n');
+
     html=html.replace(needle,inject);
     html=html.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v197 TEST');
     html=html.replaceAll('v196の読み込みに失敗しました。','v197 TESTの読み込みに失敗しました。');
+
     document.open();
     document.write(html);
     document.close();
