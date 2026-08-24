@@ -142,7 +142,7 @@
       blockResults(false);setButtons(false);
     }catch(e){
       if(mySeq!==seq)return;
-      setButtons(true);blockResults(false);
+      setButtons(true);blockResults(true);
       banner('⚠ 条件を確認できないためシミュレーションを停止しました: '+String(e&&e.message||e),'error');
     }
   }
