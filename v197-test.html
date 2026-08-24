@@ -5,37 +5,43 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>KEIBA AI Simulator v197 TEST</title>
 <meta name="theme-color" content="#161b22">
+<style>
+html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
+#app{border:0;width:100%;height:100%;display:block;background:#0d1117}
+#boot{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding-top:140px;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;z-index:5}
+</style>
 </head>
-<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator v197 TEST を読み込み中…</div>
+<body>
+<div id="boot">KEIBA AI Simulator v197 TEST を読み込み中…</div>
+<iframe id="app" src="./index.html?v=196197test"></iframe>
 <script>
-(async function(){
-  try{
-    let html=await fetch('./index.html?v=196',{cache:'no-store'}).then(function(r){
-      if(!r.ok)throw new Error('v196 source HTTP '+r.status);
-      return r.text();
-    });
-
-    const needle='    document.open();\n    document.write(outer);';
-    if(!html.includes(needle))throw new Error('v196 test insertion point not found');
-
-    const inject=[
-      "    const runtimeTagV197='<scr'+'ipt src=\"./v197-test-runtime.js?v=197.2\"></scr'+'ipt>';",
-      "    outer=outer.replace('</body>',runtimeTagV197+'</body>');",
-      needle
-    ].join('\n');
-
-    html=html.replace(needle,inject);
-    html=html.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v197 TEST');
-    html=html.replaceAll('v196の読み込みに失敗しました。','v197 TESTの読み込みに失敗しました。');
-
-    document.open();
-    document.write(html);
-    document.close();
-  }catch(err){
-    document.getElementById('boot').innerHTML='<b>v197 TESTの読み込みに失敗しました。</b><br><br>'+String(err&&err.message?err.message:err);
-    console.error(err);
+(function(){
+  const frame=document.getElementById('app');
+  const boot=document.getElementById('boot');
+  let injected=false;
+  function inject(){
+    if(injected)return;
+    try{
+      const w=frame.contentWindow;
+      const d=frame.contentDocument||w.document;
+      if(!d||!d.body)return;
+      const s=d.createElement('script');
+      s.src='./v197-test-runtime.js?v=197.3';
+      s.onload=function(){
+        injected=true;
+        if(boot)boot.style.display='none';
+      };
+      s.onerror=function(){
+        if(boot)boot.textContent='v197 TEST追加処理の読み込みに失敗しました。v196本体は無傷です。';
+      };
+      d.body.appendChild(s);
+      setTimeout(function(){if(!injected&&boot)boot.style.display='none';},2500);
+    }catch(e){
+      if(boot)boot.textContent='v197 TESTの起動に失敗しました: '+String(e&&e.message||e);
+    }
   }
+  frame.addEventListener('load',function(){setTimeout(inject,120);});
+  setTimeout(inject,1800);
 })();
 </script>
 </body>
