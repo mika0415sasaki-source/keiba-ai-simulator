@@ -84,7 +84,7 @@
     return '通常';
   }
   function parseMeta(text,forcedCourse){
-    const raw=String(text||'').normalize('NFKC').replace(/\r/g,'\n');
+    const raw=String(text||'').normalize('NFKC').replace(/\r/g,'\n').replace(/(\d),(?=\d{3}\b)/g,'$1');
     if(/The quota has been exceeded|QuotaExceededError/i.test(raw))return null;
     const head=raw.slice(0,40000);let surface='',distance=0,dir='';
     const pats=[
