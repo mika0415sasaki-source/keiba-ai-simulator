@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v209</title>
+<title>KEIBA AI Simulator v210</title>
 <meta name="theme-color" content="#161b22">
 <style>
 html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
@@ -12,7 +12,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI Simulator v209 を読み込み中…</div>
+<div id="boot">KEIBA AI Simulator v210 を読み込み中…</div>
 <iframe id="app" src="./v196-live.html?v=196stable"></iframe>
 <script>
 (function(){
@@ -22,12 +22,12 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 
   function renameVersion(d,w){
     try{
-      d.title='KEIBA AI Simulator v209';
+      d.title='KEIBA AI Simulator v210';
       const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
       let n;
       while((n=walker.nextNode())){
         if(String(n.nodeValue||'').includes('KEIBA AI Simulator v196')){
-          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v209');
+          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v210');
         }
       }
     }catch(e){}
@@ -48,24 +48,24 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       const d=frame.contentDocument||w.document;
       if(!d||!d.body||!d.getElementById('fetchJraEntry'))return false;
       renameVersion(d,w);
-      loadScript(d,'./race-meta-guard-v209.js?v=209',function(){
-        loadScript(d,'./storage-maintenance-v206.js?v=209',function(){
-          loadScript(d,'./bet-plan-v207.js?v=209',function(){
-            loadScript(d,'./display-cleanup-v201.js?v=209',function(){
+      loadScript(d,'./race-meta-guard-v209.js?v=210',function(){
+        loadScript(d,'./storage-maintenance-v206.js?v=210',function(){
+          loadScript(d,'./bet-plan-v207.js?v=210',function(){
+            loadScript(d,'./display-cleanup-v201.js?v=210',function(){
               injected=true;
               renameVersion(d,w);
               if(boot)boot.style.display='none';
             },function(){
-              if(boot)boot.textContent='v209 表示整理処理の読み込みに失敗しました。ページを再読み込みしてください。';
+              if(boot)boot.textContent='v210 表示整理処理の読み込みに失敗しました。ページを再読み込みしてください。';
             });
           },function(){
-            if(boot)boot.textContent='v209 買い目処理の読み込みに失敗しました。ページを再読み込みしてください。';
+            if(boot)boot.textContent='v210 買い目処理の読み込みに失敗しました。ページを再読み込みしてください。';
           });
         },function(){
-          if(boot)boot.textContent='v209 保存容量保護処理の読み込みに失敗しました。ページを再読み込みしてください。';
+          if(boot)boot.textContent='v210 保存容量保護処理の読み込みに失敗しました。ページを再読み込みしてください。';
         });
       },function(){
-        if(boot)boot.textContent='v209 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
+        if(boot)boot.textContent='v210 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
       });
       return true;
     }catch(e){
@@ -86,7 +86,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
     tries++;
     if(inject()||tries>120){
       clearInterval(timer);
-      if(!injected&&boot)boot.textContent='v209の起動に時間がかかっています。ページを再読み込みしてください。';
+      if(!injected&&boot)boot.textContent='v210の起動に時間がかかっています。ページを再読み込みしてください。';
     }
   },150);
 })();
