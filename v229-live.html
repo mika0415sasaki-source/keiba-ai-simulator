@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>KEIBA AI Simulator core v229</title><meta name="theme-color" content="#161b22"></head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator core v229 を読み込み中…</div>
+<script>
+(async function(){
+ try{
+  let html=await fetch('./v196-live.html?v=196stable229base',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('v196 source HTTP '+r.status);return r.text()});
+  const anchor="outer=outer.replace(precisionInnerNeedleV195,oddsPrecisionPatchV196+'\\n\\n'+framePrecisionPatchV195+'\\n\\n'+precisionInnerNeedleV195);";
+  if(!html.includes(anchor))throw new Error('v229 core patch anchor not found');
+  const patch=`
+    // v229: v227の騎手短縮名照合を維持しつつ、結果同着だけ許可する。
+    const jockeyPrecisionPatchV229=[
+      "    const jockeyBlockNeedleV229=[",
+      "      \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",",
+      "      \\\"  const last=runs.length?normJockeyV113(runs[0].jockey):'';\\\",",
+      "      \\\"  const sameRuns=runs.filter(r=>normJockeyV113(r.jockey)===cur);\\\",",
+      "      \\\"  const previousRuns=last ? runs.filter(r=>normJockeyV113(r.jockey)===last) : [];\\\"",
+      "    ].join(String.fromCharCode(10));",
+      "    if(src.includes(jockeyBlockNeedleV229)){",
+      "      const jockeyBlockReplacementV229=[",
+      "        \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",",
+      "        \\\"  const recentNamesV229=Array.from(new Set(runs.map(r=>normJockeyV113(r.jockey)).filter(Boolean)));\\\",",
+      "        \\\"  const aliasCandidatesV229=recentNamesV229.filter(j=>j!==cur&&(j.indexOf(cur)===0||cur.indexOf(j)===0));\\\",",
+      "        \\\"  const aliasV229=aliasCandidatesV229.length===1?aliasCandidatesV229[0]:'';\\\",",
+      "        \\\"  const sameCurrentV229=j=>{j=normJockeyV113(j);return j===cur||!!aliasV229&&j===aliasV229;};\\\",",
+      "        \\\"  const lastRawV229=runs.length?normJockeyV113(runs[0].jockey):'';\\\",",
+      "        \\\"  const last=lastRawV229&&sameCurrentV229(lastRawV229)?cur:lastRawV229;\\\",",
+      "        \\\"  const sameRuns=runs.filter(r=>sameCurrentV229(r.jockey));\\\",",
+      "        \\\"  const previousRuns=last ? runs.filter(r=>last===cur?sameCurrentV229(r.jockey):normJockeyV113(r.jockey)===last) : [];\\\"",
+      "      ].join(String.fromCharCode(10));",
+      "      src=src.replace(jockeyBlockNeedleV229,jockeyBlockReplacementV229);",
+      "    }",
+      "",
+      "    const deadHeatDeclV229='   const seenNo=new Set(),seenPos=new Set(),out=[];';",
+      "    if(src.includes(deadHeatDeclV229))src=src.replace(deadHeatDeclV229,'   const seenNo=new Set(),out=[];');",
+      "    const deadHeatBlockV229=[",
+      "      '   if(seenNo.has(r.no))return;',",
+      "      '   if(Number(r.pos||0)>0&&seenPos.has(r.pos))return;',",
+      "      '   seenNo.add(r.no);',",
+      "      '   if(Number(r.pos||0)>0)seenPos.add(r.pos);'",
+      "    ].join(String.fromCharCode(10));",
+      "    if(src.includes(deadHeatBlockV229))src=src.replace(deadHeatBlockV229,['   if(seenNo.has(r.no))return;','   seenNo.add(r.no);'].join(String.fromCharCode(10)));"
+    ].join('\\n');
+    const innerV229='    const helperV178=[';
+    if(!outer.includes(innerV229))throw new Error('v229 patch insertion point not found');
+    outer=outer.replace(innerV229,jockeyPrecisionPatchV229+'\\n\\n'+innerV229);
+`;
+  html=html.replace(anchor,anchor+patch);
+  document.open();document.write(html);document.close();
+ }catch(e){document.getElementById('boot').textContent='v229 起動エラー: '+String(e&&e.message||e)}
+})();
+</script></body></html>
