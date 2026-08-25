@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI Simulator core v227</title>
+<meta name="theme-color" content="#161b22">
+</head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator core v227 を読み込み中…</div>
+<script>
+(async function(){
+  try{
+    let html=await fetch('./v196-live.html?v=196stable227base',{cache:'no-store'}).then(function(r){
+      if(!r.ok)throw new Error('v196 source HTTP '+r.status);
+      return r.text();
+    });
+
+    const anchor="outer=outer.replace(precisionInnerNeedleV195,oddsPrecisionPatchV196+'\\n\\n'+framePrecisionPatchV195+'\\n\\n'+precisionInnerNeedleV195);";
+    if(!html.includes(anchor))throw new Error('v227 core patch anchor not found');
+
+    const patch=[
+      "",
+      "    // v227: 騎手短縮名とフルネームを、近5走内で候補が一意な場合だけ同一人物として扱う。",
+      "    // 1文字姓（幸→幸英明）も対象。継続/乗替判定と同馬実績を同じ照合規則で統一する。",
+      "    const jockeyPrecisionPatchV227=[",
+      "      \"    const jockeyBlockNeedleV227=[\",",
+      "      \"      \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",\",",
+      "      \"      \\\"  const last=runs.length?normJockeyV113(runs[0].jockey):'';\\\",\",",
+      "      \"      \\\"  const sameRuns=runs.filter(r=>normJockeyV113(r.jockey)===cur);\\\",\",",
+      "      \"      \\\"  const previousRuns=last ? runs.filter(r=>normJockeyV113(r.jockey)===last) : [];\\\"\",",
+      "      \"    ].join(String.fromCharCode(10));\",",
+      "      \"    if(src.includes(jockeyBlockNeedleV227)){\",",
+      "      \"      const jockeyBlockReplacementV227=[\",",
+      "      \"        \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",\",",
+      "      \"        \\\"  const recentNamesV227=Array.from(new Set(runs.map(r=>normJockeyV113(r.jockey)).filter(Boolean)));\\\",\",",
+      "      \"        \\\"  const aliasCandidatesV227=recentNamesV227.filter(j=>j!==cur&&(j.indexOf(cur)===0||cur.indexOf(j)===0));\\\",\",",
+      "      \"        \\\"  const aliasV227=aliasCandidatesV227.length===1?aliasCandidatesV227[0]:'';\\\",\",",
+      "      \"        \\\"  const sameCurrentV227=j=>{j=normJockeyV113(j);return j===cur||!!aliasV227&&j===aliasV227;};\\\",\",",
+      "      \"        \\\"  const lastRawV227=runs.length?normJockeyV113(runs[0].jockey):'';\\\",\",",
+      "      \"        \\\"  const last=lastRawV227&&sameCurrentV227(lastRawV227)?cur:lastRawV227;\\\",\",",
+      "      \"        \\\"  const sameRuns=runs.filter(r=>sameCurrentV227(r.jockey));\\\",\",",
+      "      \"        \\\"  const previousRuns=last ? runs.filter(r=>last===cur?sameCurrentV227(r.jockey):normJockeyV113(r.jockey)===last) : [];\\\"\",",
+      "      \"      ].join(String.fromCharCode(10));\",",
+      "      \"      src=src.replace(jockeyBlockNeedleV227,jockeyBlockReplacementV227);\",",
+      "      \"    }\"",
+      "    ].join('\\n');",
+      "    const jockeyInnerNeedleV227='    const helperV178=[';",
+      "    if(!outer.includes(jockeyInnerNeedleV227))throw new Error('v227 jockey patch insertion point not found');",
+      "    outer=outer.replace(jockeyInnerNeedleV227,jockeyPrecisionPatchV227+'\\n\\n'+jockeyInnerNeedleV227);",
+      ""
+    ].join('\n');
+
+    html=html.replace(anchor,anchor+patch);
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(e){
+    document.getElementById('boot').textContent='v227 起動エラー: '+String(e&&e.message||e);
+  }
+})();
+</script>
+</body>
+</html>
