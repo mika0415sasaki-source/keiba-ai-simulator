@@ -3,72 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v214</title>
+<title>KEIBA AI Simulator v215</title>
 <meta name="theme-color" content="#161b22">
 <style>
 html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 #app{border:0;width:100%;height:100%;display:block;background:#0d1117}
-#boot{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding-top:140px;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;z-index:5}
+#boot{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:140px 18px 0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;text-align:center;z-index:5}
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI Simulator v214 を読み込み中…</div>
+<div id="boot">KEIBA AI Simulator v215 を読み込み中…</div>
 <iframe id="app" src="./v196-live.html?v=196stable"></iframe>
 <script>
 (function(){
+  'use strict';
   const frame=document.getElementById('app');
   const boot=document.getElementById('boot');
-  let injected=false;
+  let started=false;
+  let ready=false;
 
   function renameVersion(d,w){
     try{
-      d.title='KEIBA AI Simulator v214';
+      d.title='KEIBA AI Simulator v215';
       const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
       let n;
       while((n=walker.nextNode())){
-        if(String(n.nodeValue||'').includes('KEIBA AI Simulator v196')){
-          n.nodeValue=String(n.nodeValue).replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v214');
+        const s=String(n.nodeValue||'');
+        if(s.includes('KEIBA AI Simulator v196')){
+          n.nodeValue=s.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v215');
         }
       }
     }catch(e){}
   }
 
-  function loadScript(d,src,onload,onerror){
-    const s=d.createElement('script');
-    s.src=src;
-    s.onload=onload;
-    s.onerror=onerror;
-    d.body.appendChild(s);
+  function optionalScript(d,src){
+    return new Promise(function(resolve){
+      try{
+        const s=d.createElement('script');
+        s.src=src;
+        s.async=true;
+        s.onload=function(){resolve(true);};
+        s.onerror=function(){console.warn('optional script failed:',src);resolve(false);};
+        d.body.appendChild(s);
+      }catch(e){
+        console.warn('optional script error:',src,e);
+        resolve(false);
+      }
+    });
   }
 
-  function inject(){
-    if(injected)return;
+  async function start(){
+    if(started)return true;
     try{
       const w=frame.contentWindow;
       const d=frame.contentDocument||w.document;
       if(!d||!d.body||!d.getElementById('fetchJraEntry'))return false;
+      started=true;
+
+      // v215: 本体が起動した時点で操作可能にする。
+      // 補助JSの失敗でアプリ全体を止めない。
       renameVersion(d,w);
-      loadScript(d,'./race-meta-guard-v214.js?v=214',function(){
-        loadScript(d,'./storage-maintenance-v206.js?v=214',function(){
-          loadScript(d,'./bet-plan-v207.js?v=214',function(){
-            loadScript(d,'./display-cleanup-v201.js?v=214',function(){
-              injected=true;
-              renameVersion(d,w);
-              if(boot)boot.style.display='none';
-            },function(){
-              if(boot)boot.textContent='v214 表示整理処理の読み込みに失敗しました。ページを再読み込みしてください。';
-            });
-          },function(){
-            if(boot)boot.textContent='v214 買い目処理の読み込みに失敗しました。ページを再読み込みしてください。';
-          });
-        },function(){
-          if(boot)boot.textContent='v214 保存容量保護処理の読み込みに失敗しました。ページを再読み込みしてください。';
-        });
-      },function(){
-        if(boot)boot.textContent='v214 条件確認処理の読み込みに失敗しました。ページを再読み込みしてください。';
-      });
+      ready=true;
+      if(boot)boot.style.display='none';
+
+      // v214までの race-meta-guard は廃止。
+      // window.fetch を横取りせず、v196本体の既存取得処理だけを使う。
+      await Promise.all([
+        optionalScript(d,'./storage-maintenance-v206.js?v=215'),
+        optionalScript(d,'./bet-plan-v207.js?v=215'),
+        optionalScript(d,'./display-cleanup-v201.js?v=215')
+      ]);
+
+      renameVersion(d,w);
       return true;
     }catch(e){
+      started=false;
       return false;
     }
   }
@@ -77,18 +86,20 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
     let tries=0;
     const timer=setInterval(function(){
       tries++;
-      if(inject()||tries>80)clearInterval(timer);
-    },120);
+      if(start()||tries>=100)clearInterval(timer);
+    },100);
   });
 
   let tries=0;
   const timer=setInterval(function(){
     tries++;
-    if(inject()||tries>120){
+    if(start()||tries>=160){
       clearInterval(timer);
-      if(!injected&&boot)boot.textContent='v214の起動に時間がかかっています。ページを再読み込みしてください。';
+      if(!ready&&boot){
+        boot.innerHTML='v215本体の起動を確認できませんでした。<br>Safariを再読み込みしてください。';
+      }
     }
-  },150);
+  },100);
 })();
 </script>
 </body>
