@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v217</title>
+<title>KEIBA AI Simulator v218</title>
 <meta name="theme-color" content="#161b22">
 <style>
 html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
@@ -12,8 +12,8 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI Simulator v217 を読み込み中…</div>
-<iframe id="app" src="./v196-live.html?v=196stable"></iframe>
+<div id="boot">KEIBA AI Simulator v218 を読み込み中…</div>
+<iframe id="app" src="./v196-live.html?v=196stable218"></iframe>
 <script>
 (function(){
   'use strict';
@@ -24,31 +24,26 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 
   function renameVersion(d,w){
     try{
-      d.title='KEIBA AI Simulator v217';
+      d.title='KEIBA AI Simulator v218';
       const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
       let n;
       while((n=walker.nextNode())){
         const s=String(n.nodeValue||'');
-        if(s.includes('KEIBA AI Simulator v196')){
-          n.nodeValue=s.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v217');
-        }
+        if(s.includes('KEIBA AI Simulator v196'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v218');
       }
     }catch(e){}
   }
 
-  function optionalScript(d,src){
+  function loadScript(d,src){
     return new Promise(function(resolve){
       try{
         const s=d.createElement('script');
         s.src=src;
         s.async=true;
         s.onload=function(){resolve(true);};
-        s.onerror=function(){console.warn('optional script failed:',src);resolve(false);};
+        s.onerror=function(){console.warn('helper script failed:',src);resolve(false);};
         d.body.appendChild(s);
-      }catch(e){
-        console.warn('optional script error:',src,e);
-        resolve(false);
-      }
+      }catch(e){resolve(false);}
     });
   }
 
@@ -63,17 +58,11 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       ready=true;
       if(boot)boot.style.display='none';
 
-      // v217: 学習メモリはSupabaseへ保存し、Safariには一時データだけを置く。
-      await optionalScript(d,'./remote-storage-v216.js?v=217');
-
-      // race_idのレース見出しをサーバー側で確認し、過去走の距離を今日の条件として誤読しない。
-      await optionalScript(d,'./race-meta-sync-v217.js?v=217');
-
-      await Promise.all([
-        optionalScript(d,'./storage-maintenance-v206.js?v=217'),
-        optionalScript(d,'./bet-plan-v207.js?v=217'),
-        optionalScript(d,'./display-cleanup-v201.js?v=217')
-      ]);
+      // v218: 常駐補助JSを最小化。
+      // 1) 学習メモリだけSupabaseへ退避
+      // 2) 条件補正は取得時の1回だけ。MutationObserver / 定期再描画は追加しない。
+      await loadScript(d,'./remote-storage-v216.js?v=218');
+      await loadScript(d,'./runtime-v218.js?v=218');
 
       renameVersion(d,w);
       return true;
@@ -83,24 +72,21 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
     }
   }
 
-  frame.addEventListener('load',function(){
+  function waitForCore(){
     let tries=0;
-    const timer=setInterval(function(){
+    function tick(){
       tries++;
-      if(start()||tries>=100)clearInterval(timer);
-    },100);
-  });
-
-  let tries=0;
-  const timer=setInterval(function(){
-    tries++;
-    if(start()||tries>=160){
-      clearInterval(timer);
-      if(!ready&&boot){
-        boot.innerHTML='v217本体の起動を確認できませんでした。<br>Safariを再読み込みしてください。';
-      }
+      Promise.resolve(start()).then(function(ok){
+        if(ok)return;
+        if(tries<100)return setTimeout(tick,120);
+        if(!ready&&boot)boot.innerHTML='v218本体の起動を確認できませんでした。<br>Safariを再読み込みしてください。';
+      });
     }
-  },100);
+    tick();
+  }
+
+  frame.addEventListener('load',waitForCore,{once:true});
+  setTimeout(waitForCore,250);
 })();
 </script>
 </body>
