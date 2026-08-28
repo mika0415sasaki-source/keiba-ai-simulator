@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>KEIBA AI Simulator core v234</title><meta name="theme-color" content="#161b22"></head>
+<body style="margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div id="boot" style="padding:24px;font-size:14px">KEIBA AI Simulator core v234 を読み込み中…</div>
+<script>
+(async function(){
+ try{
+  let html=await fetch('./v196-live.html?v=196stable234base',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('v196 source HTTP '+r.status);return r.text()});
+  const anchor="outer=outer.replace(precisionInnerNeedleV195,oddsPrecisionPatchV196+'\\n\\n'+framePrecisionPatchV195+'\\n\\n'+precisionInnerNeedleV195);";
+  if(!html.includes(anchor))throw new Error('v234 core patch anchor not found');
+  const patch=`
+    // v234: v231の正常動作を維持し、netkeiba shutuba.html を正規の出馬表URLとして本体で直接許可。
+    const precisionPatchV234=[
+      "    const jockeyBlockNeedleV234=[",
+      "      \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",",
+      "      \\\"  const last=runs.length?normJockeyV113(runs[0].jockey):'';\\\",",
+      "      \\\"  const sameRuns=runs.filter(r=>normJockeyV113(r.jockey)===cur);\\\",",
+      "      \\\"  const previousRuns=last ? runs.filter(r=>normJockeyV113(r.jockey)===last) : [];\\\"",
+      "    ].join(String.fromCharCode(10));",
+      "    if(src.includes(jockeyBlockNeedleV234)){",
+      "      const jockeyBlockReplacementV234=[",
+      "        \\\"  const runs=(h.runs||[]).filter(r=>r&&validJockeyNameV114(r.jockey));\\\",",
+      "        \\\"  const recentNamesV234=Array.from(new Set(runs.map(r=>normJockeyV113(r.jockey)).filter(Boolean)));\\\",",
+      "        \\\"  const aliasCandidatesV234=recentNamesV234.filter(j=>j!==cur&&(j.indexOf(cur)===0||cur.indexOf(j)===0));\\\",",
+      "        \\\"  const aliasV234=aliasCandidatesV234.length===1?aliasCandidatesV234[0]:'';\\\",",
+      "        \\\"  const sameCurrentV234=j=>{j=normJockeyV113(j);return j===cur||!!aliasV234&&j===aliasV234;};\\\",",
+      "        \\\"  const lastRawV234=runs.length?normJockeyV113(runs[0].jockey):'';\\\",",
+      "        \\\"  const last=lastRawV234&&sameCurrentV234(lastRawV234)?cur:lastRawV234;\\\",",
+      "        \\\"  const sameRuns=runs.filter(r=>sameCurrentV234(r.jockey));\\\",",
+      "        \\\"  const previousRuns=last ? runs.filter(r=>last===cur?sameCurrentV234(r.jockey):normJockeyV113(r.jockey)===last) : [];\\\"",
+      "      ].join(String.fromCharCode(10));",
+      "      src=src.replace(jockeyBlockNeedleV234,jockeyBlockReplacementV234);",
+      "    }",
+      "",
+      "    const deadHeatDeclV234='   const seenNo=new Set(),seenPos=new Set(),out=[];';",
+      "    if(src.includes(deadHeatDeclV234))src=src.replace(deadHeatDeclV234,'   const seenNo=new Set(),out=[];');",
+      "    const deadHeatBlockV234=[",
+      "      '   if(seenNo.has(r.no))return;',",
+      "      '   if(Number(r.pos||0)>0&&seenPos.has(r.pos))return;',",
+      "      '   seenNo.add(r.no);',",
+      "      '   if(Number(r.pos||0)>0)seenPos.add(r.pos);'",
+      "    ].join(String.fromCharCode(10));",
+      "    if(src.includes(deadHeatBlockV234))src=src.replace(deadHeatBlockV234,['   if(seenNo.has(r.no))return;','   seenNo.add(r.no);'].join(String.fromCharCode(10)));",
+      "",
+      "    const twoAxisNeedleV234='  const twoAxis = !oneAxis && topShow>=54 && secondShow>=50 && topQuin>=34 && secondQuin>=30 && gap12<=4.2;';",
+      "    if(src.includes(twoAxisNeedleV234))src=src.replace(twoAxisNeedleV234,'  const twoAxis = !oneAxis && topShow>=72 && secondShow>=68 && topQuin>=52 && secondQuin>=48 && gap12<=2.0 && Number(top.axisScore||0)>=65 && Number(second.axisScore||0)>=62;');",
+      "",
+      "    const netkeibaPathNeedleV234='/\\\\/race\\\\/newspaper(?:_master)?\\\\.html$/i.test(path)';",
+      "    const netkeibaPathReplacementV234='/(?:\\\\/race\\\\/newspaper(?:_master)?\\\\.html|\\\\/race\\\\/shutuba\\\\.html)$/i.test(path)';",
+      "    if(src.includes(netkeibaPathNeedleV234))src=src.replace(netkeibaPathNeedleV234,netkeibaPathReplacementV234);"
+    ].join('\\n');
+    const innerV234='    const helperV178=[';
+    if(!outer.includes(innerV234))throw new Error('v234 patch insertion point not found');
+    outer=outer.replace(innerV234,precisionPatchV234+'\\n\\n'+innerV234);
+`;
+  html=html.replace(anchor,anchor+patch);
+  document.open();document.write(html);document.close();
+ }catch(e){document.getElementById('boot').textContent='v234 起動エラー: '+String(e&&e.message||e)}
+})();
+</script></body></html>
