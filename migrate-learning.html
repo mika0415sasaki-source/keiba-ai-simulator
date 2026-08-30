@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>KEIBA AI 学習データ移行</title><style>body{margin:0;background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{max-width:760px;margin:auto;padding:28px 18px 80px}.card{background:#161b22;border:1px solid #30363d;border-radius:18px;padding:20px;margin:16px 0}.big{font-size:30px;font-weight:800}.sub{color:#8b949e;line-height:1.6}.stat{font-size:24px;font-weight:800;margin:10px 0}.ok{color:#3fb950}.warn{color:#d29922}.err{color:#f85149}button{width:100%;border:0;border-radius:14px;padding:16px;font-size:20px;font-weight:800;background:#2ea043;color:white;margin-top:12px}button:disabled{opacity:.45}.log{white-space:pre-wrap;line-height:1.6;background:#0d1117;border:1px solid #30363d;border-radius:12px;padding:14px;margin-top:14px;font-size:14px}</style></head><body><div class="wrap"><div class="big">KEIBA AI 学習データ移行</div><div class="sub">旧アプリの1126頭・学習履歴をSupabaseの旧保存領域から読み出し、新アプリの学習メモリへ移行します。</div><div class="card"><div>旧学習データ</div><div id="count" class="stat">確認中…</div><div id="detail" class="sub">Supabaseを確認しています。</div><button id="migrate" disabled>1126頭の学習データを移行</button><div id="log" class="log">準備中…</div></div></div><script>
+const SUPABASE_URL='https://qhzccahbevnqaoxdfnbx.supabase.co';
+const SUPABASE_KEY='sb_publishable_i_5mqOMlvWvUI99_8gjdYw_g5TaSwrm';
+const APP_ID='keiba-ai-simulator';
+const MEMORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-api';
+let entries=[];
+const $=id=>document.getElementById(id);
+function setlog(s,cls=''){ $('log').className='log '+cls; $('log').textContent=s; }
+async function loadOld(){
+ try{
+  const u=SUPABASE_URL+'/rest/v1/keiba_app_state?app_id=eq.'+encodeURIComponent(APP_ID)+'&select=payload';
+  const r=await fetch(u,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY},cache:'no-store'});
+  if(!r.ok)throw new Error('旧データ取得 HTTP '+r.status);
+  const rows=await r.json(); const memStr=rows?.[0]?.payload?.memory||'';
+  let mem={}; try{mem=JSON.parse(memStr)||{}}catch{throw new Error('旧学習データのJSON解析に失敗');}
+  if(Array.isArray(mem)) entries=mem.filter(x=>x&&x.name).map(m=>({horse_name:m.name,memory:m}));
+  else entries=Object.entries(mem).map(([k,m])=>({horse_name:m?.name||k,memory:m})).filter(x=>x.horse_name&&x.memory);
+  $('count').textContent=entries.length+'頭'; $('count').className='stat '+(entries.length?'ok':'err');
+  $('detail').textContent=entries.length?'旧Supabase保存から学習データを確認できました。':'旧学習データが見つかりません。';
+  $('migrate').disabled=!entries.length;
+  setlog(entries.length?`移行準備OK：${entries.length}頭を確認しました。\n下のボタンを押してください。`:'旧データ0頭です。','');
+ }catch(e){$('count').textContent='取得失敗';$('count').className='stat err';$('detail').textContent=e.message;setlog(e.message,'err');}
+}
+async function memoryApi(action,payload={}){const r=await fetch(MEMORY_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});const j=await r.json().catch(()=>({error:'応答を読めません'}));if(!r.ok)throw new Error(j.error||'学習メモリ通信エラー');return j;}
+$('migrate').onclick=async()=>{ if(!entries.length)return; $('migrate').disabled=true; let done=0,races=0; const chunk=40; try{for(let i=0;i<entries.length;i+=chunk){const part=entries.slice(i,i+chunk);const j=await memoryApi('migrate_legacy_chunk',{entries:part});done+=j.imported_horses||0;races+=j.imported_races||0;setlog(`移行中… ${Math.min(i+chunk,entries.length)}/${entries.length}頭\n保存済み：${done}頭 / 学習レース：${races}`);}const stats=await memoryApi('stats');setlog(`移行完了。\n保存馬数：${stats.saved_horses||done}頭\n旧学習結果：${stats.legacy_races||races}レース / ${stats.legacy_result_entries||0}件\n\nこの画面は閉じてOKです。`,'ok');$('migrate').textContent='移行完了';}catch(e){setlog('移行エラー：'+e.message,'err');$('migrate').disabled=false;}};
+loadOld();
+</script></body></html>
