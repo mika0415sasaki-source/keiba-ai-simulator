@@ -1,0 +1,152 @@
+st j=await r.json();if(!r.ok)throw new Error(j.error||"通信エラー");return j}
+async function nkFallback(names,race_url){
+ const r=await fetch(NK_FALLBACK_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url})});
+ const j=await r.json(); if(!r.ok)throw new Error(j.error||"netkeiba再検索エラー"); return j;
+}
+async function memoryApi(action,payload={}){
+ const r=await fetch(MEMORY_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json","Cache-Control":"no-cache"},body:JSON.stringify({action,...payload})});
+ const j=await r.json().catch(()=>({error:"学習メモリAPIの応答を読めません"}));
+ if(!r.ok)throw new Error(j.error||"学習メモリ通信エラー");
+ return j;
+}
+async function trackerApi(action,payload={}){
+ const r=await fetch(TRACKER_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});
+ const j=await r.json().catch(()=>({error:"予想記録APIの応答を読めません"}));
+ if(!r.ok)throw new Error(j.error||"予想記録通信エラー");
+ return j;
+}
+const VENUE_CODE={"札幌":"01","函館":"02","福島":"03","新潟":"04","東京":"05","中山":"06","中京":"07","京都":"08","阪神":"09","小倉":"10"};
+function raceIdFromUrl(url){
+ let s=String(url||"");
+ for(let i=0;i<3;i++){try{s=decodeURIComponent(s)}catch(_){break}}
+ // netkeiba等の12桁race_id
+ let m=s.match(/(?:race_id[=:_-]*|\/race\/)(20\d{10})/i)||s.match(/\b(20\d{10})\b/);
+ if(m)return m[1];
+ // JRA出馬表 accessD: ...sw01ddd10 + 競馬場2 + 年4 + 開催回2 + 開催日2 + R2 + 施行日8...
+ // 例: sw01ddd1007202603040720260830 -> 202607030407
+ m=s.match(/sw01ddd(?:10|01)?(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})(?:20\d{6})?/i);
+ if(m)return `${m[2]}${m[1]}${m[3]}${m[4]}${m[5]}`;
+ // JRA結果系。競馬場コードがURL内にあれば直接使う。
+ m=s.match(/pw01(?:dde|sde)(?:10|01)?(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})(?:20\d{6})?/i);
+ if(m)return `${m[2]}${m[1]}${m[3]}${m[4]}${m[5]}`;
+ // 旧形式は画面の競馬場を補助的に使う。
+ m=s.match(/pw01(?:dde|sde)0104(20\d{2})(\d{2})(\d{2})(\d{2})(?:20\d{6})?/i);
+ if(m){
+   const venue=String(raceMeta?.venue||document.getElementById("venue")?.value||"").replace(/競馬場$/,"");
+   const vc=VENUE_CODE[venue]||"";
+   if(vc)return `${m[1]}${vc}${m[2]}${m[3]}${m[4]}`;
+ }
+ return String(raceMeta?.race_id||"");
+}
+function inferRaceDistance(j){
+ const direct=+(j?.meta?.distance||j?.meta?.race_distance||j?.meta?.course_distance||0);
+ if(Number.isFinite(direct)&&direct>=800&&direct<=4000)return direct;
+ const texts=[j?.meta?.course,j?.meta?.course_text,j?.meta?.distance_text,j?.meta?.condition,j?.meta?.race_info,j?.meta?.title].filter(Boolean).join(' ');
+ const m=String(texts).match(/(?:コース[:：]?\s*)?(\d{3,4})\s*(?:メートル|m\b)/i);
+ if(m){const d=+m[1];if(d>=800&&d<=4000)return d}
+ // APIが各馬に現在レース距離を付けている場合も拾う。
+ for(const h of (j?.horses||[])){
+   const d=+(h.current_distance||h.race_distance||h.distance_current||0);
+   if(Number.isFinite(d)&&d>=800&&d<=4000)return d;
+ }
+ return null;
+}
+function raceDateFromUrl(url){
+ let s=String(url||"");for(let i=0;i<3;i++){try{s=decodeURIComponent(s)}catch(_){break}}
+ const ms=[...s.matchAll(/(20\d{6})/g)];
+ return ms.length?ms[ms.length-1][1]:"";
+}
+function validNetkeibaHistoryForHorse(h,rows){
+ const nk=(rows||[]).filter(r=>!r.status), jra=(h.jra_history||[]).filter(r=>!r.status);
+ if(!nk.length)return false;
+ if(!jra.length)return true;
+ // 同じ馬なら、少なくとも1走はJRA前4走と日付または日付+距離で一致するはず。
+ let matches=0;
+ for(const a of nk){for(const b of jra){if(sameRaceRow(a,b)){matches++;break}}}
+ if(matches>0)return true;
+ // 2歳馬で、対象レースより後の月日の履歴しか出るケースは同名別馬の誤取得とみなす。
+ const age=+(String(h.sexage||h.age||h.sex_age||'').match(/\d+/)?.[0]||0);
+ const rd=raceDateFromUrl(document.getElementById("raceUrl")?.value||"");
+ if(age===2&&rd){
+   const y=+rd.slice(0,4),md=+rd.slice(4);
+   const bad=nk.filter(r=>{const t=String(r.date||'');const mm=t.match(/(?:20\d{2}[-/.])?(\d{1,2})[-/.](\d{1,2})/);if(!mm)return false;const rowmd=(+mm[1])*100+(+mm[2]);const ym=t.match(/(20\d{2})/);const yy=ym?+ym[1]:y;return yy===y&&rowmd>md}).length;
+   if(bad)return false;
+ }
+ return false;
+}
+async function oddsApi({force=false}={}){
+ const race_id=raceIdFromUrl(document.getElementById("raceUrl").value);
+ if(!race_id)throw new Error("オッズ取得用のレースIDを確認できません");
+ if(!force && oddsCache?.race_id===race_id && (Object.keys(oddsCache.win||{}).length||Object.keys(oddsCache.trio||{}).length))return oddsCache;
+ const r=await fetch(ODDS_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({race_id})});
+ const j=await r.json().catch(()=>({error:"オッズAPIの応答を読めません"}));
+ if(!r.ok)throw new Error(j.error||"オッズ取得エラー");
+ oddsCache={race_id,win:j.win||{},wide:j.wide||{},trio:j.trio||{},fetched_at:j.fetched_at||new Date().toISOString()};
+ return oddsCache;
+}
+function oddsNumber(x){
+ if(x==null)return null;
+ if(Number.isFinite(+x)&&+x>0)return +x;
+ if(typeof x!=="object")return null;
+ const keys=["odds","win_odds","odds_min","min","value","price"];
+ for(const k of keys){if(Number.isFinite(+x[k])&&+x[k]>0)return +x[k]}
+ // レンジ形式なら中央値を使う（単勝の最終オッズ取得前など）。
+ const lo=+[x.odds_min,x.min,x.low].find(v=>Number.isFinite(+v)&&+v>0);
+ const hi=+[x.odds_max,x.max,x.high].find(v=>Number.isFinite(+v)&&+v>0);
+ if(Number.isFinite(lo)&&Number.isFinite(hi))return (lo+hi)/2;
+ return null;
+}
+function winPopularityFor(h){
+ const no=String(+h.no), w=oddsCache?.win||{};
+ const pick=(v)=>{if(v&&typeof v==="object"){const p=Number(v.popularity??v.pop??v.rank);return Number.isFinite(p)&&p>0?p:null}return null};
+ if(w[no]){const p=pick(w[no]);if(p)return p}
+ if(Array.isArray(w)){const r=w.find(x=>String(+(x.no??x.horse_no??x.number))===no);const p=pick(r);if(p)return p}
+ for(const [k,v] of Object.entries(w)){if(String(+k)===no){const p=pick(v);if(p)return p}if(v&&typeof v==="object"&&String(+(v.no??v.horse_no??v.number))===no){const p=pick(v);if(p)return p}}
+ return null;
+}
+function winOddsFor(h){
+ const no=String(+h.no), w=oddsCache?.win||{};
+ const direct=oddsNumber(w[no]); if(direct)return direct;
+ // APIが配列や別キーで返しても吸収する。
+ if(Array.isArray(w)){const r=w.find(x=>String(+(x.no??x.horse_no??x.number))===no);const o=oddsNumber(r);if(o)return o}
+ for(const [k,v] of Object.entries(w)){
+   if(String(+k)===no){const o=oddsNumber(v);if(o)return o}
+   if(v&&typeof v==="object"&&String(+(v.no??v.horse_no??v.number))===no){const o=oddsNumber(v);if(o)return o}
+ }
+ const fromHorse=oddsNumber(h.odds);
+ return fromHorse;
+}
+function trioOddsFor(c){const k=c.map(h=>+h.no).sort((a,b)=>a-b).join("-");return oddsNumber(oddsCache?.trio?.[k])}
+function wideOddsFor(c){const k=c.map(h=>+h.no).sort((a,b)=>a-b).join("-");return oddsNumber(oddsCache?.wide?.[k])}
+
+function currentRaceNo(){const id=raceIdFromUrl(document.getElementById("raceUrl").value);return id?+id.slice(-2):null}
+function currentTickets(){
+  try{
+    if(lastBetPlan?.picks?.length){
+      return lastBetPlan.picks.map(p=>(p.numbers||[]).map(Number).filter(Number.isFinite));
+    }
+    const txt=document.getElementById("ticket")?.innerText||"";
+    const triples=[...txt.matchAll(/\b(\d{1,2})-(\d{1,2})-(\d{1,2})\b/g)].map(m=>[+m[1],+m[2],+m[3]]);
+    if(triples.length)return triples;
+    return [...txt.matchAll(/\b(\d{1,2})-(\d{1,2})\b/g)].map(m=>[+m[1],+m[2]]);
+  }catch{return []}
+}
+const AUDIT_KEY="keiba_ai_analysis_audit_v31";
+function auditLoad(){try{return JSON.parse(localStorage.getItem(AUDIT_KEY)||"{}")||{}}catch{return {}}}
+function auditSave(x){try{localStorage.setItem(AUDIT_KEY,JSON.stringify(x))}catch{}}
+function raceKey(){return raceIdFromUrl(document.getElementById("raceUrl").value)||document.getElementById("raceUrl").value.trim()||document.getElementById("raceName").value.trim()}
+function normalizedTicketKey(t){return (Array.isArray(t)?t:[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join("-")}
+function displayedTicketKeys(){
+ const keys=new Set();
+ for(const t of currentTickets())keys.add(normalizedTicketKey(t));
+ for(const p of (lastBetPlan?.picks||[]))keys.add(normalizedTicketKey(p.numbers));
+ return [...keys].filter(Boolean);
+}
+function recordAnalysisAudit(){
+  const k=raceKey();if(!k)return;
+  const a=auditLoad();
+  const tickets=(lastBetPlan?.picks?.length
+    ? lastBetPlan.picks.map(p=>(p.numbers||[]).map(Number).filter(Number.isFinite))
+    : [...new Set(displayedTicketKeys())].map(s=>s.split("-").map(Number)));
+  const betType=String(lastBetPlan?.type||"").includes("ワイド")?"ワイド":"3連複";
+  a[k]={...(a[k]||{}),race_name:doc
