@@ -12,9 +12,10 @@
 <script>
 (async()=>{
  try{
-  const r=await fetch('./independent-v56.html?v=current-20260901a',{cache:'no-store'});
+  const r=await fetch('./independent-v56.html?v=current-20260901b',{cache:'no-store'});
   if(!r.ok)throw new Error('本体 '+r.status);
-  const html=await r.text();
+  let html=await r.text();
+  html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析');
   document.open();document.write(html);document.close();
  }catch(e){document.getElementById('boot').innerHTML='読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+String(e)+'</small>'}
 })();
