@@ -1,0 +1,113 @@
+s.has(+x.h.no)){selectedMetrics.push(x);ids.add(+x.h.no)} if(selectedMetrics.length>=3)break;}
+   }
+   // 予算指定時だけ、100円×全組み合わせに収まるまで採用根拠の弱い馬から落とす。
+   selectedMetrics.sort((a,b)=>b.includeScore-a.includeScore);
+   while(selectedMetrics.length>3 && selectedMetrics.length*(selectedMetrics.length-1)/2>maxPts) selectedMetrics.pop();
+   // 表示順はAIランキング順へ戻す。
+   selectedMetrics.sort((a,b)=>a.idx-b.idx);
+   const selected=selectedMetrics.map(x=>x.h);
+   const rivalNos=new Set(selected.map(h=>+h.no));
+   candidates=trioAll.filter(x=>{
+     const nums=x.c.map(h=>+h.no);
+     return nums.includes(axis) && nums.filter(v=>v!==axis).every(v=>rivalNos.has(v));
+   });
+   targetPoints=candidates.length;
+   const oddsRows=candidates.filter(x=>x.odds&&x.odds>0);
+   const valueCount=selectedMetrics.filter(x=>x.valueShot||x.strongValueShot).length;
+   const closeCount=selectedMetrics.filter(x=>x.closePack).length;
+   window.__lastAxisPlan={rivalCount:selected.length,points:candidates.length,tightness,valueCount,closeCount,oddsCoverage:candidates.length?oddsRows.length/candidates.length:0,selectedMetrics};
+ }
+
+ targetPoints=Math.min(targetPoints,candidates.length);
+ let picks=candidates.slice(0,targetPoints);
+ let suggestedBudget=budget;
+ if(!hasBudget){
+   const base=style==="ワイド"?300:200;
+   suggestedBudget=Math.max(500,picks.length*base);
+   suggestedBudget=Math.ceil(suggestedBudget/100)*100;
+ }
+ const stakeMap=new Array(picks.length).fill(100);
+ let remaining=suggestedBudget-picks.length*100;
+ const order=picks.map((x,i)=>({i,x,priority:x.utility*(x.odds?cl(x.value,.7,1.5):1)})).sort((a,b)=>b.priority-a.priority);
+ for(const {i,x} of order){
+   if(remaining<100)break;
+   if(x.odds&&x.odds>1){
+     const recover=Math.ceil((suggestedBudget*1.05/x.odds)/100)*100;
+     const cap=Math.max(100,Math.floor(suggestedBudget*.4/100)*100);
+     const desired=cl(recover,100,cap);
+     const add=Math.min(remaining,Math.max(0,desired-stakeMap[i]));const r=Math.floor(add/100)*100;stakeMap[i]+=r;remaining-=r;
+   }
+ }
+ let guard=0;while(remaining>=100&&picks.length&&guard<1000){const r=picks.map((x,i)=>({i,w:x.utility*(x.odds?cl(x.value,.72,1.45):1)/(1+stakeMap[i]/400)})).sort((a,b)=>b.w-a.w)[0];stakeMap[r.i]+=100;remaining-=100;guard++;}
+ const total=stakeMap.reduce((a,b)=>a+b,0);
+ const rows=picks.map((x,j)=>{
+   const key=x.c.map(h=>h.no).sort((a,b)=>a-b).join('-');
+   const ret=x.odds?Math.round((x.odds*stakeMap[j])/10)*10:null;
+   const net=ret==null?null:ret-total;
+   let pay='';
+   if(ret!=null){pay=`<span class="small" style="margin-left:8px">${x.odds.toFixed(1)}倍 / 払戻目安 ${ret.toLocaleString()}円 / <b style="color:${net<0?'var(--d)':'var(--a)'}">${net<0?'−':'＋'}${Math.abs(net).toLocaleString()}円</b></span>`}
+   else pay=`<span class="small" style="margin-left:8px;color:var(--w)">オッズ未取得</span>`;
+   return `<div style="padding:6px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span>${key}${pay}</span><b>${stakeMap[j].toLocaleString()}円</b></div></div>`;
+ }).join('');
+ const oddsN=picks.filter(x=>x.odds).length;
+ const budgetText=hasBudget?`指定予算 ${budget.toLocaleString()}円`:`AI推奨総額 ${total.toLocaleString()}円`;
+ const usedNos=[...new Set(picks.flatMap(x=>x.c.map(h=>+h.no)))];
+ const byRank=usedNos.slice().sort((a,b)=>evaluated.findIndex(h=>+h.no===a)-evaluated.findIndex(h=>+h.no===b));
+ let structure='';
+ let reason='';
+ if(style==="3連複1頭軸"){
+   const axis=+top.no;
+   const rivals=byRank.filter(n=>n!==axis);
+   structure=`<div class="card" style="margin:10px 0;background:#0c172a"><div><b>軸</b>：${axis} ${top.name}</div><div style="margin-top:6px"><b>相手</b>：${rivals.join('・')}</div></div>`;
+   const ap=window.__lastAxisPlan||{};
+   const raceType=(Number(ap.tightness||0)>=0.55)?"混戦":"堅め";
+   reason=`<b>AI判断：${raceType}</b><br>相手${rivals.length}頭・${targetPoints}点 / 妙味採用 ${ap.valueCount||0}頭 / 拮抗採用 ${ap.closeCount||0}頭<br>${budgetText} / オッズ取得 ${oddsN}/${picks.length}点`;
+ }else if(style==="3連複フォーメーション"){
+   const col1=[+top.no];
+   const col2=formationSecond.map(h=>+h.no);
+   const col3=byRank;
+   const col2Detail=formationSecond.map(h=>{const pop=winPopularityFor(h);return `${h.no}${pop?`（${pop}番人気・3着内${(h.place||0).toFixed(1)}%）`:`（3着内${(h.place||0).toFixed(1)}%）`}`}).join('・');
+   structure=`<div class="card" style="margin:10px 0;background:#0c172a"><div><b>1列目</b>：${col1.join('・')}</div><div style="margin-top:6px"><b>2列目（安定重視）</b>：${col2.join('・')}</div><div class="small" style="margin-top:4px">${col2Detail}</div><div style="margin-top:6px"><b>3列目（妙味含む）</b>：${col3.join('・')}</div></div>`;
+   const raceType=(gap12<=3.5&&p3>=35)?"混戦":"堅め";
+   reason=`<b>AI判断：${raceType}</b><br>2列目 ${col2.length}頭 / 3列目 ${col3.length}頭 / 上位差 ${gap12.toFixed(1)}<br>${budgetText} / オッズ取得 ${oddsN}/${picks.length}点`;
+ }else{
+   structure=`<div class="card" style="margin:10px 0;background:#0c172a"><div><b>ワイド候補</b>：${byRank.join('・')}</div></div>`;
+   reason=`<b>AI判断：混戦</b><br>ワイド ${byRank.length}頭候補 / 回収と的中のバランス重視<br>${budgetText} / オッズ取得 ${oddsN}/${picks.length}点`;
+ }
+ lastBetPlan={type:style,picks:picks.map((x,i)=>({numbers:x.c.map(h=>+h.no).sort((a,b)=>a-b),stake:stakeMap[i],odds:x.odds||null})),total};
+ document.getElementById("ticket").innerHTML=`<div class="card" style="margin-top:10px"><b class="good">${style}・AI自動選定</b>${structure}<div class="small" style="margin:8px 0 10px">${reason}</div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${picks.length}点 / 合計 ${total.toLocaleString()}円</b></div></div>`;
+ return currentTickets();
+}
+async function savePredictionSnapshot(mode="AI分析"){
+ if(!horses.length)return null;evalAll();const tickets=currentTickets(),key=raceKey();
+ const a=auditLoad();
+ const payload={race_url:document.getElementById("raceUrl").value,race_id:raceIdFromUrl(document.getElementById("raceUrl").value),prediction_key:key,source:"KEIBA_AI_Independent_v54",course:document.getElementById("venue").value,race_no:currentRaceNo(),surface:document.getElementById("surface").value,distance:+document.getElementById("distance").value,mode,ticket_count:tickets.length,tickets,ranking:evaluated.map((h,i)=>({rank:i+1,no:h.no,name:h.name,score:+h.score.toFixed(2)}))};
+ // 同じレースでもAI分析をやり直したら最新買い目で上書き保存する。
+ const res=await trackerApi("save_prediction",payload);a[key]={...(a[key]||{}),remote_saved:true,remote_saved_at:new Date().toISOString()};auditSave(a);return res;
+}
+function normalizeActualRows(rows){const byName=new Map(horses.map(h=>[String(h.name).trim(),+h.no]));return (Array.isArray(rows)?rows:[]).map((x,i)=>({rank:+x.rank||i+1,no:byName.get(String(x.name||"").trim())||+x.no||0,name:String(x.name||"").trim()})).filter(x=>x.name).sort((a,b)=>a.rank-b.rank)}
+function renderAllResult(){const box=document.getElementById("resultAll");if(!box)return;if(!actual.length){box.classList.add("hidden");box.innerHTML="";return}box.classList.remove("hidden");box.innerHTML=`<div class="rank">全頭結果 ${actual.length}頭</div><div class="hist">${actual.map(x=>`<div class="hist-row" style="grid-template-columns:52px 52px 1fr"><b>${x.rank}着</b><span>${x.no}番</span><span>${x.name}</span></div>`).join("")}</div>`}
+function legacyLocalMemory(){
+ try{return JSON.parse(localStorage.getItem(LEGACY_MEMKEY)||"{}")||{}}catch{return {}}
+}
+function fmtDateTime(v){
+ if(!v)return "未取得";
+ try{return new Date(v).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return String(v)}
+}
+function legacyRaceLabel(x){
+ const m=x?.race_meta||x||{};
+ return [m.date,m.course,m.raceNo?`${m.raceNo}R`:"",m.surface,m.distance?`${m.distance}m`:""].filter(Boolean).join(" ");
+}
+async function loadMemoryForHorses(){
+ if(!horses.length)return;
+ try{
+  const j=await memoryApi("horse_memory",{names:horses.map(h=>h.name)});
+  const map=new Map((j.rows||[]).map(r=>[r.horse_name,r]));
+  horses.forEach(h=>{h.legacyMemory=map.get(h.name)?.memory_json||null});
+ }catch{}
+}
+function legacyBonus(h){
+ const m=h.legacyMemory;if(!m)return 0;
+ const rows=Array.isArray(m.learnedResults)?m.learnedResults:[];
+ const venue=document.getElementById("venue").value,going=document.getElementById("going").value,dist=+document.getElementById("distance").value,surface=document.getElementById("surface").value;
+ const bucket=d=>d<=1400?"短距離":d<=1800?"マイル中距離":d<=2200?"中距離":"長距離";
