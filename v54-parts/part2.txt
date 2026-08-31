@@ -1,0 +1,137 @@
+ument.getElementById("raceName").value,ranking:evaluated.map((h,i)=>({rank:i+1,no:h.no,name:h.name,score:+h.score.toFixed(2)})),bet_type:betType,tickets,analyzed_at:new Date().toISOString()};
+  auditSave(a);markCareerAnalysis(k)
+}
+function recordResultAudit(){
+  const k=raceKey();if(!k)return false;
+  const a=auditLoad(),r=a[k]||{};
+  const top3=actual.slice(0,3).map(x=>+x.no).filter(Number.isFinite);
+  const top3Set=new Set(top3);
+  const betType=String(r.bet_type||lastBetPlan?.type||"").includes("ワイド")?"ワイド":"3連複";
+  const savedTickets=Array.isArray(r.tickets)?r.tickets:[];
+  const liveTickets=(lastBetPlan?.picks||[]).map(p=>(p.numbers||[]).map(Number).filter(Number.isFinite));
+  const tickets=(savedTickets.length?savedTickets:liveTickets).map(t=>(t||[]).map(Number).filter(Number.isFinite));
+  let hit=false;
+  if(betType==="ワイド"){
+    hit=tickets.some(t=>t.length===2 && t.every(n=>top3Set.has(+n)));
+  }else{
+    const top3Key=[...top3].sort((x,y)=>x-y).join("-");
+    hit=tickets.some(t=>t.length===3 && normalizedTicketKey(t)===top3Key);
+  }
+  a[k]={...r,bet_type:betType,tickets,actual,verified:true,hit,result_at:new Date().toISOString()};
+  if(betType==="3連複")a[k].trifecta_hit=hit;
+  auditSave(a);
+  markCareerResult(k,hit);
+  mergedCareerStats();
+  return hit
+}
+function auditStats(){const rows=Object.values(auditLoad()).filter(x=>x&&x.analyzed_at);const v=rows.filter(x=>x.verified);const h=v.filter(x=>x.hit===true || (x.hit==null&&x.trifecta_hit===true)).length;return {analyses:rows.length,verified:v.length,hits:h,rate:v.length?h/v.length*100:0}}}
+const CAREER_STATS_KEY="keiba_ai_career_stats_v1";
+const CAREER_RACE_MAP_KEY="keiba_ai_career_race_map_v1";
+function careerStatsLoad(){try{return JSON.parse(localStorage.getItem(CAREER_STATS_KEY)||"{}")||{}}catch{return {}}}
+function careerStatsSave(x){try{localStorage.setItem(CAREER_STATS_KEY,JSON.stringify(x))}catch{}}
+function careerRaceMapLoad(){try{return JSON.parse(localStorage.getItem(CAREER_RACE_MAP_KEY)||"{}")||{}}catch{return {}}}
+function careerRaceMapSave(x){try{localStorage.setItem(CAREER_RACE_MAP_KEY,JSON.stringify(x))}catch{}}
+function syncCareerRaceMapFromAudit(){
+ const m=careerRaceMapLoad(), a=auditLoad();
+ for(const [k,r] of Object.entries(a)){
+   if(!r||!r.analyzed_at)continue;
+   m[k]={...(m[k]||{}),race_name:r.race_name||m[k]?.race_name||"",analyzed:true,verified:!!r.verified,hit:(r.hit===true || (r.hit==null&&r.trifecta_hit===true)),analyzed_at:r.analyzed_at,result_at:r.result_at||m[k]?.result_at||null};
+ }
+ careerRaceMapSave(m);return m;
+}
+function markCareerAnalysis(k){if(!k)return;const m=syncCareerRaceMapFromAudit();m[k]={...(m[k]||{}),race_name:document.getElementById("raceName").value,analyzed:true,analyzed_at:new Date().toISOString()};careerRaceMapSave(m)}
+function markCareerResult(k,hit){if(!k)return;const m=syncCareerRaceMapFromAudit();m[k]={...(m[k]||{}),race_name:document.getElementById("raceName").value,analyzed:true,verified:true,hit:!!hit,result_at:new Date().toISOString()};careerRaceMapSave(m)}
+function mergedCareerStats(){
+ const m=syncCareerRaceMapFromAudit();
+ const rows=Object.values(m).filter(x=>x&&x.analyzed);
+ let analyses=rows.length, verified=rows.filter(x=>x.verified).length, hits=rows.filter(x=>x.verified&&x.hit).length;
+ const c=careerStatsLoad();
+ // 旧版からの累積値は「減らさない」ための下限としてだけ使う。raceMapが増えたらそちらを優先。
+ analyses=Math.max(analyses,Number(c.analyses||0));
+ verified=Math.max(verified,Math.min(analyses,Number(c.verified||0)));
+ hits=Math.max(hits,Math.min(verified,Number(c.hits||0)));
+ const merged={analyses,verified,hits,rate:verified?hits/verified*100:0,updated_at:new Date().toISOString()};
+ careerStatsSave(merged);
+ return merged;
+}
+function generateTickets(){
+ evalAll();
+ if(evaluated.length<3)return [];
+ const rawBudget=String(document.getElementById("budget").value||"").trim();
+ const hasBudget=rawBudget!=="" && Number(rawBudget)>0;
+ const budget=hasBudget?Math.max(100,Math.floor(Number(rawBudget)/100)*100):null;
+ const top=evaluated[0],second=evaluated[1],third=evaluated[2],sixth=evaluated[Math.min(5,evaluated.length-1)];
+ const gap12=(top?.score||0)-(second?.score||0),gap13=(top?.score||0)-(third?.score||0),gap36=(third?.score||0)-(sixth?.score||0);
+ const p1=top?.place||0,p3=third?.place||0;
+ let confidence=0;
+ confidence+=cl(gap12/8,0,1)*0.25; confidence+=cl(gap13/12,0,1)*0.20; confidence+=cl((p1-45)/35,0,1)*0.25; confidence+=cl((p3-30)/35,0,1)*0.15; confidence+=cl(gap36/10,0,1)*0.15;
+ const wideCount=Object.keys(oddsCache?.wide||{}).length;
+ const pool=evaluated.slice(0,Math.min(8,evaluated.length));
+ const trioAll=combos(pool,3).map(c=>{const o=trioOddsFor(c);const strength=c.reduce((s,h)=>s+h.score+h.place*.30,0);const model=c.reduce((s,h)=>s+Math.max(.04,h.place/100),0)/3;const value=o?cl(o*model/13,.55,1.7):1;return {type:"3連複",c,odds:o,utility:strength*(o?(1+cl(value-1,-.2,.35)*.22):1),value}}).sort((a,b)=>b.utility-a.utility);
+ const wideAll=combos(evaluated.slice(0,Math.min(6,evaluated.length)),2).map(c=>{const o=wideOddsFor(c);const model=(c[0].place+c[1].place)/200;const strength=c.reduce((s,h)=>s+h.score+h.place*.20,0);const value=o?cl(o*model/3.0,.55,1.8):1;return {type:"ワイド",c,odds:o,utility:strength*(o?(1+cl(value-1,-.2,.4)*.25):1),value}}).sort((a,b)=>b.utility-a.utility);
+
+ let style="3連複フォーメーション", candidates=trioAll, targetPoints=18;
+ if(!hasBudget){
+   if(confidence>=.68 && p1>=62){style="3連複1頭軸";targetPoints=confidence>=.78?6:10;}
+   else if(confidence<.38 && wideCount>0){style="ワイド";candidates=wideAll;targetPoints=4;}
+   else {style="3連複フォーメーション";targetPoints=confidence>=.55?10:confidence>=.4?14:18;}
+ }else{
+   targetPoints=confidence>=.72?10:confidence>=.56?14:confidence>=.40?18:24;
+   targetPoints=Math.min(targetPoints,Math.max(1,Math.floor(budget/100)));
+ }
+
+ // フォーメーションの2列目は「頭数合わせ」をしない。
+ // 安定条件を満たす馬が2頭以上いる時だけフォーメーションを採用し、1頭しかいなければ1頭軸へ自動切替する。
+ let formationSecond=[];
+ if(style==="3連複フォーメーション"){
+   const topBase=top.baseScore||top.score||0;
+   const stabilityScore=h=>{
+     const pop=winPopularityFor(h);
+     const marketStable=pop?cl(100-(pop-1)*9,25,100):55;
+     return (h.place||0)*0.55+(h.baseScore||h.score||0)*0.30+marketStable*0.15;
+   };
+   formationSecond=evaluated.filter(h=>+h.no!==+top.no).filter(h=>{
+     const pop=winPopularityFor(h);
+     const place=h.place||0,base=h.baseScore||h.score||0;
+     if(place<45 || base<topBase-8)return false;
+     if(pop && pop>=7)return place>=55 && base>=topBase-5;
+     return true;
+   }).sort((a,b)=>stabilityScore(b)-stabilityScore(a)).slice(0,2);
+
+   if(formationSecond.length<2){
+     style="3連複1頭軸";
+     candidates=trioAll.filter(x=>x.c.some(h=>+h.no===+top.no));
+     if(!hasBudget)targetPoints=confidence>=.72?6:confidence>=.52?10:12;
+   }else{
+     const secondNos=new Set(formationSecond.map(h=>+h.no));
+     candidates=trioAll.filter(x=>x.c.some(h=>+h.no===+top.no) && x.c.some(h=>secondNos.has(+h.no)));
+   }
+ }
+ if(style==="3連複1頭軸"){
+   const axis=+top.no;
+   // 相手頭数・点数を先に決めない。各馬を「来る余地があるか」で1頭ずつ判定し、
+   // 拮抗・妙味穴・展開余地があれば紐を増やし、堅いレースなら自然に絞る。
+   const rankedRivals=evaluated.filter(h=>+h.no!==axis).slice(0,7);
+   const maxPts=hasBudget?Math.max(1,Math.floor(budget/100)):999;
+   const tightness=cl((1-cl(gap13/11,0,1))*.45+(1-cl(gap36/11,0,1))*.35+cl((62-p1)/28,0,1)*.20,0,1);
+   const scored=rankedRivals.map((h,idx)=>{
+     const gap=Math.max(0,(top.score||0)-(h.score||0));
+     const place=h.place||0;
+     const pop=winPopularityFor(h);
+     const vi=h.valueIndex||1;
+     const ability=cl(1-gap/20,0,1);
+     const placeScore=cl((place-22)/48,0,1);
+     const valueBonus=cl((vi-1)/.45,0,1);
+     const marketHole=(pop&&pop>=6)?valueBonus:0;
+     const includeScore=ability*.46+placeScore*.34+marketHole*.12+tightness*.08;
+     const core=(idx<=2 && gap<=14 && place>=30) || (gap<=10 && place>=38);
+     const closePack=tightness>=.52 && gap<=16 && place>=28;
+     const valueShot=vi>=1.15 && gap<=18 && place>=27;
+     const strongValueShot=vi>=1.28 && gap<=20 && place>=24;
+     return {h,idx,gap,place,pop,vi,includeScore,core,closePack,valueShot,strongValueShot,keep:core||closePack||valueShot||strongValueShot};
+   });
+   let selectedMetrics=scored.filter(x=>x.keep);
+   // 最低限の相手は能力上位から3頭。逆に、基準を満たさない馬を点数合わせで追加しない。
+   if(selectedMetrics.length<3){
+     const ids=new Set(selectedMetrics.map(x=>+x.h.no));
+     for(const x of scored){if(!id
