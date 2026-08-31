@@ -12,7 +12,7 @@
 <script>
 (async()=>{
  try{
-  const r=await fetch('./v55-parts/part0.txt?v=56a',{cache:'no-store'});
+  const r=await fetch('./v55-parts/part0.txt?v=56b',{cache:'no-store'});
   if(!r.ok)throw new Error('本体 '+r.status);
   let html=await r.text();
   html=html.replaceAll('KEIBA AI 独自分析 v55','KEIBA AI 独自分析 v56').replaceAll('KEIBA_AI_Independent_v55','KEIBA_AI_Independent_v56');
@@ -51,6 +51,18 @@
       if(future)return false;
     }
     return true;
+  };
+  mergedCareerStats=function(){
+    const m=syncCareerRaceMapFromAudit();
+    const rows=Object.values(m).filter(x=>x&&x.analyzed);
+    const localA=rows.length,localV=rows.filter(x=>x.verified).length,localH=rows.filter(x=>x.verified&&x.hit).length;
+    const remoteA=Number(memoryStats?.predictions||0),remoteV=Number(memoryStats?.verified_predictions||0),remoteH=Number(memoryStats?.hit_predictions||0);
+    const useRemote=remoteA>0;
+    const analyses=useRemote?remoteA:localA;
+    const verified=useRemote?Math.min(analyses,remoteV):localV;
+    const hits=useRemote?Math.min(verified,remoteH):localH;
+    const merged={analyses,verified,hits,rate:verified?hits/verified*100:0,updated_at:new Date().toISOString()};
+    careerStatsSave(merged);return merged;
   };
   <\/script>`;
   html=html.replace('</body>',patch+'</body>');
