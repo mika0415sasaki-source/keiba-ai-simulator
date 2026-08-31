@@ -1,0 +1,168 @@
+2200?"中距離":"長距離";
+ function stat(a){const p=a.map(x=>+x.pos||0).filter(x=>x>0);if(!p.length)return 0;const avg=p.reduce((s,x)=>s+x,0)/p.length,top=p.filter(x=>x<=3).length/p.length;let b=avg<=3?2.5:avg>=8?-1.5:0;if(top>=.5)b+=1.5;return b*(p.length/(p.length+4))}
+ if(rows.length){
+  const c=stat(rows.filter(x=>String(x.course||"").replace(/競馬場/g,"")===venue&&String(x.surface||"")===surface));
+  const g=stat(rows.filter(x=>String(x.going||"")===going));
+  const d=stat(rows.filter(x=>bucket(+x.distance||0)===bucket(dist)));
+  return cl(c*.40+g*.25+d*.35,-3,3);
+ }
+ const p=m.profile||{}, key=venue+"|"+surface;
+ function fromAgg(x){if(!x||!x.n)return 0;const avg=x.sum/x.n,top=x.top3/x.n;let b=avg<=3?2.5:avg>=8?-1.5:0;if(top>=.5)b+=1.5;return b*(x.n/(x.n+4))}
+ return cl(fromAgg(p.course?.[key])*.40+fromAgg(p.going?.[going])*.25+fromAgg(p.distance?.[bucket(dist)])*.35,-3,3);
+}
+function cachedMemoryStats(){
+ try{const x=JSON.parse(localStorage.getItem("keiba_memory_stats_cache_v1")||"null");if(x&&x.saved_horses)return x}catch{}
+ return {saved_horses:1126,legacy_races:76,legacy_result_entries:1022,model_sample_count:0,id_cache_count:0,predictions:0,verified_predictions:0,latest_legacy:null};
+}
+function renderMemoryStats(stale=false){
+ if(!memoryStats)memoryStats=cachedMemoryStats();
+ document.getElementById("memoryHorseCount").textContent=`${memoryStats.saved_horses||0}頭`;
+ const last=memoryStats.latest_legacy;
+ const currentRace=horses.length?`${document.getElementById("raceName").value||"レース名未設定"} / ${horses.length}頭`:"まだこの画面で出馬表を取得していません";
+ const memoryHit=horses.filter(h=>!!h.legacyMemory).length;
+ const cur=memoryStats.latest_current;
+ document.getElementById("memoryHistory").innerHTML=
+   `<b style="color:var(--a)">最新出馬表:</b> ${currentRace}<br>`+
+   (horses.length?`今回出走馬: <b>${memoryHit}/${horses.length}頭 保存済み</b>${memoryHit===horses.length?"（全頭登録済み）":""}<br>`:``)+
+   `学習結果: <b>${memoryStats.total_result_races||0}レース / ${memoryStats.total_result_entries||0}件</b><br>`+
+   `最終結果学習: ${cur?`${cur.race_name||"レース"} / ${fmtDateTime(cur.created_at)} / Supabase保存`:"—"}<br>`+
+   (()=>{const st=mergedCareerStats();return `📊 AI分析記録 <b>${st.analyses}R</b> / 結果照合 <b>${st.verified}R</b> / 的中 <b>${st.hits}R</b> / 的中率 <b>${st.rate.toFixed(1)}%</b>`})();
+}
+async function refreshMemoryStats(showError=false){
+ try{
+  const fresh=await Promise.race([trackerApi("stats"),new Promise((_,rej)=>setTimeout(()=>rej(new Error("TIMEOUT")),5000))]);
+  memoryStats={...cachedMemoryStats(),...fresh};
+  try{localStorage.setItem("keiba_memory_stats_cache_v1",JSON.stringify(memoryStats))}catch{}
+  mergedCareerStats();
+  renderMemoryStats(false);return true;
+ }catch(e){memoryStats=cachedMemoryStats();renderMemoryStats(true);if(showError)status("memoryStatus","最新確認に時間がかかっています。表示中の学習データはそのまま利用できます。",false);return false}
+}
+
+async function jraImport(url){
+  const r=await fetch(JRA_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+  const j=await r.json().catch(()=>({error:"JRA取込APIの応答を読み込めません"}));
+  if(!r.ok){
+    const detail=j.debug?`（候補${j.debug.horse_candidates??0}頭 / links ${j.debug.anchor_count??0}）`:"";
+    throw new Error((j.error||"JRA出馬表取込エラー")+detail);
+  }
+  return j;
+}
+async function jraResultImport(url){
+  const r=await fetch(RESULT_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+  const j=await r.json().catch(()=>({error:"JRA結果取込APIの応答を読み込めません"}));
+  if(!r.ok)throw new Error(j.error||"JRA結果取込エラー");
+  return j;
+}
+async function saveCurrentResult({learnModel=false}={}){
+  if(!actual.length)throw new Error("先に結果を取り込んでください。");
+  evalAll();
+  const payload={
+    race_url:document.getElementById("raceUrl").value,
+    result_url:document.getElementById("resultUrl").value,
+    race_name:document.getElementById("raceName").value,
+    race_meta:{
+      venue:document.getElementById("venue").value,
+      surface:document.getElementById("surface").value,
+      distance:+document.getElementById("distance").value,
+      going:document.getElementById("going").value
+    },
+    predictions:evaluated.map(h=>({no:h.no,name:h.name,score:h.score,speed:h.speed,last3f:h.last3f,course:h.course,distance:h.distance,jockey:h.jockey||75,blood:h.blood||75,trainer:h.trainer||75,condition:h.condition||72})),
+    actual_result:actual
+  };
+  const mem=await memoryApi("save_result",payload);
+  let sample=null;
+  if(learnModel && !mem.already_saved){
+    const j=await api("learn_result",payload);
+    weights=j.weights||weights;
+    sample=j.sample_count;
+  }
+  try{localStorage.setItem("keiba_last_result_saved_v1",JSON.stringify({race_name:payload.race_name,result_url:payload.result_url,actual,saved_at:new Date().toISOString()}))}catch{}
+  await refreshMemoryStats(false);
+  return {memory:mem,sample_count:sample};
+}
+const n=(v,d=75)=>Number.isFinite(+v)?+v:d,cl=(x,a,b)=>Math.max(a,Math.min(b,x));
+function status(id,msg,err=false){document.getElementById(id).innerHTML=`<div class="status ${err?"err":"ok"}">${msg}</div>`}
+function tab(id){document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab===id));["input","analysis","tickets","learn","memory"].forEach(x=>document.getElementById(x).classList.toggle("hidden",x!==id));if(id==="memory"){memoryStats=cachedMemoryStats();renderMemoryStats(true);refreshMemoryStats(false)}}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+document.getElementById("going").addEventListener("change",()=>{
+  if(horses.length){
+    evalAll(); renderPaceReason();
+    const s=document.getElementById("raceStatus");
+    if(s && !document.getElementById("input").classList.contains("hidden")){
+      s.innerHTML=`<div class="status ok">馬場状態を「${document.getElementById("going").value}」に変更しました。AI補正へ反映済みです。</div>`;
+    }
+  }
+});
+document.querySelectorAll("[data-clear]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const el=document.getElementById(btn.dataset.clear);
+    if(el){el.value="";el.focus();}
+  });
+});
+function activeHistory(h){
+ const nk=(h.history||[]).length>0;
+ return nk?(h.history||[]).slice(0,5):(h.jra_history||[]).slice(0,4);
+}
+function historyIssues(h){
+ const out=[];
+ activeHistory(h).forEach((r,i)=>{
+   if(r.status)return;
+   const miss=[];
+   if(!r.rank)miss.push("着順");
+   if(!r.venue)miss.push("競馬場");
+   if(!r.surface)miss.push("芝/ダ");
+   if(!Number.isFinite(+r.distance)||+r.distance<=0)miss.push("距離");
+   if(!r.going)miss.push("馬場");
+   if(!Number.isFinite(+r.last3f))miss.push("上がり");
+   if(!r.jockey)miss.push("騎手");
+   if(miss.length)out.push({index:i,date:r.date||`${i+1}走前`,missing:miss});
+ });
+ return out;
+}
+function dataQuality(h){
+ const hist=activeHistory(h).filter(r=>!r.status);
+ if(!hist.length)return {score:0,label:"未取得",issues:[],source:"未取得"};
+ let have=0,total=0;
+ hist.forEach(r=>{
+   const checks=[
+    !!r.rank, !!r.venue, !!r.surface,
+    Number.isFinite(+r.distance)&&+r.distance>0,
+    !!r.going, Number.isFinite(+r.last3f), !!r.jockey
+   ];
+   total+=checks.length; have+=checks.filter(Boolean).length;
+ });
+ const score=Math.round(have/Math.max(1,total)*100);
+ const issues=historyIssues(h);
+ return {score,label:score===100?"完全":score>=85?"一部欠損":"要注意",issues,source:(h.history||[]).length?"netkeiba5走":"JRA4走"};
+}
+function missingText(r){
+ const m=[];
+ if(!r.rank)m.push("着順");
+ if(!r.venue)m.push("競馬場");
+ if(!r.surface)m.push("芝/ダ");
+ if(!Number.isFinite(+r.distance)||+r.distance<=0)m.push("距離");
+ if(!r.going)m.push("馬場");
+ if(!Number.isFinite(+r.last3f))m.push("上がり");
+ if(!r.jockey)m.push("騎手");
+ return m;
+}
+function normDateKey(s){
+ const m=String(s||"").replace(/[./]/g,"-").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+ if(!m)return String(s||"").slice(0,10);
+ return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+}
+function sameRaceRow(a,b){
+ if(!a||!b)return false;
+ const da=normDateKey(a.date), db=normDateKey(b.date);
+ if(da&&db&&da!==db)return false;
+ const ad=+a.distance||0, bd=+b.distance||0;
+ if(ad&&bd&&ad!==bd)return false;
+ return true;
+}
+function mergeNetkeibaWithJra(h){
+ const nk=(h.history||[]).map(r=>({...r,filled_from_jra:[]}));
+ const jra=h.jra_history||[];
+ nk.forEach(r=>{
+   const jr=jra.find(x=>sameRaceRow(r,x));
+   if(!jr)return;
+   const fields=["rank","venue","surface","distance","going","last3f","jockey","pa
