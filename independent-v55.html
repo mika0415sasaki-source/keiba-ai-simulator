@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09101d">
+<title>KEIBA AI 独自分析 v55</title>
+<style>html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}#boot{padding:120px 24px;text-align:center;line-height:1.7}</style>
+</head>
+<body>
+<div id="boot">KEIBA AI 独自分析 v55 を読み込み中…</div>
+<script>
+(async()=>{
+ try{
+  const r=await fetch('./v55-parts/part0.txt?v=55a',{cache:'no-store'});
+  if(!r.ok)throw new Error('本体 '+r.status);
+  const html=await r.text();
+  document.open();document.write(html);document.close();
+ }catch(e){document.getElementById('boot').innerHTML='v55の読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+String(e)+'</small>'}
+})();
+</script>
+</body>
+</html>
