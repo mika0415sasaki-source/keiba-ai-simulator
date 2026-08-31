@@ -1,0 +1,154 @@
+ssage","field_size"];
+   fields.forEach(k=>{
+     const missing=(k==="distance"||k==="last3f"||k==="rank")
+       ? !Number.isFinite(+r[k]) || +r[k]<=0
+       : (k==="passage" ? !Array.isArray(r[k]) || !r[k].length : !r[k]);
+     const hasJra=(k==="distance"||k==="last3f"||k==="rank")
+       ? Number.isFinite(+jr[k]) && +jr[k]>0
+       : (k==="passage" ? Array.isArray(jr[k]) && jr[k].length : !!jr[k]);
+     if(missing&&hasJra){r[k]=jr[k];if(k!=="field_size")r.filled_from_jra.push(k)}
+   });
+ });
+ h.history=nk;
+ h.histScores=nk.length?scoreLocalHistory(nk):h.histScores;
+ h.jraFillCount=nk.reduce((n,r)=>n+(r.filled_from_jra||[]).length,0);
+ return h;
+}
+function fillLabel(k){
+ const m={rank:"着順",venue:"競馬場",surface:"芝/ダ",distance:"距離",going:"馬場",last3f:"上がり",jockey:"騎手",passage:"通過順"};
+ return m[k]||k;
+}
+function renderHorses(){
+ const root=document.getElementById("horses");root.innerHTML="";
+ horses.forEach(h=>{
+  const d=document.createElement("div");d.className="card";d.style.marginBottom="8px";
+  const nk=h.histScores?.available;
+  const jra=(h.jra_history||[]).length>0;
+  const source=nk?"netkeiba 5走":jra?"JRA 前4走":"未取得";
+  const rows=nk?(h.history||[]):jra?(h.jra_history||[]):[];
+  const fallbackScores=(!nk&&jra)?scoreLocalHistory(h.jra_history):null;
+  const sc=nk?h.histScores:fallbackScores;
+  const q=dataQuality(h);
+  const qcls=q.score===100?"good":q.score>=85?"":"bad";
+  const filled=(h.jraFillCount||0)>0;
+  const issueHtml=q.issues.length
+    ? `<div class="status ${q.score>=85?"":"bad"}" style="margin-top:8px"><b>データ品質：${q.label} ${q.score}%</b><br>${q.issues.map(x=>`${String(x.date).slice(5)}：${x.missing.join("・")}欠損`).join("<br>")}<br><span class="small">JRAで補完できない欠損項目だけ指数計算から除外します。</span></div>`
+    : `<div class="status ok" style="margin-top:8px"><b>データ品質：${filled?"JRA補完後 ":""}完全 100%</b></div>`;
+  d.innerHTML=`<div class="rank">${h.no} ${h.name}</div>
+  <div class="small">${h.sex_age||""} ${h.weight?"/ "+h.weight+"kg":""}　${h.jockey||""}</div>
+  <div class="small">脚質推定：${styleFromHistory(h)}　父：${h.sire||"未取得"}　母：${h.dam||"未取得"}　母父：${h.damsire||"未取得"}<br>騎手相性：${jockeyAffinity(h).reason} → ${jockeyAffinity(h).score}</div>
+  <div style="margin-top:7px"><span class="badge ${source==="未取得"?"bad":"good"}">${source}</span> <span class="badge ${qcls}">${(h.jraFillCount||0)>0?"補完後 ":""}品質 ${q.score}%</span></div>${nk?`<div class="small">主データ：netkeiba5走 / JRA4走で照合${h.jraFillCount?`・${h.jraFillCount}項目補完`:""} </div>`:""}
+  ${issueHtml}
+  ${sc?`<div class="metric"><span>近走</span><b>${sc.form}</b></div><div class="metric"><span>上がり</span><b>${sc.closing}</b></div><div class="metric"><span>距離適性</span><b>${sc.distance}</b></div><div class="metric"><span>コース適性</span><b>${sc.course}</b></div>`:""}
+  ${rows.length?`<div class="hist">${rows.map(r=>{
+    const miss=missingText(r);
+    return `<div style="margin-bottom:6px"><div class="hist-row"><span>${String(r.date||"").slice(5)}</span><span>${r.venue||"⚠"}</span><span>${r.surface||""}${r.distance||""}</span><span>${r.rank??"-"}着</span><span>${r.going||"⚠"} 上り${r.last3f??"-"}</span></div>${(r.filled_from_jra||[]).length?`<div class="small" style="margin-top:2px;padding-left:2px">JRA補完：${r.filled_from_jra.map(fillLabel).join("・")}</div>`:""}${miss.length?`<div class="small" style="margin-top:2px;padding-left:2px">⚠ ${miss.join("・")}</div>`:""}</div>`
+  }).join("")}</div>`:""}`;
+  root.appendChild(d);
+ });
+}
+function getCourseProfile(){
+ const v=document.getElementById("venue").value;
+ const s=document.getElementById("surface").value;
+ const d=+document.getElementById("distance").value;
+ const g=document.getElementById("going").value;
+ const layout=raceMeta.course_layout||"";
+ const turn=raceMeta.turn||"";
+ let label=`${v} ${s}${d}m${turn?`・${turn}${layout?` ${layout}`:""}`:""}`;
+ let notes=[];
+ let delta={speed:0,last3f:0,course:0,distance:0,jockey:0,blood:0,trainer:0,condition:0};
+
+ if(v==="新潟" && s==="芝"){
+   if(layout==="外" || [1600,1800,2000].includes(d)){
+     notes.push("長い直線を重視");
+     notes.push("末脚・上がり性能を強めに評価");
+     delta.last3f+=.07; delta.course+=.025; delta.speed-=.035; delta.distance+=.01;
+   }else{
+     notes.push("新潟の平坦コース適性を評価");
+     delta.last3f+=.03; delta.course+=.02;
+   }
+ }
+ if(v==="東京" && s==="芝"){notes.push("長い直線・持続力を重視");delta.last3f+=.05;delta.course+=.02;delta.speed-=.02;}
+ if(v==="中山" && s==="芝"){notes.push("小回り・坂・機動力を重視");delta.course+=.04;delta.distance+=.02;delta.last3f-=.02;}
+ if(v==="阪神" && s==="芝"){notes.push("直線の坂と持続力を考慮");delta.course+=.025;delta.condition+=.015;}
+ if(v==="京都" && s==="芝"){notes.push("下りからの持続加速を考慮");delta.last3f+=.035;delta.course+=.02;}
+ if(v==="札幌" && s==="芝"){notes.push("洋芝・小回り適性を重視");delta.condition+=.04;delta.course+=.03;delta.last3f-=.02;}
+ if(v==="函館" && s==="芝"){notes.push("洋芝・小回り・タフさを重視");delta.condition+=.045;delta.course+=.03;delta.last3f-=.025;}
+ if(v==="福島" && s==="芝"){notes.push("小回り・位置取り・持続力を考慮");delta.course+=.035;delta.distance+=.015;delta.last3f-=.02;}
+ if(v==="小倉" && s==="芝"){notes.push("小回り・機動力を考慮");delta.course+=.035;delta.distance+=.015;delta.last3f-=.015;}
+ if(v==="中京" && s==="芝"){notes.push("坂と長い直線の持続力を考慮");delta.last3f+=.035;delta.course+=.025;}
+ if(s==="ダート"){notes.push("ダート適性と同条件実績を強めに評価");delta.course+=.035;delta.condition+=.025;delta.last3f-=.015;}
+
+ if(g!=="良"){
+   notes.push(`${g}馬場の実績・適性を増量`);
+   delta.condition+=.055; delta.last3f-=.035; delta.speed-=.015;
+ }
+ if(turn) notes.unshift(`JRA実データ：${turn}回り${layout?`・${layout}回り`:""}`);
+ else notes.unshift("回り/内外はJRAから未取得");
+ return {label,notes,delta};
+}
+
+function effectiveWeights(){
+ const p=getCourseProfile();
+ const w={...weights};
+ Object.keys(p.delta).forEach(k=>w[k]=Math.max(.01,(w[k]||0)+p.delta[k]));
+ const total=Object.values(w).reduce((a,b)=>a+b,0);
+ Object.keys(w).forEach(k=>w[k]/=total);
+ return w;
+}
+
+function renderCourseProfile(){
+ const p=getCourseProfile();
+ const w=effectiveWeights();
+ const top=Object.entries(w).sort((a,b)=>b[1]-a[1]).slice(0,3)
+   .map(([k,v])=>`${({speed:"近走",last3f:"上がり",course:"コース",distance:"距離",jockey:"騎手",blood:"血統",trainer:"厩舎",condition:"馬場"}[k])} ${(v*100).toFixed(1)}%`).join(" / ");
+ document.getElementById("courseProfile").innerHTML=
+   `<b>コース・馬場補正：</b> ${p.label}<br>${p.notes.join("・")||"標準補正"}<br><span class="small">有効ウェイト上位：${top}</span>`;
+}
+
+function scoreLocalHistory(hist){
+ const targetVenue=document.getElementById("venue").value;
+ const targetDistance=+document.getElementById("distance").value;
+ const targetGoing=document.getElementById("going").value;
+ if(!hist||!hist.length)return null;
+ const w=[1,.82,.68,.56,.46];
+ let formN=0,formD=0,distN=0,distD=0,courseN=0,courseD=0,goingN=0,goingD=0;
+ let lastN=0,lastD=0;
+ hist.slice(0,5).forEach((r,i)=>{
+   if(r.status)return;
+   const ww=w[i]||.5;
+   const hasRank=Number.isFinite(+r.rank)&&+r.rank>0;
+   const rr=hasRank?Math.max(40,100-(+r.rank-1)*5):null;
+   if(rr!=null){formN+=rr*ww;formD+=ww}
+   if(rr!=null && Number.isFinite(+r.distance) && +r.distance>0 && Math.abs(+r.distance-targetDistance)<=200){distN+=rr*ww;distD+=ww}
+   if(rr!=null && r.venue && r.venue===targetVenue){courseN+=rr*ww;courseD+=ww}
+   if(rr!=null && r.going && r.going===targetGoing){goingN+=rr*ww;goingD+=ww}
+   if(Number.isFinite(+r.last3f)){lastN+=+r.last3f*ww;lastD+=ww}
+ });
+ const form=formD?formN/formD:65;
+ const avg=lastD?lastN/lastD:null;
+ const closing=avg==null?65:cl(105-(avg-33)*8,45,95);
+ return {
+   available:true,
+   form:+form.toFixed(1),
+   closing:+closing.toFixed(1),
+   distance:distD?+(distN/distD).toFixed(1):70,
+   course:courseD?+(courseN/courseD).toFixed(1):70,
+   going:goingD?+(goingN/goingD).toFixed(1):70,
+   samples:{form:+formD.toFixed(2),closing:+lastD.toFixed(2),distance:+distD.toFixed(2),course:+courseD.toFixed(2),going:+goingD.toFixed(2)},
+   source:"JRA"
+ };
+}
+function weightScore(h){
+ const w=+h.weight||57; let s=75;
+ if(w<=54)s+=6; else if(w<=55)s+=3; else if(w>=59)s-=6; else if(w>=58)s-=3;
+ return cl(s,60,88);
+}
+function normJockey(s){return String(s||"").replace(/\s+/g,"").replace(/[・.]/g,"")}
+function jockeyAffinity(h){
+ const current=normJockey(h.jockey);
+ const rows=(h.jra_history||[]).filter(r=>normJockey(r.jockey)===current && r.rank && !r.status);
+ if(!rows.length)return {score:75,rides:0,best:null,avg:null,reason:"前4走で現騎手の騎乗なし"};
+ let total=0,ws=0,best=99,rankSum=0;
+ rows.forEach((r,i)=>{
+   const field=
