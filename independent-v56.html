@@ -12,46 +12,46 @@
 <script>
 (async()=>{
  try{
-  const r=await fetch('./v55-parts/part0.txt?v=56c',{cache:'no-store'});
+  const r=await fetch('./v55-parts/part0.txt?v=restore-nk-20260901',{cache:'no-store'});
   if(!r.ok)throw new Error('本体 '+r.status);
   let html=await r.text();
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
            .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
   const patch=`<script>
-  normDateKey=function(s){
-    const t=String(s||'').trim().replace(/[./]/g,'-');
-    let m=t.match(/(20\\d{2})[-年](\\d{1,2})[-月](\\d{1,2})(?:日)?/);
-    if(m)return m[1]+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[3]).padStart(2,'0');
-    m=t.match(/(?:^|\\D)(\\d{1,2})[-月](\\d{1,2})(?:日)?(?:$|\\D)/);
-    if(m)return String(+m[1]).padStart(2,'0')+'-'+String(+m[2]).padStart(2,'0');
-    return '';
-  };
-  sameRaceRow=function(a,b){
-    if(!a||!b)return false;
-    const da=normDateKey(a.date),db=normDateKey(b.date);
-    if(da&&db&&da.slice(-5)!==db.slice(-5))return false;
-    const ad=+a.distance||0,bd=+b.distance||0;
-    if(ad&&bd&&ad!==bd)return false;
-    return true;
-  };
-  validNetkeibaHistoryForHorse=function(h,rows){
-    const nk=(rows||[]).filter(r=>!r.status),jra=(h.jra_history||[]).filter(r=>!r.status);
-    if(!nk.length)return false;
-    if(!jra.length)return true;
-    for(const a of nk){for(const b of jra){if(sameRaceRow(a,b))return true;}}
-    const age=+(String(h.sexage||h.age||h.sex_age||'').match(/\\d+/)?.[0]||0);
-    const rd=raceDateFromUrl(document.getElementById('raceUrl')?.value||'');
-    if(age===2&&rd){
-      const y=+rd.slice(0,4),md=+rd.slice(4);
-      const future=nk.some(r=>{
-        const k=normDateKey(r.date);if(!k)return false;
-        const p=k.split('-').map(Number);
-        if(p.length===3)return p[0]===y&&(p[1]*100+p[2])>md;
-        return (p[0]*100+p[1])>md;
-      });
-      if(future)return false;
+  loadNetkeibaHistories=async function({silent=false,force=false}={}){
+   if(!horses.length){if(!silent)status('histStatus','先にJRA出馬表を取り込んでください。',true);return {ok:0,total:0}}
+   const already=horses.filter(h=>(h.history||[]).length).length;
+   if(!force&&already===horses.length){
+    document.getElementById('histCount').textContent='netkeiba '+already+'/'+horses.length+'頭 / JRA照合 '+horses.filter(h=>(h.jra_history||[]).length).length+'頭';
+    return {ok:already,total:horses.length};
+   }
+   try{
+    if(!silent)status('histStatus','netkeiba馬DBから過去5走を再取得中…');
+    const targets=force?horses:horses.filter(h=>!(h.history||[]).length);
+    const j=await api('import_histories',{names:targets.map(h=>h.name),race_url:document.getElementById('raceUrl').value,target:{venue:document.getElementById('venue').value,distance:+document.getElementById('distance').value,going:document.getElementById('going').value}});
+    for(const rr of j.results||[]){const h=horses.find(x=>x.name===rr.name);if(h){h.history=rr.history||[];h.histScores=rr.scores||null;h.netkeibaUrl=rr.url||null;h.netkeibaVia=rr.via||'';h.netkeibaError=rr.error||'';h.netkeibaRejected=false;mergeNetkeibaWithJra(h)}}
+    const missing=horses.filter(h=>!(h.history||[]).length).map(h=>h.name);
+    if(missing.length){
+     try{
+      const fb=await nkFallback(missing,document.getElementById('raceUrl').value);
+      for(const rr of fb.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&rr.available){h.history=rr.history||[];h.histScores=rr.scores||h.histScores||null;h.netkeibaUrl=rr.url||null;h.netkeibaVia=rr.via||'fallback';h.netkeibaRejected=false;mergeNetkeibaWithJra(h)}}
+     }catch(_){ }
     }
-    return true;
+    for(const h of horses){if((h.history||[]).length&&!(h.histScores?.available)){h.histScores=scoreLocalHistory(h.history)}}
+    renderHorses();
+    const ok=horses.filter(h=>(h.history||[]).length).length;
+    const jf=horses.filter(h=>!(h.history||[]).length&&(h.jra_history||[]).length).length;
+    const fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
+    document.getElementById('histCount').textContent='netkeiba '+ok+'/'+horses.length+'頭 / JRA照合 '+horses.filter(h=>(h.jra_history||[]).length).length+'頭';
+    if(!silent)status('histStatus','netkeiba '+ok+'頭取得。JRA照合で'+fills+'項目を補完。'+(jf?jf+'頭はJRA4走を主データとして使用します。':''));
+    refreshMemoryStats();
+    return {ok,total:horses.length};
+   }catch(e){
+    const jf=horses.filter(h=>(h.jra_history||[]).length).length;
+    if(!silent)status('histStatus','netkeiba取得失敗。JRA前4走で'+jf+'頭を補完します。',jf===0);
+    renderHorses();
+    return {ok:horses.filter(h=>(h.history||[]).length).length,total:horses.length,error:e};
+   }
   };
   mergedCareerStats=function(){
     const m=syncCareerRaceMapFromAudit();
