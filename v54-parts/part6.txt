@@ -1,0 +1,123 @@
++r.field_size||18, rank=+r.rank;
+   const perf=100-((rank-1)/Math.max(1,field-1))*55;
+   const w=i===0?1:.82;
+   total+=perf*w;ws+=w;best=Math.min(best,rank);rankSum+=rank;
+ });
+ let score=total/ws;
+ const first=(h.jra_history||[])[0];
+ if(first && normJockey(first.jockey)===current)score+=2;
+ score=cl(score,60,92);
+ return {score:+score.toFixed(1),rides:rows.length,best,avg:+(rankSum/rows.length).toFixed(1),
+   reason:`前4走で${rows.length}回騎乗・最高${best}着${first&&normJockey(first.jockey)===current?"・継続騎乗":""}`};
+}
+function jockeyScore(h){return jockeyAffinity(h).score}
+function bloodScore(h){
+ const sire=String(h.sire||""),damsire=String(h.damsire||"");
+ if(!sire && !damsire) return 75;
+ let s=75, g=document.getElementById("going").value, d=+document.getElementById("distance").value;
+ if(g!=="良"&&/ハービンジャー|キズナ|ドゥラメンテ|キングカメハメハ/.test(sire+" "+damsire))s+=2;
+ if(d>=2000&&/ハーツクライ|キタサンブラック|キズナ|ドゥラメンテ|ハービンジャー/.test(sire))s+=2;
+ return cl(s,70,82);
+}
+function styleFromHistory(h){
+ const hist=(h.jra_history||[]).filter(r=>Array.isArray(r.passage)&&r.passage.length);
+ if(hist.length){
+   const vals=hist.slice(0,2).map(r=>{const fs=+r.field_size||18; return (r.passage[0]||fs)/fs;});
+   const ratio=vals.reduce((a,b)=>a+b,0)/vals.length;
+   if(ratio<=0.15)return "逃"; if(ratio<=0.40)return "先"; if(ratio<=0.72)return "差"; return "追";
+ }
+ const fs=(h.jra_history||[]).map(r=>+r.last3f).filter(Number.isFinite);
+ if(fs.length>=2 && fs.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,fs.length)<=34.5)return "差";
+ return "先";
+}
+function autoPaceInfo(){
+ const c={"逃":0,"先":0,"差":0,"追":0}; horses.forEach(h=>{const s=styleFromHistory(h);c[s]++});
+ const n=Math.max(1,horses.length),front=c["逃"]+c["先"]; let auto="ミドル",why="";
+ if(c["逃"]>=2||front/n>=0.55){auto="ハイ";why=`逃げ候補${c["逃"]}頭・先行${c["先"]}頭で前に行く馬が多い`;}
+ else if(c["逃"]===0&&front/n<=0.27){auto="スロー";why=`明確な逃げ候補がなく、先行馬も${c["先"]}頭と少ない`;}
+ else {why=`逃げ候補${c["逃"]}頭・先行${c["先"]}頭で極端な前傾/後傾になりにくい`;}
+ return {auto,counts:c,why};
+}
+function effectivePace(){const v=document.getElementById("pace").value;return v==="自動"?autoPaceInfo().auto:v;}
+function renderPaceReason(){
+ const el=document.getElementById("paceReason"); if(!el)return;
+ if(!horses.length){el.textContent="出馬表取込後に自動判定します。";return}
+ const p=autoPaceInfo(),manual=document.getElementById("pace").value,applied=effectivePace();
+ const mode=manual==="自動"?"自動判定を適用":`自動判定は${p.auto}、手動で${manual}を適用中`;
+ el.innerHTML=`<b>適用ペース：${applied}</b><br>逃げ ${p.counts["逃"]}頭 / 先行 ${p.counts["先"]}頭 / 差し ${p.counts["差"]}頭 / 追込 ${p.counts["追"]}頭<br>${p.why} → ${p.auto}想定<br><span class="small">${mode}。脚質はJRA前走の通過順位を優先し、通過順位がない馬だけ上がりから補完。</span>`;
+}
+function paceStyleScore(h){
+ const p=effectivePace(),st=styleFromHistory(h); let s=75;
+ if(p==="ハイ"&&(st==="差"||st==="追"))s+=7;
+ if(p==="ハイ"&&(st==="逃"||st==="先"))s-=4;
+ if(p==="スロー"&&(st==="逃"||st==="先"))s+=6;
+ if(p==="スロー"&&(st==="差"||st==="追"))s-=3;
+ return {score:cl(s,60,88),style:st};
+}
+function renderEvidence(){
+ const el=document.getElementById("evidence"); if(!el)return;
+ const bloodOk=horses.filter(h=>h.sire||h.damsire).length;
+ const nkOk=horses.filter(h=>(h.history||[]).length>0).length;
+ const jraOk=horses.filter(h=>(h.jra_history||[]).length>0).length;
+ const full=horses.filter(h=>dataQuality(h).score===100).length;
+ const warn=horses.length-full;
+ const fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
+ const memOk=horses.filter(h=>h.legacyMemory).length;
+ const p=autoPaceInfo(),appliedPace=effectivePace(),paceSel=document.getElementById("pace").value;
+ const oddsInfo=Object.keys(oddsCache?.win||{}).length
+   ? `単勝 ${Object.keys(oddsCache.win).length}頭・ワイド ${Object.keys(oddsCache.wide||{}).length}点・3連複 ${Object.keys(oddsCache.trio||{}).length}点反映`
+   : '';
+ el.innerHTML=`<b>分析根拠</b>
+ <div style="margin-top:8px;line-height:1.65">
+   <div>主評価：netkeiba5走 ${nkOk}/${horses.length}頭</div>
+   <div>JRA4走照合：${jraOk}/${horses.length}頭 / JRA補完 ${fills}項目</div>
+   <div>学習メモリ：${memOk}/${horses.length}頭</div>
+   <div>血統：${bloodOk}/${horses.length}頭</div>
+   <div>コース：JRA実データ / 馬場：手動変更可</div>
+   <div>データ品質：完全 ${full}頭 / 欠損あり ${warn}頭</div>
+   <div>ペース：${appliedPace}を適用（自動判定 ${p.auto}${paceSel==="自動"?"":" / 手動指定 "+paceSel}）</div>
+   <div>騎手：現騎手×当馬のJRA前4走コンビ成績を反映</div>
+   ${oddsInfo?`<div>オッズ：${oddsInfo}</div>`:""}
+ </div>
+ <div class="small" style="margin-top:8px">netkeiba5走を主評価し、同日・同距離のJRA4走で空欄だけ補完。残る欠損だけ該当評価軸から除外します。</div>`;
+}
+function evalAll(){
+ const ew=effectiveWeights();
+ let base=horses.map(h=>{
+  const hs=h.histScores?.available?h.histScores:((h.jra_history||[]).length?scoreLocalHistory(h.jra_history):null);
+  const ps=paceStyleScore(h);
+  const feat={speed:hs?hs.form:65,last3f:hs?hs.closing:65,course:hs?hs.course:65,distance:hs?hs.distance:65,jockey:jockeyScore(h),blood:bloodScore(h),trainer:75,condition:hs?hs.going:68};
+  feat.condition=cl((feat.condition*.75)+(weightScore(h)*.25),50,95);
+  feat.speed=cl((feat.speed*.88)+(ps.score*.12),50,98);
+  let sc=0;Object.keys(ew).forEach(k=>sc+=feat[k]*ew[k]);const memBonus=legacyBonus(h);sc=cl(sc+memBonus,40,99);return {...h,...feat,memoryBonus:memBonus,baseScore:sc,score:sc}
+ });
+ // まず純粋な能力評価からモデル勝率を作る。
+ if(base.length){const ex=base.map(h=>Math.exp((h.baseScore-75)/7)),z=ex.reduce((a,b)=>a+b,0);base=base.map((h,i)=>({...h,modelWin:ex[i]/z*100}))}
+ // 単勝オッズはAI分析に「少し」だけ反映。人気そのものを正解扱いせず、
+ // 市場コンセンサスとモデルとの差（妙味）を最大±約2.2点に制限する。
+ const marketRows=base.map(h=>{const o=winOddsFor(h);return {h,o,imp:o?1/o:0}});const impSum=marketRows.reduce((s,x)=>s+x.imp,0)||1;
+ base=marketRows.map(({h,o,imp})=>{
+   let marketProb=o?(imp/impSum*100):null,marketAdj=0,valueIndex=null;
+   if(o&&marketProb){
+     const consensus=cl((marketProb-h.modelWin)/8,-1,1); // 市場が強く支持/軽視
+     valueIndex=cl(h.modelWin/Math.max(0.5,marketProb),.45,2.5);
+     const overlay=cl((valueIndex-1)/.75,-1,1); // AIに対して売れていない妙味
+     marketAdj=cl(consensus*.75+overlay*1.35,-2.2,2.2);
+   }
+   return {...h,winOdds:o,marketProb,valueIndex,marketAdj,score:cl(h.baseScore+marketAdj,40,99)};
+ }).sort((a,b)=>b.score-a.score);
+ if(base.length){const ex=base.map(h=>Math.exp((h.score-75)/7)),z=ex.reduce((a,b)=>a+b,0);evaluated=base.map((h,i)=>{const win=ex[i]/z*100;return {...h,win,place:cl(win*2.35+(h.score-70)*.55,4,88)}})}else evaluated=[];
+ renderEvidence();document.getElementById("raceLabel").textContent=`${document.getElementById("raceName").value}｜${document.getElementById("venue").value} ${document.getElementById("surface").value}${document.getElementById("distance").value}m ${document.getElementById("going").value}`;renderCourseProfile();
+ document.getElementById("ranking").innerHTML=evaluated.slice(0,6).map((h,i)=>{const odds=h.winOdds?`${h.winOdds.toFixed(1)}倍`:"未取得";const pop=winPopularityFor(h);const popText=pop?` / ${pop}番人気`:"";const val=h.valueIndex?` / 妙味${h.valueIndex>=1.18?"あり":h.valueIndex<=.82?"薄め":"中立"}`:"";return `<div class="card"><div class="rank">${["◎","○","▲","△","☆","注"][i]||""} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${h.speed.toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${h.last3f.toFixed(1)}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${popText}${val}</div></div>`}).join("");
+ document.getElementById("rows").innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${h.speed.toFixed(1)}</td><td>${h.last3f.toFixed(1)}</td><td>${h.distance.toFixed(1)}</td><td>${h.course.toFixed(1)}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join("");
+}
+document.getElementById("importRace").onclick=async()=>{
+  try{
+    status("raceStatus","JRA専用取込APIで取得中…");
+    const url=document.getElementById("raceUrl").value.trim();
+    const j=await jraImport(url);
+    raceMeta=j.meta||{}; oddsCache={race_id:"",win:{},wide:{},trio:{},fetched_at:null};
+    raceMeta.race_id=raceIdFromUrl(url)||raceMeta.race_id||"";
+    horses=j.horses.map(h=>({...h,history:[],histScores:null,jra_history:h.jra_history||[]}));
+    for(const h of horses){if(Number.isFinite(+h.odds)&&+h.odds>0)oddsCache.win[String(+h.no)]={odds:+h.odds,popularity:null,source:"JRA出馬表"};}
+    if(j.meta?.race_name)document.getElementById("raceNam
