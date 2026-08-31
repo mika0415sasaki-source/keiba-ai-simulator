@@ -1,0 +1,126 @@
+e").value=j.meta.race_name;
+    if(j.meta?.venue)[...document.getElementById("venue").options].forEach(o=>o.selected=o.value===j.meta.venue);
+    if(j.meta?.surface)[...document.getElementById("surface").options].forEach(o=>o.selected=o.value===j.meta.surface);
+    const inferredDistance=inferRaceDistance(j);
+    if(inferredDistance)[...document.getElementById("distance").options].forEach(o=>o.selected=+o.value===+inferredDistance);
+    if(j.meta?.going)[...document.getElementById("going").options].forEach(o=>o.selected=o.value===j.meta.going);
+    await loadMemoryForHorses();
+    renderHorses(); renderPaceReason();
+    // 出馬表取込後にnetkeiba過去5走を自動取得。ボタン操作は不要。
+    await loadNetkeibaHistories({silent:true});
+    // 出馬表取込時点で実オッズも自動取得。AI分析時には再取得して直前値へ更新する。
+    try{await oddsApi({force:true})}catch(e){console.warn("odds auto",e)}
+    evalAll();
+    const jraHist=horses.filter(h=>(h.jra_history||[]).length>0).length,memHit=horses.filter(h=>h.legacyMemory).length;
+    if(!memoryStats)memoryStats=cachedMemoryStats();renderMemoryStats(true);
+    const nkAuto=horses.filter(h=>(h.history||[]).length).length;
+    const winN=horses.filter(h=>winOddsFor(h)).length,trioN=Object.keys(oddsCache?.trio||{}).length;
+    const rejected=horses.filter(h=>h.netkeibaRejected).length;
+    status("raceStatus",`${horses.length}頭を取り込みました。<br>コース：${document.getElementById("venue").value} ${document.getElementById("surface").value}${document.getElementById("distance").value}m<br>JRA前4走 ${jraHist}頭 / netkeiba5走 ${nkAuto}/${horses.length}頭${rejected?`（同名別馬疑い ${rejected}頭はJRAへ切替）`:""}<br>今回出走馬 ${memHit}/${horses.length}頭 保存済み<br>実オッズ：単勝 ${winN}/${horses.length}頭・3連複 ${trioN}点<br>AI分析時にオッズを再取得して最新値へ更新します。`);
+  }catch(e){
+    status("raceStatus",e.message,true);
+  }
+}
+async function loadNetkeibaHistories({silent=false,force=false}={}){
+ if(!horses.length){if(!silent)status("histStatus","先にJRA出馬表を取り込んでください。",true);return {ok:0,total:0}}
+ const already=horses.filter(h=>(h.history||[]).length).length;
+ if(!force && already===horses.length){
+   document.getElementById("histCount").textContent=`netkeiba ${already}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭`;
+   return {ok:already,total:horses.length};
+ }
+ try{
+  if(!silent)status("histStatus","netkeiba馬DBから過去5走を再取得中…");
+  const targets=force?horses:horses.filter(h=>!(h.history||[]).length);
+  const j=await api("import_histories",{names:targets.map(h=>h.name),race_url:document.getElementById("raceUrl").value,target:{venue:document.getElementById("venue").value,distance:+document.getElementById("distance").value,going:document.getElementById("going").value}});
+  for(const r of j.results||[]){const h=horses.find(x=>x.name===r.name);if(h){h.history=r.history||[];h.histScores=r.scores||null;h.netkeibaUrl=r.url||null;h.netkeibaVia=r.via||"";h.netkeibaError=r.error||"";mergeNetkeibaWithJra(h)}}
+  const missing=horses.filter(h=>!(h.history||[]).length).map(h=>h.name);
+  if(missing.length){
+   try{
+    const fb=await nkFallback(missing,document.getElementById("raceUrl").value);
+    for(const r of fb.results||[]){const h=horses.find(x=>x.name===r.name);if(h&&r.available){h.history=r.history||[];h.histScores=r.scores||h.histScores||null;h.netkeibaUrl=r.url||null;h.netkeibaVia=r.via||"fallback";mergeNetkeibaWithJra(h)}}
+   }catch(_){}
+  }
+  // 同名別馬の誤取得を防止。netkeiba5走がJRA前4走と1走も一致しない場合は捨て、JRAを主データに戻す。
+  for(const h of horses){
+    if((h.history||[]).length && !validNetkeibaHistoryForHorse(h,h.history)){
+      h.netkeibaRejected=true; h.netkeibaError="JRA前4走と一致しないため同名別馬候補として除外";
+      h.history=[]; h.histScores=null; h.jraFillCount=0;
+    }
+  }
+  // fallbackがhistoryだけ返した場合もスコアを必ず生成。
+  for(const h of horses){if((h.history||[]).length && !(h.histScores?.available)){h.histScores=scoreLocalHistory(h.history)}}
+  renderHorses();
+  const ok=horses.filter(h=>(h.history||[]).length).length;
+  const jf=horses.filter(h=>!(h.history||[]).length&&(h.jra_history||[]).length).length;
+  const fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
+  document.getElementById("histCount").textContent=`netkeiba ${ok}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭`;
+  if(!silent)status("histStatus",`netkeiba ${ok}頭取得。JRA照合で${fills}項目を補完。${jf?`${jf}頭はJRA4走を主データとして使用します。`:""}`);
+  refreshMemoryStats();
+  return {ok,total:horses.length};
+ }catch(e){
+  const jf=horses.filter(h=>(h.jra_history||[]).length).length;
+  if(!silent)status("histStatus",`netkeiba取得失敗。JRA前4走で${jf}頭を補完します。`,jf===0);
+  renderHorses();
+  return {ok:horses.filter(h=>(h.history||[]).length).length,total:horses.length,error:e};
+ }
+}
+document.getElementById("importHist").onclick=async()=>{await loadNetkeibaHistories({silent:false,force:true});evalAll()};
+["venue","surface","distance","pace"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",()=>{ if(horses.length){evalAll();renderPaceReason();} });
+});
+function combos(a,k){const o=[];function r(s,p){if(p.length===k){o.push([...p]);return}for(let i=s;i<a.length;i++){p.push(a[i]);r(i+1,p);p.pop()}}r(0,[]);return o}
+document.getElementById("analyze").onclick=async()=>{
+ try{if(horses.some(h=>!(h.history||[]).length))await loadNetkeibaHistories({silent:true})}catch(_){}
+ try{await oddsApi({force:true})}catch(e){console.warn("odds",e)}
+ evalAll();generateTickets();recordAnalysisAudit();tab("analysis");try{await savePredictionSnapshot("AI分析確定");await refreshMemoryStats(false)}catch(_){}
+};
+document.getElementById("make").onclick=async()=>{
+ try{if(horses.some(h=>!(h.history||[]).length))await loadNetkeibaHistories({silent:true})}catch(_){}
+ try{await oddsApi({force:true})}catch(e){console.warn("odds",e)}
+ evalAll();generateTickets();recordAnalysisAudit();
+};
+document.getElementById("resultImport").onclick=async()=>{
+  try{
+    const url=document.getElementById("resultUrl").value.trim();
+    if(!url)return status("resultStatus","JRAのレース結果URLを入れてください。",true);
+    status("resultStatus","JRA結果を取得中…");
+    const j=await jraResultImport(url);
+    actual=normalizeActualRows(j.result||[]);
+    if(!actual.length)throw new Error("結果データを取得できませんでした。");
+    renderAllResult();
+    status("resultStatus",`結果 ${actual.length}頭を取得。全頭を学習メモリへ自動保存中…`);
+    const saved=await saveCurrentResult({learnModel:false});
+    const localHit=recordResultAudit();
+    // 古いサーバー側買い目が残っていても、直前のAI買い目を再保存してから照合する。
+    try{await savePredictionSnapshot("結果照合前・最新買い目同期")}catch(_){}
+    mergedCareerStats();
+    let settled=null;try{settled=await trackerApi("settle_prediction",{race_url:document.getElementById("raceUrl").value,race_id:raceIdFromUrl(document.getElementById("raceUrl").value),prediction_key:raceKey(),result_url:url,actual_result:actual})}catch(_){}
+    await loadMemoryForHorses();await refreshMemoryStats(false);
+    const top3=actual.slice(0,3).map(x=>`${x.rank}着 ${x.no}番 ${x.name}`).join("<br>");
+    const analyzed=!!auditLoad()[raceKey()]?.analyzed_at || !!settled?.settled;
+    // 画面に出ていた実買い目との照合を最優先。サーバーの古い不的中判定で上書きしない。
+    const hit=!!localHit || !!(settled?.settled && settled.hit);
+    const combo=actual.slice(0,3).map(x=>+x.no).sort((a,b)=>a-b).join("-");
+    const chk=analyzed?`AI分析照合済み・3連複${hit?`的中（${combo}）`:"不的中"}`:"AI分析記録なし";
+    status("resultStatus",`結果取得・全頭自動保存完了<br>${top3}<br>${chk}`);
+  }catch(e){
+    status("resultStatus",e.message||String(e),true);
+  }
+}
+document.getElementById("learnBtn").onclick=async()=>{
+  try{
+    const saved=await saveCurrentResult({learnModel:false});
+    await loadMemoryForHorses();await refreshMemoryStats(false);renderAllResult();status("resultStatus",saved.memory?.already_saved?"この結果は保存済みです。内容を再確認しました。":"結果を再保存しました。");
+  }catch(e){
+    status("resultStatus",e.message||String(e),true);
+  }
+}
+document.getElementById("refreshMemoryBtn").onclick=async()=>{status("memoryStatus","Supabaseを確認中…");const ok=await refreshMemoryStats(true);if(ok)status("memoryStatus",(()=>{const st=mergedCareerStats();return `更新完了：保存馬 ${memoryStats?.saved_horses||0}頭 / 学習結果 ${memoryStats?.total_result_races||0}R / AI分析 ${st.analyses}R / 照合 ${st.verified}R / 的中 ${st.hits}R / 的中率 ${st.rate.toFixed(1)}%`})());};
+(()=>{
+ memoryStats=cachedMemoryStats();
+ renderMemoryStats(true);
+ api("get_profile").then(j=>{weights=j.weights||weights}).catch(()=>{});
+ // 起動時はSupabaseへ自動照会しない。学習メモリは即表示し、最新値確認はボタン操作時だけ行う。
+})();
+</script>
+</body></html>
