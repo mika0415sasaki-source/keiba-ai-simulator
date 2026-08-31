@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KEIBA AI v21</title>
+<style>
+:root{--bg:#0b1020;--p:#121a2d;--p2:#17223a;--t:#eef3ff;--s:#9fb0cf;--a:#66e0a3;--w:#ffcc66;--d:#ff7a7a;--l:#263556}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(#09101d,#0e1628);color:var(--t);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+header{position:sticky;top:0;z-index:9;padding:14px 16px;background:rgba(9,16,29,.95);border-bottom:1px solid var(--l)}h1{font-size:20px;margin:0 0 4px}.sub,.small,.notice{font-size:12px;color:var(--s)}
+.wrap{max-width:1100px;margin:auto;padding:14px}.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}.tab{padding:11px;border-radius:12px;border:1px solid var(--l);background:var(--p);color:var(--t);font-weight:800}.tab.active{background:var(--a);color:#072114}
+.panel{background:var(--p);border:1px solid var(--l);border-radius:16px;padding:14px;margin-bottom:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,button{font:inherit}input,select{background:#0d1526;color:var(--t);border:1px solid var(--l);border-radius:10px;padding:10px}.url{flex:1;min-width:240px}
+button.primary{background:var(--a);color:#072114;border:0;border-radius:10px;padding:10px 14px;font-weight:900}button.secondary{background:var(--p2);color:var(--t);border:1px solid var(--l);border-radius:10px;padding:10px 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.card{background:var(--p2);border:1px solid var(--l);border-radius:14px;padding:12px}.score{font-size:28px;font-weight:900;color:var(--a)}.rank{font-size:17px;font-weight:900}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;background:#20304e;color:#cfe0ff;margin:2px}.metric{display:flex;justify-content:space-between;margin:4px 0;color:var(--s)}.metric b{color:var(--t)}
+.status{padding:10px;border-radius:10px;background:#0d1526;border:1px solid var(--l);font-size:12px;margin-top:10px}.ok{border-color:#2a6c51}.err{border-color:#713643;color:#ffd9df}.hidden{display:none}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}th,td{padding:8px 6px;border-bottom:1px solid var(--l);text-align:right}th:first-child,td:first-child{text-align:left}
+.hist{margin-top:8px;padding-top:8px;border-top:1px solid var(--l)}.hist-row{display:grid;grid-template-columns:76px 54px 54px 54px 1fr;gap:6px;font-size:11px;color:var(--s);padding:3px 0}.good{color:var(--a)}.mid{color:var(--w)}.bad{color:var(--d)}
+@media(max-width:700px){.tabs{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><h1>KEIBA AI 独自分析 v54</h1><div class="sub">netkeiba5走主評価＋JRA4走照合補完＋外部学習メモリ＋単勝/3連複実オッズ自動取得＋実オッズ妙味＋見やすい買い目表示＋結果照合＋可変馬場＋ペース＋騎手相性</div></header>
+<div class="wrap">
+<div class="tabs"><button class="tab active" data-tab="input">出馬表</button><button class="tab" data-tab="analysis">AI分析</button><button class="tab" data-tab="tickets">買い目</button><button class="tab" data-tab="learn">結果学習</button><button class="tab" data-tab="memory">学習メモリ</button></div>
+
+<section id="input">
+<div class="panel">
+<h2 style="margin-top:0">JRA出馬表</h2>
+<div class="row"><input id="raceUrl" class="url" placeholder="JRAの出馬表URL"><button class="secondary" type="button" data-clear="raceUrl">クリア</button><button class="primary" id="importRace">出馬表取込</button></div>
+<div id="raceStatus"></div>
+</div>
+
+<div class="panel">
+<h2 style="margin-top:0">レース条件</h2>
+<div class="row">
+<input id="raceName" placeholder="レース名">
+<select id="venue"><option>新潟</option><option>中京</option><option>札幌</option><option>東京</option><option>中山</option><option>京都</option><option>阪神</option><option>小倉</option><option>福島</option><option>函館</option></select>
+<select id="surface"><option>芝</option><option>ダート</option></select>
+<select id="distance"><option>1200</option><option>1400</option><option>1600</option><option>1800</option><option selected>2000</option><option>2200</option><option>2400</option><option>2500</option><option>3000</option></select>
+<label class="small" style="display:flex;align-items:center;gap:6px">馬場状態 <select id="going"><option>良</option><option>稍重</option><option>重</option><option>不良</option></select></label><label class="small" style="display:flex;align-items:center;gap:6px">想定ペース <select id="pace"><option selected>自動</option><option>スロー</option><option>ミドル</option><option>ハイ</option></select></label>
+</div>
+</div>
+
+<div class="panel"><h2 style="margin-top:0">ペース判定</h2><div id="paceReason" class="status ok">出馬表取込後に自動判定します。</div></div>
+<div class="panel">
+<h2 style="margin-top:0">netkeiba 過去5走</h2>
+<div class="row"><button class="primary" id="importHist">過去5走を再取得</button><span id="histCount" class="small">未取得</span></div>
+<p class="notice">取得できない馬は「未取得」と表示し、過去走指数には使いません。</p>
+<div id="histStatus"></div>
+</div>
+
+<div class="panel"><h2 style="margin-top:0">出走馬</h2><div id="horses"></div><button class="primary" id="analyze">AI分析する</button></div>
+</section>
+
+<section id="analysis" class="hidden">
+<div class="panel">
+  <div id="raceLabel" class="small"></div>
+  <div id="courseProfile" class="status ok" style="margin-top:10px"></div>
+  <div id="evidence" class="status" style="margin-top:10px"></div>
+</div>
+<div class="panel"><h2 style="margin-top:0">総合ランキング</h2><div id="ranking" class="grid"></div></div>
+<div class="panel"><h2 style="margin-top:0">全頭比較</h2><div style="overflow:auto"><table><thead><tr><th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>距離</th><th>コース</th><th>1着率</th><th>3着内率</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</section>
+
+<section id="tickets" class="hidden">
+<div class="panel"><div class="row"><label>予算 <input id="budget" type="number" value="" placeholder="未設定" step="100" min="100" style="width:120px">円</label><button class="primary" id="make">AIで買い目生成</button></div><div class="small" style="margin-top:8px">予算を空欄にすると、AIが券種・点数・購入額まで自動で決めます。</div><div id="ticket"></div></div>
+</section>
+
+<section id="learn" class="hidden">
+<div class="panel"><h2 style="margin-top:0">結果学習</h2><div class="row"><input id="resultUrl" class="url" placeholder="JRAのレース結果URL"><button class="secondary" type="button" data-clear="resultUrl">クリア</button><button class="secondary" id="resultImport">結果取込</button></div><div id="resultStatus"></div><div id="resultAll" class="card hidden" style="margin-top:12px"></div><div style="margin-top:10px"><button class="primary" id="learnBtn">この結果を再保存</button></div></div>
+</section>
+
+<section id="memory" class="hidden">
+<div class="panel">
+<h2 style="margin-top:0">馬データ学習メモリ</h2>
+<div class="status ok" style="font-size:14px"><b>保存馬数: <span id="memoryHorseCount">1126頭</span></b></div>
+<div class="card" style="margin-top:12px">
+<div class="rank">📚 学習履歴</div>
+<div id="memoryHistory" style="margin-top:10px;line-height:1.75;color:var(--s)">保存済みの学習状態を表示します。</div>
+</div>
+<p class="notice">馬データ・学習結果・netkeiba馬ID対応表はSupabaseにまとめて保存します。</p>
+<div class="row" style="margin-top:10px"><button class="secondary" id="refreshMemoryBtn">最新状態を更新</button></div>
+<div id="memoryStatus"></div>
+</div>
+</section>
+</div>
+
+<script>
+const API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-api";
+const JRA_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-import";
+const RESULT_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-result-import";
+const NK_FALLBACK_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback";
+const MEMORY_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-api";
+const TRACKER_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-tracker-api";
+const ODDS_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds";
+const LEGACY_MEMKEY="keiba_ai_memory_v19";
+const DEF={speed:.22,last3f:.18,course:.14,distance:.14,jockey:.10,blood:.08,trainer:.06,condition:.08};
+let weights={...DEF},horses=[],evaluated=[],actual=[],raceMeta={},memoryStats=null,oddsCache={race_id:"",win:{},wide:{},trio:{},fetched_at:null},lastBetPlan=null;
+async function api(action,payload={}){const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,...payload})});con
