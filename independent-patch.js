@@ -1,6 +1,7 @@
 (()=>{
   const NETKEIBA_RACE_IMPORT='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-import';
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
+  const NK_FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
   const wait=()=>{
     if(typeof jraImport!=='function'||typeof loadNetkeibaHistories!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return;}
     if(window.__independentPatchApplied)return;
@@ -56,19 +57,35 @@
     const scheduleFix=()=>{clearTimeout(fixTimer);fixTimer=setTimeout(fixPreentryLabels,25)};
     new MutationObserver(scheduleFix).observe(document.body,{subtree:true,childList:true});
 
+    // 名前検索ではなく、出馬表から取得済みのnetkeiba馬IDを最優先で過去走取得する。
+    nkFallback=async function(names,race_url){
+      const horse_ids={};
+      for(const h of horses||[]){if(names.includes(h.name)){const id=String(h.netkeiba_horse_id||h.horse_id||'').trim();if(id)horse_ids[h.name]=id}}
+      const r=await fetch(NK_FALLBACK_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({names,race_url,horse_ids})});
+      const j=await r.json().catch(()=>({error:'netkeiba過去走の応答を読めません'}));
+      if(!r.ok)throw new Error(j.error||'netkeiba再取得エラー');return j;
+    };
+
     loadNetkeibaHistories=async function({silent=false,force=false}={}){
       if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0}}
       try{
-        if(!silent)status('histStatus','保存済みnetkeiba過去走を読み込み中…');
+        if(!silent)status('histStatus','netkeiba過去5走を確認中…');
         let memRows=[];
         try{const mem=await memoryApi('horse_memory',{names:horses.map(h=>h.name)});memRows=mem.rows||[]}catch(e){console.warn(e)}
         const mm=new Map(memRows.map(x=>[String(x.horse_name||'').trim(),x.memory_json||{}]));
         for(const h of horses){const runs=mm.get(String(h.name).trim())?.runs||[];if(runs.length)applyHistoryToHorse(h,runs,'supabase-netkeiba-cache')}
-        let missing=horses.filter(h=>!(h.history||[]).length);
-        if(missing.length){
-          try{const fb=await nkFallback(missing.map(h=>h.name),document.getElementById('raceUrl').value);for(const rr of fb.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&rr.available&&Array.isArray(rr.history)&&rr.history.length){applyHistoryToHorse(h,rr.history,rr.via||'netkeiba-fallback');h.netkeibaUrl=rr.url||null}}}catch(e){console.warn(e)}
+
+        // 0走だけでなく「5走未満」も必ずnetkeiba馬IDから再取得して補正する。
+        let refresh=horses.filter(h=>force||(h.history||[]).length<5);
+        if(refresh.length){
+          try{
+            const fb=await nkFallback(refresh.map(h=>h.name),document.getElementById('raceUrl').value);
+            for(const rr of fb.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&rr.available&&Array.isArray(rr.history)&&rr.history.length){applyHistoryToHorse(h,rr.history,rr.via||'netkeiba-id');h.netkeibaUrl=rr.url||null}}
+          }catch(e){console.warn(e)}
         }
-        missing=horses.filter(h=>!(h.history||[]).length);
+
+        // ID指定でも1走も取れなかった馬だけ旧経路へ。取得済みの馬を別馬検索で上書きしない。
+        let missing=horses.filter(h=>!(h.history||[]).length);
         if(missing.length){
           try{const j=await api('import_histories',{names:missing.map(h=>h.name),race_url:document.getElementById('raceUrl').value,target:{venue:document.getElementById('venue').value,distance:+document.getElementById('distance').value,going:document.getElementById('going').value}});for(const rr of j.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&Array.isArray(rr.history)&&rr.history.length)applyHistoryToHorse(h,rr.history,rr.via||'legacy-name-search')}}catch(e){console.warn(e)}
         }
