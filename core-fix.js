@@ -1,27 +1,119 @@
 (()=>{
  const wait=()=>{
-  if(!window.__independentPatchApplied||typeof jraImport!=='function'||typeof renderHorses!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
+  if(!window.__independentPatchApplied||typeof jraImport!=='function'||typeof renderHorses!=='function'||typeof scoreLocalHistory!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
   if(window.__coreFixApplied)return;
   window.__coreFixApplied=true;
+
+  const BULK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-newspaper-v2';
+  const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const isNk=u=>/netkeiba\.com/i.test(String(u||''));
-  const first=(...v)=>{for(const x of v){const s=String(x??'').trim();if(s&&s!=='-'&&s!=='—')return s}return ''};
-  function pedigree(h){
-   const p=h&&h.pedigree&&typeof h.pedigree==='object'?h.pedigree:{};
-   const b=h&&h.blood&&typeof h.blood==='object'?h.blood:{};
+  const clean=v=>String(v??'').trim();
+  const first=(...v)=>{for(const x of v){const s=clean(x);if(s&&s!=='-'&&s!=='—')return s}return ''};
+  const ridFrom=u=>(String(u||'').match(/race_id[=\/:_-]*(20\d{10})/i)||String(u||'').match(/\b(20\d{10})\b/)||[])[1]||'';
+
+  function normalizeHorse(h,i){
    if(!h)return h;
-   const sire=first(h.sire,h.father,h.sire_name,h.father_name,p.sire,p.father,b.sire,b.father);
-   const dam=first(h.dam,h.mother,h.dam_name,h.mother_name,p.dam,p.mother,b.dam,b.mother);
-   const damsire=first(h.damsire,h.dam_sire,h.broodmare_sire,h.maternal_grandsire,h.damsire_name,p.damsire,p.dam_sire,p.broodmare_sire,b.damsire,b.dam_sire);
-   if(sire)h.sire=sire;if(dam)h.dam=dam;if(damsire)h.damsire=damsire;return h;
+   const p=h.pedigree&&typeof h.pedigree==='object'?h.pedigree:{};
+   const b=h.blood&&typeof h.blood==='object'?h.blood:{};
+   h.no=+(h.no||i+1);
+   h.name=clean(h.name);
+   h.sex_age=first(h.sex_age,h.sexage,h.age);
+   h.jockey=first(h.jockey,h.rider).replace(/^替/,'').replace(/\s+(5\d(?:\.\d)?|6[0-2](?:\.\d)?)$/,'').trim();
+   const cw=Number.isFinite(+h.carried_weight)?+h.carried_weight:(Number.isFinite(+h.weight)?+h.weight:null);
+   h.carried_weight=cw;
+   h.weight=cw;
+   h.sire=first(h.sire,h.father,h.sire_name,h.father_name,p.sire,p.father,b.sire,b.father);
+   h.dam=first(h.dam,h.mother,h.dam_name,h.mother_name,p.dam,p.mother,b.dam,b.mother);
+   h.damsire=first(h.damsire,h.dam_sire,h.broodmare_sire,h.maternal_grandsire,h.damsire_name,p.damsire,p.dam_sire,p.broodmare_sire,b.damsire,b.dam_sire);
+   h.history=Array.isArray(h.history)?h.history.slice(0,5):[];
+   if(h.history.length){h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;h.netkeibaVia='netkeiba-bulk-v2';h.netkeibaRejected=false;h.netkeibaError='';try{mergeNetkeibaWithJra(h)}catch(_){} }
+   else {h.histScores={available:false,speed:50,last3f:50,distance:50,course:50};h.netkeibaVia='netkeiba-bulk-v2';}
+   // 枠前は確定オッズが無い。別ページの人気順を流用しない。
+   const actualOdds=Number.isFinite(+h.odds)&&+h.odds>=1?+h.odds:null;
+   const actualPop=Number.isFinite(+h.popularity)&&+h.popularity>=1?+h.popularity:null;
+   h.odds=actualOdds; h.popularity=actualPop;
+   h.forecast_odds=null; h.forecast_popularity=null;
+   h.provisional=true; h.provisional_no=true;
+   return h;
   }
-  const baseImport=jraImport;
-  jraImport=async function(url){const j=await baseImport(url);if(j&&Array.isArray(j.horses))j.horses=j.horses.map(pedigree);return j};
-  function relabel(){
+
+  async function bulkFetch(url){
+   const rid=ridFrom(url);if(!rid)throw new Error('netkeibaのrace_idを取得できません');
+   const r=await fetch(BULK_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url,race_id:rid})});
+   const j=await r.json().catch(()=>({error:'netkeiba一括取得の応答を読めません'}));
+   if(!r.ok||!j.ok)throw new Error(j.error||'netkeiba一括取得エラー');
+   j.horses=(j.horses||[]).map(normalizeHorse);
+   j.meta={...(j.meta||{}),source:'netkeiba-bulk-v2',provisional:true,odds_type:'actual-only'};
+   return j;
+  }
+
+  function saveLater(list){
+   setTimeout(()=>fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})}).catch(()=>{}),0);
+  }
+
+  const originalJraImport=jraImport;
+  jraImport=async function(url){
+   const s=clean(url);
+   if(!isNk(s)){window.__preentryMode=false;return originalJraImport(url)}
+   window.__preentryMode=true;
+   try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
+   const j=await bulkFetch(s);
+   saveLater(j.horses);
+   return j;
+  };
+
+  // 初回取込後に16頭を何度も個別再検索していた処理を止める。
+  // 通常は一括取得済みデータをそのまま評価し、「再取得」時だけ同じ一括APIを1回呼ぶ。
+  loadNetkeibaHistories=async function({silent=false,force=false}={}){
+   if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0,totalRuns:0}}
+   try{
+    if(force&&isNk(document.getElementById('raceUrl')?.value)){
+      if(!silent)status('histStatus','netkeibaを一括再取得中…');
+      const j=await bulkFetch(document.getElementById('raceUrl').value);
+      const map=new Map(j.horses.map(x=>[clean(x.netkeiba_horse_id||x.horse_id||x.name),x]));
+      horses=horses.map((h,i)=>{
+        const k=clean(h.netkeiba_horse_id||h.horse_id||h.name),x=map.get(k)||j.horses.find(y=>clean(y.name)===clean(h.name));
+        return normalizeHorse(x?{...h,...x}:h,i);
+      });
+      saveLater(horses);
+    }else horses=horses.map(normalizeHorse);
+
+    renderHorses();
+    try{evalAll()}catch(_){}
+    try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){}
+    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
+    const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
+    if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。');
+    fixCards();
+    return {ok,total:horses.length,totalRuns};
+   }catch(e){if(!silent)status('histStatus','netkeiba一括取得でエラー：'+(e.message||String(e)),true);return {ok:0,total:horses.length,totalRuns:0,error:e}}
+  };
+
+  function fixCards(){
    if(!isNk(document.getElementById('raceUrl')?.value))return;
-   try{if(typeof horses!=='undefined'&&Array.isArray(horses))horses.forEach(pedigree)}catch(e){}
-   document.querySelectorAll('.card').forEach(el=>{let s=el.innerHTML;s=s.replace(/単勝\s*([0-9.]+)倍\s*\/\s*(\d+)番人気/g,'予想単勝 $1倍 / 予想$2番人気').replace(/単勝\s*([0-9.]+)倍\s*\/\s*人気未確定/g,'予想単勝 $1倍 / 予想人気未確定');if(s!==el.innerHTML)el.innerHTML=s});
+   try{horses.forEach((h,i)=>normalizeHorse(h,i))}catch(_){}
+   const cards=[...document.querySelectorAll('#horses .card')];
+   cards.forEach(card=>{
+    const title=card.querySelector('.rank')?.textContent||'';
+    const h=horses.find(x=>title.includes(x.name));if(!h)return;
+    const smalls=card.querySelectorAll(':scope > .small');
+    if(smalls[0]){
+      const parts=[h.sex_age||'',h.jockey||'',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);
+      smalls[0].textContent=parts.join('　');
+    }
+   });
+   // 枠前では「予想人気」を作らない。確定値が無いものは人気未確定。
+   document.querySelectorAll('#ranking .card').forEach(el=>{
+    let s=el.innerHTML;
+    s=s.replace(/予想単勝\s*([0-9.]+)倍\s*\/\s*予想\d+番人気/g,'単勝 $1倍 / 人気未確定')
+       .replace(/単勝\s*([0-9.]+)倍\s*\/\s*(\d+)番人気/g,'単勝 $1倍 / $2番人気');
+    if(s!==el.innerHTML)el.innerHTML=s;
+   });
   }
-  let t=0;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(relabel,60)}).observe(document.body,{subtree:true,childList:true});setTimeout(relabel,200);
+
+  let timer=0;
+  new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(fixCards,80)}).observe(document.body,{subtree:true,childList:true});
+  setTimeout(fixCards,200);
  };
  wait();
 })();
