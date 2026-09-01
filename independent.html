@@ -20,7 +20,7 @@
   let html=await r.text();
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
            .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
-  const tag='<scr'+'ipt src="./independent-patch.js?v=20260901-stable4"></scr'+'ipt>'+
+  const tag='<scr'+'ipt src="./independent-patch.js?v=20260901-stable5"></scr'+'ipt>'+
             '<scr'+'ipt src="./netkeiba-get-fix.js?v=20260901-get1"></scr'+'ipt>'+
             '<scr'+'ipt src="./forecast-odds-fix.js?v=20260901-forecast2"></scr'+'ipt>';
   html=html.replace('</body>',tag+'</body>');
