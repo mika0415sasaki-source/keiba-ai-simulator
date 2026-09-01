@@ -22,16 +22,10 @@
     if(!r)return null;
     const passage=Array.isArray(r.passage)?r.passage:String(r.corners||'').split('-').map(Number).filter(Number.isFinite);
     return {
-      date:r.date||'',
-      venue:r.venue||r.course||'',
-      surface:r.surface||'',
-      distance:+(r.distance??r.dist)||0,
-      going:r.going||'',
-      rank:+(r.rank??r.pos)||0,
+      date:r.date||'', venue:r.venue||r.course||'', surface:r.surface||'',
+      distance:+(r.distance??r.dist)||0, going:r.going||'', rank:+(r.rank??r.pos)||0,
       last3f:Number.isFinite(+(r.last3f??r.last3))?+(r.last3f??r.last3):null,
-      jockey:r.jockey||'',
-      passage,
-      field_size:+(r.field_size||0)||null,
+      jockey:r.jockey||'', passage, field_size:+(r.field_size||0)||null,
       source:r.source||'netkeiba-memory'
     };
   }
@@ -72,8 +66,6 @@
         const runs=mm.get(String(h.name).trim())?.runs||[];
         if(runs.length)applyHistoryToHorse(h,runs,'supabase-netkeiba-cache');
       }
-
-      // 保存済み履歴が無い馬だけnetkeibaへ取りに行く。既に正しい履歴がある馬は触らない。
       const missing=horses.filter(h=>!(h.history||[]).length);
       if(missing.length){
         try{
@@ -87,8 +79,6 @@
           }
         }catch(e){console.warn('netkeiba fallback',e)}
       }
-
-      // それでも空の馬だけ従来APIを使う。
       const stillMissing=horses.filter(h=>!(h.history||[]).length);
       if(stillMissing.length){
         try{
@@ -99,7 +89,6 @@
           }
         }catch(e){console.warn('legacy netkeiba route',e)}
       }
-
       renderHorses();evalAll();
       const ok=horses.filter(h=>(h.history||[]).length).length;
       const totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0);
@@ -114,6 +103,7 @@
       return {ok:horses.filter(h=>(h.history||[]).length).length,total:horses.length,error:e};
     }
   };
+
   mergedCareerStats=function(){
     const m=syncCareerRaceMapFromAudit();
     const rows=Object.values(m).filter(x=>x&&x.analyzed);
@@ -126,6 +116,72 @@
     const merged={analyses,verified,hits,rate:verified?hits/verified*100:0,updated_at:new Date().toISOString()};
     careerStatsSave(merged);return merged;
   };
+
+  // 枠順確定前の登録馬分析。独自分析だけで使用し、通常の出馬表取込は変更しない。
+  const PREENTRY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-preentry-import';
+  window.__preentryMode=false;
+  async function preentryImport(url){
+    const r=await fetch(PREENTRY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+    const j=await r.json().catch(()=>({error:'登録馬取込APIの応答を読み込めません'}));
+    if(!r.ok)throw new Error(j.error||'登録馬取込エラー');
+    return j;
+  }
+  function setupPreentryUI(){
+    const raceInput=document.getElementById('raceUrl');
+    const normalBtn=document.getElementById('importRace');
+    if(!raceInput||!normalBtn||document.getElementById('importPreentry'))return;
+    const btn=document.createElement('button');
+    btn.className='secondary';btn.type='button';btn.id='importPreentry';btn.textContent='枠前分析';
+    normalBtn.parentElement.appendChild(btn);
+    const note=document.createElement('div');
+    note.className='small';note.style.marginTop='8px';
+    note.innerHTML='枠順・馬番が未確定なら、JRAの登録馬ページURLを入れて「枠前分析」。枠確定後は通常の「出馬表取込」で上書きします。';
+    normalBtn.closest('.panel').insertBefore(note,document.getElementById('raceStatus'));
+    normalBtn.addEventListener('click',()=>{window.__preentryMode=false},true);
+    btn.addEventListener('click',async()=>{
+      const url=raceInput.value.trim();
+      if(!url){status('raceStatus','JRAの登録馬ページURLを入力してください。',true);return}
+      try{
+        status('raceStatus','枠前の登録馬を取得中…');
+        const j=await preentryImport(url);
+        window.__preentryMode=true;
+        raceMeta={...(j.meta||{}),preentry:true};
+        oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null};
+        lastBetPlan=null;actual=[];
+        horses=(j.horses||[]).map((h,i)=>({...h,no:i+1,provisional:true,history:[],histScores:null,jra_history:h.jra_history||[]}));
+        if(j.meta?.race_name)document.getElementById('raceName').value=j.meta.race_name;
+        if(j.meta?.venue)[...document.getElementById('venue').options].forEach(o=>o.selected=o.value===j.meta.venue);
+        if(j.meta?.surface)[...document.getElementById('surface').options].forEach(o=>o.selected=o.value===j.meta.surface);
+        if(j.meta?.distance){const d=String(j.meta.distance);[...document.getElementById('distance').options].forEach(o=>o.selected=o.value===d)}
+        await loadMemoryForHorses();
+        await loadNetkeibaHistories({silent:true,force:true});
+        renderPaceReason();evalAll();renderHorses();
+        const nkN=horses.filter(h=>(h.history||[]).length).length;
+        const runN=horses.reduce((n,h)=>n+(h.history||[]).length,0);
+        status('raceStatus','枠前分析：'+horses.length+'頭を取り込みました。<br>netkeiba '+nkN+'/'+horses.length+'頭・合計'+runN+'走<br>馬番・枠順・実オッズは未反映です。<br>枠確定後に通常の「出馬表取込」で正式データへ上書きします。');
+      }catch(e){status('raceStatus',e.message||String(e),true)}
+    });
+  }
+  const _generateTickets=generateTickets;
+  generateTickets=function(){
+    if(window.__preentryMode){
+      evalAll();
+      const box=document.getElementById('ticket');
+      if(box)box.innerHTML='<div class="card" style="margin-top:10px"><b class="good">枠前分析</b><div class="small" style="margin-top:8px">ランキング分析までは実行済みです。馬番・枠順・実オッズ未確定のため、買い目は枠確定後に生成します。</div></div>';
+      return [];
+    }
+    return _generateTickets();
+  };
+  const _savePredictionSnapshot=savePredictionSnapshot;
+  savePredictionSnapshot=async function(mode='AI分析'){
+    if(window.__preentryMode)return null;
+    return _savePredictionSnapshot(mode);
+  };
+  const _recordAnalysisAudit=recordAnalysisAudit;
+  recordAnalysisAudit=function(){if(window.__preentryMode)return;return _recordAnalysisAudit()};
+  const _recordResultAudit=recordResultAudit;
+  recordResultAudit=function(){if(window.__preentryMode)return false;return _recordResultAudit()};
+  setupPreentryUI();
   <\/script>`;
   html=html.replace('</body>',patch+'</body>');
   document.open();document.write(html);document.close();
