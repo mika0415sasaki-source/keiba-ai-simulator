@@ -30,17 +30,8 @@
       return j;
     };
 
-    const relabel=()=>{
-      if(!(window.__preentryMode||/netkeiba\.com/i.test(String(document.getElementById('raceUrl')?.value||''))))return;
-      document.querySelectorAll('#raceStatus,#evidence,#ranking,.card').forEach(el=>{
-        let s=el.innerHTML;
-        s=s.replace(/実オッズ\s*：\s*単勝/g,'予想オッズ：単勝')
-           .replace(/オッズ\s*：\s*単勝/g,'予想オッズ：単勝')
-           .replace(/単勝\s*([0-9.]+)倍\s*\/\s*(\d+)番人気/g,'予想単勝 $1倍 / 予想$2番人気');
-        if(s!==el.innerHTML)el.innerHTML=s;
-      });
-    };
-    new MutationObserver(()=>setTimeout(relabel,10)).observe(document.body,{subtree:true,childList:true});
+    // 表示ラベルの書き換えは independent-patch.js 側だけで行う。
+    // ここでも MutationObserver で書き換えると「予想予想予想…」が増殖するため禁止。
   };
   wait();
 })();
