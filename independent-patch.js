@@ -2,11 +2,15 @@
   const NETKEIBA_RACE_IMPORT='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-import';
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const NK_FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
+  const NK_HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
+  const NK_FORECAST_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-forecast-v2';
   const wait=()=>{
     if(typeof jraImport!=='function'||typeof loadNetkeibaHistories!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return;}
     if(window.__independentPatchApplied)return;
     window.__independentPatchApplied=true;
 
+    const n=v=>Number.isFinite(+v)?+v:null;
+    const cleanName=v=>String(v||'').trim();
     function memoryRunToHistory(r){
       if(!r)return null;
       const passage=Array.isArray(r.passage)?r.passage:String(r.corners||'').split('-').map(Number).filter(Number.isFinite);
@@ -16,14 +20,17 @@
       const s=String(document.getElementById('raceUrl')?.value||'');
       const ms=s.match(/20\d{6}/g)||[]; return ms.length?+ms[ms.length-1]:null;
     }
-    function applyHistoryToHorse(h,rows,via='memory'){
+    function normalizeHistory(rows){
       const cutoff=currentRaceDate();
-      const clean=(rows||[]).map(memoryRunToHistory).filter(Boolean).filter(x=>x.rank&&x.distance).filter(x=>{
+      return (rows||[]).map(memoryRunToHistory).filter(Boolean).filter(x=>x.rank&&x.distance).filter(x=>{
         if(!cutoff)return true; const m=String(x.date||'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/); if(!m)return true;
         return (+m[1]*10000+(+m[2])*100+(+m[3]))<cutoff;
       });
+    }
+    function applyHistoryToHorse(h,rows,via='memory'){
+      const all=[...(h.history||[]),...normalizeHistory(rows)];
       const uniq=[],seen=new Set();
-      for(const x of clean.sort((a,b)=>String(b.date).localeCompare(String(a.date)))){
+      for(const x of all.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))){
         const k=[x.date,x.venue,x.surface,x.distance,x.rank].join('|'); if(seen.has(k))continue; seen.add(k); uniq.push(x); if(uniq.length>=5)break;
       }
       if(!uniq.length)return false;
@@ -65,36 +72,81 @@
       if(!r.ok)throw new Error(j.error||'netkeiba再取得エラー');return j;
     };
 
+    async function exactHistoryPass(list){
+      if(!list.length)return;
+      const items=list.map(h=>({name:h.name,id:String(h.netkeiba_horse_id||h.horse_id||'').trim()}));
+      if(!items.some(x=>x.id))return;
+      try{
+        const r=await fetch(NK_HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({items})});
+        const j=await r.json().catch(()=>({results:[]}));
+        if(!r.ok)return;
+        for(const rr of j.results||[]){const h=horses.find(x=>cleanName(x.name)===cleanName(rr.name));if(h&&rr.available&&Array.isArray(rr.history)&&rr.history.length)applyHistoryToHorse(h,rr.history,'netkeiba-exact-id');}
+      }catch(e){console.warn('exact history',e)}
+    }
+
+    async function fallbackPass(list){
+      if(!list.length)return;
+      try{
+        const fb=await nkFallback(list.map(h=>h.name),document.getElementById('raceUrl').value);
+        for(const rr of fb.results||[]){const h=horses.find(x=>cleanName(x.name)===cleanName(rr.name));if(h&&rr.available&&Array.isArray(rr.history)&&rr.history.length){applyHistoryToHorse(h,rr.history,rr.via||'netkeiba-id');h.netkeibaUrl=rr.url||h.netkeibaUrl||null;}}
+      }catch(e){console.warn('fallback history',e)}
+    }
+
+    async function legacyPass(list){
+      if(!list.length)return;
+      try{
+        const j=await api('import_histories',{names:list.map(h=>h.name),race_url:document.getElementById('raceUrl').value,target:{venue:document.getElementById('venue').value,distance:+document.getElementById('distance').value,going:document.getElementById('going').value}});
+        for(const rr of j.results||[]){const h=horses.find(x=>cleanName(x.name)===cleanName(rr.name));if(h&&Array.isArray(rr.history)&&rr.history.length)applyHistoryToHorse(h,rr.history,rr.via||'legacy-name-search');}
+      }catch(e){console.warn('legacy history',e)}
+    }
+
     loadNetkeibaHistories=async function({silent=false,force=false}={}){
       if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0}}
       try{
-        if(!silent)status('histStatus','netkeiba過去5走を確認中…');
+        if(!silent)status('histStatus','netkeiba過去5走を全頭確認中…');
         let memRows=[];
         try{const mem=await memoryApi('horse_memory',{names:horses.map(h=>h.name)});memRows=mem.rows||[]}catch(e){console.warn(e)}
-        const mm=new Map(memRows.map(x=>[String(x.horse_name||'').trim(),x.memory_json||{}]));
-        for(const h of horses){const runs=mm.get(String(h.name).trim())?.runs||[];if(runs.length)applyHistoryToHorse(h,runs,'supabase-netkeiba-cache')}
-        let refresh=horses.filter(h=>force||preentry()||(h.history||[]).length<5);
-        if(refresh.length){
-          try{
-            const fb=await nkFallback(refresh.map(h=>h.name),document.getElementById('raceUrl').value);
-            for(const rr of fb.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&rr.available&&Array.isArray(rr.history)&&rr.history.length){applyHistoryToHorse(h,rr.history,rr.via||'netkeiba-id');h.netkeibaUrl=rr.url||null}}
-          }catch(e){console.warn(e)}
-        }
-        let missing=horses.filter(h=>!(h.history||[]).length);
-        if(missing.length){
-          try{const j=await api('import_histories',{names:missing.map(h=>h.name),race_url:document.getElementById('raceUrl').value,target:{venue:document.getElementById('venue').value,distance:+document.getElementById('distance').value,going:document.getElementById('going').value}});for(const rr of j.results||[]){const h=horses.find(x=>x.name===rr.name);if(h&&Array.isArray(rr.history)&&rr.history.length)applyHistoryToHorse(h,rr.history,rr.via||'legacy-name-search')}}catch(e){console.warn(e)}
-        }
+        const mm=new Map(memRows.map(x=>[cleanName(x.horse_name),x.memory_json||{}]));
+        for(const h of horses){const runs=mm.get(cleanName(h.name))?.runs||[];if(runs.length)applyHistoryToHorse(h,runs,'supabase-netkeiba-cache')}
+
+        let need=horses.filter(h=>force||(h.history||[]).length<5);
+        await exactHistoryPass(need);
+        need=horses.filter(h=>(h.history||[]).length<5);
+        await fallbackPass(need);
+        need=horses.filter(h=>(h.history||[]).length<5);
+        await exactHistoryPass(need);
+        need=horses.filter(h=>(h.history||[]).length<5);
+        await legacyPass(need);
+        need=horses.filter(h=>(h.history||[]).length<5);
+        if(need.length)await fallbackPass(need);
+
         if(preentry()){for(const h of horses){const s=inferStyle(h);if(s)h.style=s}}
         renderHorses();evalAll();if(typeof renderPaceReason==='function')renderPaceReason();scheduleFix();
         const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length,fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
         const hc=document.getElementById('histCount'); if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
-        if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。JRA照合で'+fills+'項目を補完。');
+        if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。'+(jraN?'JRA照合で'+fills+'項目を補完。':''));
+        try{await saveImportedHorses(horses)}catch(e){}
         return {ok,total:horses.length,totalRuns};
       }catch(e){if(!silent)status('histStatus','netkeiba取得処理でエラー：'+(e.message||String(e)),true);renderHorses();return {ok:0,total:horses.length,error:e}}
     };
 
     async function saveImportedHorses(list){
-      try{await fetch(MEMORY_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})})}catch(e){console.warn('save_horses',e)}
+      try{await fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})})}catch(e){console.warn('save_horses',e)}
+    }
+
+    async function refreshForecast(url,list){
+      for(const h of list){h.forecast_odds=null;h.forecast_popularity=null;h.popularity=null;h.odds=null;}
+      try{
+        const r=await fetch(NK_FORECAST_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url,names:list.map(h=>h.name)})});
+        const j=await r.json().catch(()=>({results:[]}));
+        if(!r.ok)throw new Error(j.error||'netkeiba予想オッズ取得エラー');
+        for(const rr of j.results||[]){
+          const h=list.find(x=>cleanName(x.name)===cleanName(rr.name));if(!h)continue;
+          const o=n(rr.odds),p=n(rr.popularity);
+          if(o!==null){h.forecast_odds=o;h.odds=o;}
+          if(p!==null){h.forecast_popularity=p;h.popularity=p;}
+        }
+      }catch(e){console.warn('forecast odds',e)}
     }
 
     const baseJraImport=jraImport;
@@ -102,17 +154,13 @@
       const s=String(url||'').trim();
       if(/netkeiba\.com/i.test(s)){
         const apiUrl=NETKEIBA_RACE_IMPORT+'?t='+Date.now();
-        const r=await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:s})});
+        const r=await fetch(apiUrl,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url:s})});
         const j=await r.json().catch(()=>({error:'netkeiba出馬表の応答を読み込めません'}));
         if(!r.ok)throw new Error(j.error||'netkeiba出馬表取込エラー');
         window.__preentryMode=true;
         try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(e){console.warn('clear preentry odds cache',e)}
-        j.horses=(j.horses||[]).map((h,i)=>{
-          const fo=Number.isFinite(+h.odds)?+h.odds:null;
-          return {...h,no:i+1,forecast_odds:fo,odds:fo,jra_history:[],provisional:true,provisional_no:true};
-        });
-        const withOdds=j.horses.filter(h=>Number.isFinite(+h.forecast_odds)).sort((a,b)=>a.forecast_odds-b.forecast_odds);
-        withOdds.forEach((h,idx)=>{h.forecast_popularity=idx+1;h.popularity=idx+1});
+        j.horses=(j.horses||[]).map((h,i)=>({...h,no:i+1,jra_history:[],provisional:true,provisional_no:true,forecast_odds:null,forecast_popularity:null,popularity:null,odds:null}));
+        await refreshForecast(s,j.horses);
         await saveImportedHorses(j.horses);
         j.meta={...(j.meta||{}),source:'netkeiba',provisional:true,odds_type:'forecast'}; scheduleFix(); return j;
       }
