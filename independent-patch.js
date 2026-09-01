@@ -42,13 +42,14 @@
       s=s.replace(/JRA実データ/g,'コース基礎データ');
       s=s.replace(/騎手相性\s*：\s*JRA前4走コンビ成績を反映/g,'騎手相性：netkeiba過去走の騎乗情報を参考');
       s=s.replace(/騎手\s*：\s*現騎手×当馬のJRA前4走コンビ成績を反映/g,'騎手：netkeiba過去走の騎乗情報を参考（JRA出馬表確定後に照合）');
+      s=s.replace(/実オッズ\s*：\s*単勝\s*\d+\/\d+頭\s*・\s*3連複\s*\d+点/g,'予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）');
       s=s.replace(/オッズ\s*：\s*単勝\s*\d+頭\s*・\s*ワイド\s*\d+点\s*・\s*3連複\s*\d+点反映/g,'オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）');
       s=s.replace(/単勝\s*([0-9.]+)倍\s*\/\s*(\d+)番人気/g,'予想単勝 $1倍 / 予想$2番人気');
       if(s!==el.innerHTML)el.innerHTML=s;
     }
     function fixPreentryLabels(){
       if(!preentry())return;
-      ['courseProfile','evidence','horses','ranking'].forEach(id=>replaceHtml(document.getElementById(id)));
+      ['courseProfile','evidence','horses','ranking','raceStatus'].forEach(id=>replaceHtml(document.getElementById(id)));
       document.querySelectorAll('.card').forEach(replaceHtml);
     }
     let fixTimer=0;
@@ -81,18 +82,25 @@
     };
 
     async function saveImportedHorses(list){
-      try{await fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({action:'save_horses',horses:list})})}catch(e){console.warn('save_horses',e)}
+      try{await fetch(MEMORY_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})})}catch(e){console.warn('save_horses',e)}
     }
 
     const baseJraImport=jraImport;
     jraImport=async function(url){
       const s=String(url||'').trim();
       if(/netkeiba\.com/i.test(s)){
-        const r=await fetch(NETKEIBA_RACE_IMPORT,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:s})});
+        const apiUrl=NETKEIBA_RACE_IMPORT+'?t='+Date.now();
+        const r=await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:s})});
         const j=await r.json().catch(()=>({error:'netkeiba出馬表の応答を読み込めません'}));
         if(!r.ok)throw new Error(j.error||'netkeiba出馬表取込エラー');
         window.__preentryMode=true;
-        j.horses=(j.horses||[]).map((h,i)=>({...h,no:i+1,odds:null,jra_history:[],provisional:true,provisional_no:true}));
+        try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(e){console.warn('clear preentry odds cache',e)}
+        j.horses=(j.horses||[]).map((h,i)=>{
+          const fo=Number.isFinite(+h.odds)?+h.odds:null;
+          return {...h,no:i+1,forecast_odds:fo,odds:fo,jra_history:[],provisional:true,provisional_no:true};
+        });
+        const withOdds=j.horses.filter(h=>Number.isFinite(+h.forecast_odds)).sort((a,b)=>a.forecast_odds-b.forecast_odds);
+        withOdds.forEach((h,idx)=>{h.forecast_popularity=idx+1;h.popularity=idx+1});
         await saveImportedHorses(j.horses);
         j.meta={...(j.meta||{}),source:'netkeiba',provisional:true,odds_type:'forecast'}; scheduleFix(); return j;
       }
