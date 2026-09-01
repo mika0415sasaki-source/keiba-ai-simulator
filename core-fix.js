@@ -4,12 +4,12 @@
   if(window.__coreFixApplied)return;
   window.__coreFixApplied=true;
 
-  const BULK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-newspaper-v2';
+  const HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const isNk=u=>/netkeiba\.com/i.test(String(u||''));
   const clean=v=>String(v??'').trim();
   const first=(...v)=>{for(const x of v){const s=clean(x);if(s&&s!=='-'&&s!=='—')return s}return ''};
-  const ridFrom=u=>(String(u||'').match(/race_id[=\/:_-]*(20\d{10})/i)||String(u||'').match(/\b(20\d{10})\b/)||[])[1]||'';
+  const validPed=v=>{const s=clean(v);return s&&!/^[-—]$/.test(s)&&!/母:父|父:|母父:\[|^\[|\]$/.test(s)?s:''};
 
   function normalizeHorse(h,i){
    if(!h)return h;
@@ -19,27 +19,53 @@
    h.name=clean(h.name);
    h.sex_age=first(h.sex_age,h.sexage,h.age);
    h.jockey=first(h.jockey,h.rider).replace(/^替/,'').replace(/\s+(5\d(?:\.\d)?|6[0-2](?:\.\d)?)$/,'').trim();
-   const cw=Number.isFinite(+h.carried_weight)?+h.carried_weight:(Number.isFinite(+h.weight)?+h.weight:null);
-   h.carried_weight=cw;h.weight=cw;
-   h.sire=first(h.sire,h.father,h.sire_name,h.father_name,p.sire,p.father,b.sire,b.father);
-   h.dam=first(h.dam,h.mother,h.dam_name,h.mother_name,p.dam,p.mother,b.dam,b.mother);
-   h.damsire=first(h.damsire,h.dam_sire,h.broodmare_sire,h.maternal_grandsire,h.damsire_name,p.damsire,p.dam_sire,p.broodmare_sire,b.damsire,b.dam_sire);
+
+   // netkeiba枠前の55.0等は馬体重ではなく斤量。馬体重は3桁だけを採用。
+   const rawWeight=Number.isFinite(+h.weight)?+h.weight:null;
+   const cw=Number.isFinite(+h.carried_weight)?+h.carried_weight:(rawWeight!==null&&rawWeight<100?rawWeight:null);
+   h.carried_weight=cw;
+   if(Number.isFinite(+h.body_weight)&&+h.body_weight>=300)h.body_weight=+h.body_weight;
+   else if(rawWeight!==null&&rawWeight>=300)h.body_weight=rawWeight;
+   else h.body_weight=null;
+
+   h.sire=validPed(first(h.sire,h.father,h.sire_name,h.father_name,p.sire,p.father,b.sire,b.father));
+   h.dam=validPed(first(h.dam,h.mother,h.dam_name,h.mother_name,p.dam,p.mother,b.dam,b.mother));
+   h.damsire=validPed(first(h.damsire,h.dam_sire,h.broodmare_sire,h.maternal_grandsire,h.damsire_name,p.damsire,p.dam_sire,p.broodmare_sire,b.damsire,b.dam_sire));
    h.history=Array.isArray(h.history)?h.history.slice(0,5):[];
+   if(!h.last_body_weight){const r=h.history.find(x=>Number.isFinite(+x.body_weight)&&+x.body_weight>=300);if(r)h.last_body_weight=+r.body_weight}
    if(h.history.length){h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;h.netkeibaRejected=false;h.netkeibaError='';try{mergeNetkeibaWithJra(h)}catch(_){} }
    return h;
   }
 
-  async function bulkFetch(url){
-   const rid=ridFrom(url);if(!rid)throw new Error('netkeibaのrace_idを取得できません');
-   const r=await fetch(BULK_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url,race_id:rid})});
-   const j=await r.json().catch(()=>({error:'netkeiba一括取得の応答を読めません'}));
-   if(!r.ok||!j.ok)throw new Error(j.error||'netkeiba一括取得エラー');
-   j.horses=(j.horses||[]).map(normalizeHorse);
-   j.meta={...(j.meta||{}),source:'netkeiba-bulk-v2',provisional:true};
-   return j;
-  }
-
   function saveLater(list){setTimeout(()=>fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})}).catch(()=>{}),0)}
+
+  async function fastHistory({silent=false}={}){
+   if(!horses.length)return {ok:0,total:0,totalRuns:0};
+   const items=horses.map(h=>({id:clean(h.netkeiba_horse_id||h.horse_id),name:h.name}));
+   if(!silent)status('histStatus','netkeiba過去5走・血統・脚質・馬体重を一括取得中…');
+   const r=await fetch(HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({items})});
+   const j=await r.json().catch(()=>({error:'過去5走APIの応答を読めません'}));
+   if(!r.ok)throw new Error(j.error||'過去5走取得エラー');
+   const byId=new Map((j.results||[]).map(x=>[clean(x.id),x]));
+   const byName=new Map((j.results||[]).map(x=>[clean(x.name),x]));
+   horses=horses.map((h,i)=>{
+    const x=byId.get(clean(h.netkeiba_horse_id||h.horse_id))||byName.get(clean(h.name));
+    if(!x)return normalizeHorse(h,i);
+    const z={...h};
+    if(Array.isArray(x.history)&&x.history.length)z.history=x.history.slice(0,5);
+    if(validPed(x.sire))z.sire=validPed(x.sire);
+    if(validPed(x.dam))z.dam=validPed(x.dam);
+    if(validPed(x.damsire))z.damsire=validPed(x.damsire);
+    if(['逃','先','差','追'].includes(x.style))z.style=x.style;
+    if(Number.isFinite(+x.last_body_weight)&&+x.last_body_weight>=300)z.last_body_weight=+x.last_body_weight;
+    return normalizeHorse(z,i);
+   });
+   renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){};fixCards();saveLater(horses);
+   const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
+   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
+   if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を取得。血統・脚質・前走馬体重も更新しました。');
+   return {ok,total:horses.length,totalRuns};
+  }
 
   const originalJraImport=jraImport;
   jraImport=async function(url){
@@ -47,40 +73,28 @@
    if(!isNk(s)){window.__preentryMode=false;return originalJraImport(url)}
    window.__preentryMode=true;
    try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
-   // 競馬新聞APIがnetkeiba側で404になっても、出馬表取込そのものは絶対に止めない。
-   // まず高速で安定している既存のnetkeiba-race-importを使い、競馬新聞は補助扱いにする。
    let base=await originalJraImport(s);
    if(base&&Array.isArray(base.horses))base.horses=base.horses.map(normalizeHorse);
-   // 補助取得はバックグラウンド。失敗しても画面・出馬表を壊さない。
-   setTimeout(async()=>{
-    try{
-      const extra=await bulkFetch(s);
-      if(!extra||!Array.isArray(extra.horses)||!extra.horses.length||!Array.isArray(horses)||!horses.length)return;
-      const mp=new Map(extra.horses.map(x=>[clean(x.netkeiba_horse_id||x.horse_id||x.name),x]));
-      horses=horses.map((h,i)=>{
-        const k=clean(h.netkeiba_horse_id||h.horse_id||h.name);
-        const x=mp.get(k)||extra.horses.find(y=>clean(y.name)===clean(h.name));
-        return normalizeHorse(x?{...h,...x}:h,i);
-      });
-      renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){};fixCards();saveLater(horses);
-    }catch(e){console.warn('optional netkeiba newspaper enrichment skipped',e)}
-   },0);
+   // 出馬表は即返す。全頭過去5走は画面表示後に1回だけ並列取得。
+   setTimeout(()=>fastHistory({silent:true}).catch(e=>console.warn('background history',e)),180);
    return base;
   };
 
-  // 自動読込では重い個別再検索をしない。既に取れた過去走だけ即表示する。
-  const originalLoadNetkeibaHistories=loadNetkeibaHistories;
   loadNetkeibaHistories=async function({silent=false,force=false}={}){
    if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0,totalRuns:0}}
-   if(force&&isNk(document.getElementById('raceUrl')?.value)){
-    // 手動の「再取得」だけ従来の補完処理を許可する。
-    try{return await originalLoadNetkeibaHistories({silent,force:true})}catch(e){if(!silent)status('histStatus','再取得に失敗：'+(e.message||String(e)),true)}
+   if(isNk(document.getElementById('raceUrl')?.value)){
+    try{return await fastHistory({silent})}catch(e){if(!silent)status('histStatus','過去5走取得エラー：'+(e.message||String(e)),true);return {ok:0,total:horses.length,totalRuns:0,error:e}}
    }
-   horses=horses.map(normalizeHorse);renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){}
-   const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
-   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
-   if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。');fixCards();return {ok,total:horses.length,totalRuns};
+   horses=horses.map(normalizeHorse);renderHorses();try{evalAll()}catch(_){};fixCards();
+   const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0);
+   return {ok,total:horses.length,totalRuns};
   };
+
+  function weightLabel(h){
+   const cur=Number.isFinite(+h.body_weight)&&+h.body_weight>=300?Math.round(+h.body_weight):null;
+   const prev=Number.isFinite(+h.last_body_weight)&&+h.last_body_weight>=300?Math.round(+h.last_body_weight):null;
+   return cur?`${cur}kg`:(prev?`前走${prev}kg`:'馬体重未発表');
+  }
 
   function fixCards(){
    if(!isNk(document.getElementById('raceUrl')?.value))return;
@@ -89,11 +103,30 @@
    cards.forEach(card=>{
     const title=card.querySelector('.rank')?.textContent||'';const h=horses.find(x=>title.includes(x.name));if(!h)return;
     const smalls=card.querySelectorAll(':scope > .small');
-    if(smalls[0]){const parts=[h.sex_age||'',h.jockey||'',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);smalls[0].textContent=parts.join('　')}
+    if(smalls[0]){
+      const ageWeight=[h.sex_age||'',weightLabel(h)].filter(Boolean).join(' / ');
+      const parts=[ageWeight,h.jockey||'',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);
+      smalls[0].textContent=parts.join('　');
+    }
+    // 脚質・血統の誤表示を正しい保持値で上書き。
+    if(smalls[1])smalls[1].textContent=`脚質推定：${h.style||'未取得'}　父：${h.sire||'未取得'}　母：${h.dam||'未取得'}　母父：${h.damsire||'未取得'}`;
    });
-   // 枠前で人気順位がソースに無い場合は数値を作らない。
    document.querySelectorAll('#ranking .card').forEach(el=>{let s=el.innerHTML;s=s.replace(/予想単勝\s*([0-9.]+)倍\s*\/\s*予想\d+番人気/g,'予想単勝 $1倍 / 人気未確定');if(s!==el.innerHTML)el.innerHTML=s});
   }
+
+  // 馬体重は分析用データとして保持。発表後は前走との差も条件評価で参照できる形にする。
+  function attachWeightAnalysis(){
+   horses.forEach(h=>{
+    const cur=Number.isFinite(+h.body_weight)&&+h.body_weight>=300?+h.body_weight:null;
+    const prev=Number.isFinite(+h.last_body_weight)&&+h.last_body_weight>=300?+h.last_body_weight:null;
+    h.previous_body_weight=prev;
+    h.body_weight_change=cur&&prev?cur-prev:null;
+    h.weight_condition=cur&&prev?Math.abs(cur-prev)/prev:null;
+   });
+  }
+  const baseEval=typeof evalAll==='function'?evalAll:null;
+  if(baseEval){evalAll=function(){attachWeightAnalysis();return baseEval.apply(this,arguments)}}
+
   let timer=0;new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(fixCards,80)}).observe(document.body,{subtree:true,childList:true});setTimeout(fixCards,200);
  };
  wait();
