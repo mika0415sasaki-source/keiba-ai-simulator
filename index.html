@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KEIBA AI Simulator v237</title>
+<title>KEIBA AI Simulator v238</title>
 <meta name="theme-color" content="#161b22">
 <style>
 html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
@@ -12,8 +12,8 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI Simulator v237 を読み込み中…</div>
-<iframe id="app" src="./v234-live.html?v=234stable237"></iframe>
+<div id="boot">KEIBA AI Simulator v238 を読み込み中…</div>
+<iframe id="app" src="./v234-live.html?v=234stable238"></iframe>
 <script>
 (function(){
   'use strict';
@@ -24,14 +24,15 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
 
   function renameVersion(d,w){
     try{
-      d.title='KEIBA AI Simulator v237';
+      d.title='KEIBA AI Simulator v238';
       const walker=d.createTreeWalker(d.body,w.NodeFilter.SHOW_TEXT);
       let n;
       while((n=walker.nextNode())){
         const s=String(n.nodeValue||'');
-        if(s.includes('KEIBA AI Simulator v196'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v237');
-        if(s.includes('KEIBA AI Simulator v234'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v234','KEIBA AI Simulator v237');
-        if(s.includes('KEIBA AI Simulator v236'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v236','KEIBA AI Simulator v237');
+        if(s.includes('KEIBA AI Simulator v196'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v196','KEIBA AI Simulator v238');
+        if(s.includes('KEIBA AI Simulator v234'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v234','KEIBA AI Simulator v238');
+        if(s.includes('KEIBA AI Simulator v236'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v236','KEIBA AI Simulator v238');
+        if(s.includes('KEIBA AI Simulator v237'))n.nodeValue=s.replaceAll('KEIBA AI Simulator v237','KEIBA AI Simulator v238');
       }
     }catch(e){}
   }
@@ -60,11 +61,12 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       ready=true;
       if(boot)boot.style.display='none';
 
-      await loadScript(d,'./remote-storage-v216.js?v=237');
-      await loadScript(d,'./runtime-v224.js?v=237');
-      await loadScript(d,'./learning-stats-v223.js?v=237');
-      await loadScript(d,'./prediction-tracker-v237.js?v=237');
-      await loadScript(d,'./simulation-going-label-v236.js?v=237');
+      await loadScript(d,'./remote-storage-v216.js?v=238');
+      await loadScript(d,'./runtime-v224.js?v=238');
+      await loadScript(d,'./learning-stats-v223.js?v=238');
+      await loadScript(d,'./prediction-tracker-v237.js?v=238');
+      await loadScript(d,'./simulation-going-label-v236.js?v=238');
+      await loadScript(d,'./data-integrity-v238.js?v=238');
 
       renameVersion(d,w);
       return true;
@@ -81,7 +83,7 @@ html,body{margin:0;width:100%;height:100%;background:#0d1117;overflow:hidden}
       Promise.resolve(start()).then(function(ok){
         if(ok)return;
         if(tries<100)return setTimeout(tick,120);
-        if(!ready&&boot)boot.innerHTML='v237本体の起動を確認できませんでした。<br>Safariを再読み込みしてください。';
+        if(!ready&&boot)boot.innerHTML='v238本体の起動を確認できませんでした。<br>Safariを再読み込みしてください。';
       });
     }
     tick();
