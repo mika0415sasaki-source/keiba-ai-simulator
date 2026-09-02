@@ -46,6 +46,9 @@
       const s=String(value||'').toUpperCase()
         .replace(/Ｇ/g,'G').replace(/Ⅲ/g,'III').replace(/Ⅱ/g,'II').replace(/Ⅰ/g,'I')
         .replace(/３/g,'3').replace(/２/g,'2').replace(/１/g,'1').replace(/\s+/g,'');
+      if(/JPN3|JPNIII/.test(s))return 'G3';
+      if(/JPN2|JPNII(?!I)/.test(s))return 'G2';
+      if(/JPN1|JPNI(?!I)/.test(s))return 'G1';
       if(/(?:G1|GI)(?!I)/.test(s)||/Ｇ１/.test(s))return 'G1';
       if(/(?:G2|GII)(?!I)/.test(s)||/Ｇ２/.test(s))return 'G2';
       if(/(?:G3|GIII)/.test(s)||/Ｇ３/.test(s))return 'G3';
@@ -81,7 +84,7 @@
         ? row.passage.map(Number).filter(Number.isFinite)
         : String(row.corners||row.passage||'').split(/[-‐－→]/).map(Number).filter(Number.isFinite);
       const rawBody=[row.body_weight,row.horse_weight,row.bodyWeight,row.weight].map(Number).find(x=>Number.isFinite(x)&&x>=300&&x<=700);
-      const raceName=row.race_name||row.raceName||row.title||row.race||'';
+      const raceName=String(row.race_name||row.raceName||row.title||row.race||'').replace(/[\"']\)+$/,'').trim();
       const grade=normalizeGrade(row.grade||row.race_grade||row.class_name||row.race_class||row.class||raceName);
       const run={
         date:row.date||'',
@@ -124,7 +127,9 @@
       const seen=new Set();
       combined.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
       for(const run of combined){
-        const key=[run.date,run.venue,run.surface,run.distance,run.rank].join('|');
+        const dateDigits=String(run.date||'').replace(/\D/g,'');
+        const dateKey=dateDigits.length>=4?dateDigits.slice(-4):dateDigits;
+        const key=[dateKey,run.venue,run.surface,run.distance,run.rank].join('|');
         if(seen.has(key))continue;
         seen.add(key);
         unique.push(run);
