@@ -41,6 +41,25 @@
     const raceUrl=()=>String(document.getElementById('raceUrl')?.value||'');
     const isNetkeiba=()=>/netkeiba\.com/i.test(raceUrl());
 
+    function normalizeGrade(value){
+      const s=String(value||'').toUpperCase()
+        .replace(/Ｇ/g,'G').replace(/Ⅲ/g,'III').replace(/Ⅱ/g,'II').replace(/Ⅰ/g,'I')
+        .replace(/３/g,'3').replace(/２/g,'2').replace(/１/g,'1').replace(/\s+/g,'');
+      if(/(?:G1|GI)(?!I)/.test(s)||/Ｇ１/.test(s))return 'G1';
+      if(/(?:G2|GII)(?!I)/.test(s)||/Ｇ２/.test(s))return 'G2';
+      if(/(?:G3|GIII)/.test(s)||/Ｇ３/.test(s))return 'G3';
+      if(/(?:^|[^A-Z])L(?:$|[^A-Z])|リステッド/.test(s))return 'L';
+      if(/オープン|OPEN|OP|青函S|青函Ｓ/.test(s))return 'OP';
+      if(/3勝|３勝|会津S|会津Ｓ/.test(s))return '3勝';
+      if(/2勝|２勝/.test(s))return '2勝';
+      if(/1勝|１勝/.test(s))return '1勝';
+      if(/未勝利|新馬/.test(s))return '未勝利・新馬';
+      if(/ハンデ/.test(s))return '海外ハンデ';
+      return '';
+    }
+
+    const gradeBase=grade=>({G1:100,G2:92,G3:85,L:78,OP:74,'海外ハンデ':70,'3勝':67,'2勝':60,'1勝':54,'未勝利・新馬':48}[grade]||68);
+
     function showStatus(message,isError=false){
       if(typeof status==='function'){
         status('histStatus',message,isError);
@@ -60,6 +79,9 @@
       const passage=Array.isArray(row.passage)
         ? row.passage.map(Number).filter(Number.isFinite)
         : String(row.corners||row.passage||'').split(/[-‐－→]/).map(Number).filter(Number.isFinite);
+      const rawBody=[row.body_weight,row.horse_weight,row.bodyWeight,row.weight].map(Number).find(x=>Number.isFinite(x)&&x>=300&&x<=700);
+      const raceName=row.race_name||row.raceName||row.title||row.race||'';
+      const grade=normalizeGrade(row.grade||row.race_grade||row.class_name||row.race_class||row.class||raceName);
       const run={
         date:row.date||'',
         venue:row.venue||row.course||'',
@@ -70,7 +92,11 @@
         jockey:row.jockey||'',
         passage,
         field_size:+(row.field_size||row.fieldSize||0)||null,
-        body_weight:+(row.body_weight||0)||null,
+        body_weight:rawBody||null,
+        race_name:raceName,
+        grade,
+        popularity:+(row.popularity||row.popular||0)||null,
+        rating:+(row.rating||row.rt||0)||null,
         source:row.source||'netkeiba-history'
       };
       const last3f=validLast3f(row.last3f??row.last3);
@@ -101,6 +127,8 @@
       }
       if(!unique.length)return false;
       h.history=unique;
+      const latestBody=unique.find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
+      if(Number.isFinite(+latestBody))h.last_body_weight=Math.round(+latestBody);
       h.histScores=scoreLocalHistory(unique);
       h.histScores.available=true;
       h.netkeibaVia=via;
@@ -126,13 +154,53 @@
         {date:'2025/10/13',venue:'京都',surface:'芝',distance:1400,going:'良',rank:14,last3f:33.9,jockey:'岩田望来',passage:[14,13],field_size:18,body_weight:478,source:'JRA確認済み'}
       ],
       '2021107058':[
-        {date:'2026/08/02',venue:'新潟',surface:'芝',distance:1000,going:'良',rank:1,last3f:31.7,jockey:'田辺裕信',field_size:17,body_weight:460,source:'netkeiba確認済み'},
-        {date:'2026/06/13',venue:'函館',surface:'芝',distance:1200,going:'稍重',rank:1,last3f:34.0,jockey:'北村友一',passage:[1,1],field_size:12,body_weight:458,source:'netkeiba確認済み'},
-        {date:'2026/03/29',venue:'中京',surface:'芝',distance:1200,going:'良',rank:13,last3f:34.5,jockey:'北村友一',passage:[2,2],field_size:18,body_weight:456,source:'netkeiba確認済み'},
-        {date:'2026/02/28',venue:'中山',surface:'芝',distance:1200,going:'良',rank:16,last3f:36.3,jockey:'横山和生',passage:[1,1],field_size:16,body_weight:458,source:'netkeiba確認済み'},
-        {date:'2025/11/01',venue:'デルマー',surface:'芝',distance:1000,going:'良',rank:10,jockey:'マーフィ',field_size:16,source:'netkeiba確認済み'}
+        {date:'2026/08/02',venue:'新潟',surface:'芝',distance:1000,going:'良',rank:1,last3f:31.7,jockey:'田辺裕信',field_size:17,body_weight:460,race_name:'アイビスSD',grade:'G3',source:'netkeiba確認済み'},
+        {date:'2026/06/13',venue:'函館',surface:'芝',distance:1200,going:'稍重',rank:1,last3f:34.0,jockey:'北村友一',passage:[1,1],field_size:12,body_weight:458,race_name:'函館SS',grade:'G3',source:'netkeiba確認済み'},
+        {date:'2026/03/29',venue:'中京',surface:'芝',distance:1200,going:'良',rank:13,last3f:34.5,jockey:'北村友一',passage:[2,2],field_size:18,body_weight:456,race_name:'高松宮記念',grade:'G1',source:'netkeiba確認済み'},
+        {date:'2026/02/28',venue:'中山',surface:'芝',distance:1200,going:'良',rank:16,last3f:36.3,jockey:'横山和生',passage:[1,1],field_size:16,body_weight:458,race_name:'オーシャンS',grade:'G3',source:'netkeiba確認済み'},
+        {date:'2025/11/01',venue:'デルマー',surface:'芝',distance:1000,going:'良',rank:10,jockey:'マーフィ',field_size:16,race_name:'BCターフスプリント',grade:'G1',source:'netkeiba確認済み'}
+      ],
+      '2023105685':[
+        {date:'2026/05/10',venue:'東京',surface:'芝',distance:1600,going:'良',rank:5,last3f:34.8,jockey:'川田将雅',passage:[4,5],field_size:18,body_weight:480,popularity:3,rating:110,race_name:'NHKマイルC',grade:'G1',source:'JRA確認済み'},
+        {date:'2026/03/21',venue:'中京',surface:'芝',distance:1400,going:'良',rank:1,jockey:'川田将雅',field_size:17,body_weight:474,popularity:1,rating:111,race_name:'ファルコンS',grade:'G3',source:'JRA確認済み'},
+        {date:'2025/12/21',venue:'阪神',surface:'芝',distance:1600,going:'重',rank:2,jockey:'ルメール',field_size:14,body_weight:472,popularity:5,rating:114,race_name:'朝日杯FS',grade:'G1',source:'JRA確認済み'},
+        {date:'2025/11/08',venue:'東京',surface:'芝',distance:1400,going:'良',rank:1,jockey:'ルメール',field_size:16,body_weight:468,popularity:1,rating:111,race_name:'京王杯2歳S',grade:'G2',source:'JRA確認済み'},
+        {date:'2025/10/19',venue:'京都',surface:'芝',distance:1400,going:'良',rank:2,jockey:'川田将雅',field_size:7,body_weight:474,popularity:1,rating:105,race_name:'もみじS',grade:'L',source:'JRA確認済み'}
+      ],
+      '2019105496':[
+        {date:'2026/03/29',venue:'中京',surface:'芝',distance:1200,going:'良',rank:2,last3f:32.5,jockey:'酒井学',passage:[13,11],field_size:18,body_weight:500,popularity:15,rating:114,race_name:'高松宮記念',grade:'G1',source:'JRA確認済み'},
+        {date:'2026/02/10',venue:'東京',surface:'芝',distance:1600,going:'良',rank:8,last3f:32.9,jockey:'佐々木大輔',passage:[14,14],field_size:16,body_weight:518,popularity:10,rating:109,race_name:'東京新聞杯',grade:'G3',source:'JRA確認済み'},
+        {date:'2025/11/16',venue:'東京',surface:'芝',distance:1400,going:'良',rank:2,jockey:'酒井学',field_size:18,body_weight:510,popularity:3,rating:107,race_name:'オーロカップ',grade:'L',source:'JRA確認済み'},
+        {date:'2025/10/13',venue:'京都',surface:'芝',distance:1400,going:'良',rank:9,jockey:'酒井学',field_size:18,body_weight:512,popularity:15,rating:108,race_name:'MBSスワンS',grade:'G2',source:'JRA確認済み'},
+        {date:'2025/06/08',venue:'東京',surface:'芝',distance:1600,going:'良',rank:15,jockey:'M.ディー',field_size:18,body_weight:524,popularity:12,rating:105,race_name:'安田記念',grade:'G1',source:'JRA確認済み'}
+      ],
+      '000a02c324':[
+        {date:'2026/04/26',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:4,jockey:'J.マクドナルド',race_name:'チェアマンズスプリントプライズ',grade:'G1',source:'JRA-VAN World確認済み'},
+        {date:'2026/04/06',venue:'シャティン',surface:'芝',distance:1600,going:'良',rank:5,jockey:'Z.パートン',race_name:'チェアマンズトロフィー',grade:'G2',source:'JRA-VAN World確認済み'},
+        {date:'2026/03/08',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:1,jockey:'Z.パートン',race_name:'ハンデ戦',grade:'海外ハンデ',source:'JRA-VAN World確認済み'},
+        {date:'2026/01/25',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:3,jockey:'J.マクドナルド',race_name:'センテナリースプリントC',grade:'G1',source:'JRA-VAN World確認済み'},
+        {date:'2025/12/14',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:3,jockey:'J.マクドナルド',race_name:'香港スプリント',grade:'G1',source:'JRA-VAN World確認済み'}
       ]
     };
+
+    const CURRENT_LATEST_GRADES={
+      'カルプスペルシュ':['20260613','函館SS','G3'],'クラスペディア':['20260809','CBC賞','G3'],
+      'タマモイカロス':['20260809','CBC賞','G3'],'タマモブラックタイ':['20260809','CBC賞','G3'],
+      'ティニア':['20260627','青函S','OP'],'ビッグシーザー':['20260802','アイビスSD','G3'],
+      'フリッカージャブ':['20260705','北九州記念','G3'],'プロトポロス':['20260809','CBC賞','G3'],
+      'ママコチャ':['20260329','高松宮記念','G1'],'メイショウヨゾラ':['20260711','会津S','3勝'],
+      'ヤブサメ':['20260822','朱鷺S','L'],'ヨシノイースター':['20260705','北九州記念','G3']
+    };
+
+    function decorateKnownRaceGrades(){
+      for(const h of horses||[]){
+        const detail=CURRENT_LATEST_GRADES[clean(h.name)];
+        if(!detail)continue;
+        const [date,raceName,grade]=detail;
+        const run=(h.history||[]).find(r=>String(r.date||'').replace(/\D/g,'')===date)||(h.history||[])[0];
+        if(run){run.race_name=run.race_name||raceName;run.grade=run.grade||grade}
+      }
+    }
 
     function applyVerifiedHistories(){
       for(const h of horses||[]){
@@ -149,6 +217,7 @@
           applyHistory(h,rows,'JRA・netkeiba馬ID確認済み');
         }
       }
+      decorateKnownRaceGrades();
     }
 
     function responseHorseId(row){
@@ -203,6 +272,12 @@
 
     function clearPreentryOdds(list=horses||[]){
       if(!isNetkeiba())return;
+      // odds APIから実際の発売オッズを取得済みなら消さない。
+      // 出馬表に一時的に混ざる予想値だけを取込直後に除去する。
+      const currentId=(raceUrl().match(/race_id=(\d+)/)||[])[1]||'';
+      const cacheId=typeof oddsCache!=='undefined'?String(oddsCache?.race_id||''):'';
+      const liveCount=cacheId===currentId?Object.keys((typeof oddsCache!=='undefined'&&oddsCache?.win)||{}).length:0;
+      if(liveCount)return;
       for(const h of list){
         h.odds=null;
         h.popularity=null;
@@ -210,6 +285,13 @@
         h.forecast_popularity=null;
       }
       try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
+    }
+
+    function historyNeedsRefresh(h){
+      const rows=h?.history||[];
+      const bodies=rows.filter(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300).length;
+      const grades=rows.filter(run=>normalizeGrade(run.grade||run.race_name)).length;
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length);
     }
 
     function applyCurrentRoster(list=horses||[],url=raceUrl()){
@@ -257,16 +339,16 @@
       });
       document.querySelectorAll('#ranking .card .small').forEach(el=>{
         if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
-          el.textContent='予想オッズ 未発表 / 人気未確定 / オッズ評価なし';
+          if(!/AI予想|実オッズ/.test(el.textContent||''))el.textContent='実オッズ未発表 / AI予想を計算中';
         }
       });
       ['evidence','raceStatus'].forEach(id=>{
         const el=document.getElementById(id);
         if(!el)return;
         let s=el.innerHTML;
-        s=s.replace(/予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
-        s=s.replace(/オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
-        s=s.replace(/オッズ：単勝\s*0頭・ワイド\s*0点・3連複\s*0点反映/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
+        s=s.replace(/予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
+        s=s.replace(/オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
+        s=s.replace(/オッズ：単勝\s*0頭・ワイド\s*0点・3連複\s*0点反映/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
         if(s!==el.innerHTML)el.innerHTML=s;
       });
     }
@@ -278,6 +360,43 @@
     };
 
     const historyRecencyWeights=[1,.82,.68,.56,.46];
+
+    const courseGroups={
+      rightPower:['阪神','中山','京都','シャティン'],
+      leftPower:['東京','中京'],
+      compact:['札幌','函館','福島','小倉'],
+      flatWide:['新潟']
+    };
+    const courseGroup=venue=>Object.entries(courseGroups).find(([,venues])=>venues.includes(String(venue||'')))?.[0]||'';
+    function courseSimilarity(target,actual){
+      target=String(target||'');actual=String(actual||'');
+      if(!target||!actual)return 0;
+      if(target===actual)return 1;
+      const a=courseGroup(target),b=courseGroup(actual);
+      if(a&&a===b)return .68;
+      if((a==='rightPower'&&b==='compact')||(a==='compact'&&b==='rightPower'))return .48;
+      if((a==='rightPower'&&b==='leftPower')||(a==='leftPower'&&b==='rightPower'))return .42;
+      return .34;
+    }
+    window.__courseSimilarityV58=courseSimilarity;
+
+    function historyGradeFeature(rows){
+      const hist=normalizeHistory(rows||[]).slice(0,5);
+      let n=0,d=0,count=0;
+      hist.forEach((run,index)=>{
+        const grade=normalizeGrade(run.grade||run.race_name);
+        if(!grade)return;
+        const rank=+run.rank;
+        const field=Math.max(rank,+run.field_size||18,2);
+        const performance=Math.max(35,100-((rank-1)/Math.max(1,field-1))*65);
+        const rating=Number.isFinite(+run.rating)&&+run.rating>=70?Math.max(45,Math.min(100,(+run.rating-80)*1.65+50)):null;
+        const value=gradeBase(grade)*.68+performance*.22+(rating??gradeBase(grade))*.10;
+        const w=historyRecencyWeights[index]||.4;
+        n+=value*w;d+=w;count++;
+      });
+      return {score:+(d?n/d:68).toFixed(1),count,label:count?`${count}走を評価`:'格情報なし・中立'};
+    }
+    window.__historyGradeFeatureV58=historyGradeFeature;
     function expectedLast3f(run){
       const distance=+(run?.distance||document.getElementById('distance')?.value||1200);
       const surface=String(run?.surface||document.getElementById('surface')?.value||'芝');
@@ -319,6 +438,7 @@
       const targetDistance=+(document.getElementById('distance')?.value||0);
       const targetGoing=document.getElementById('going')?.value||'';
       let formN=0,formD=0,distN=0,distD=0,courseN=0,courseD=0,goingN=0,goingD=0,closingN=0,closingD=0;
+      let courseExact=0,courseSimilar=0;
       hist.forEach((run,index)=>{
         const weight=historyRecencyWeights[index]||.4;
         const rank=+run.rank;
@@ -328,8 +448,19 @@
           : null;
         if(performance!==null){
           formN+=performance*weight;formD+=weight;
-          if(Number.isFinite(+run.distance)&&Math.abs(+run.distance-targetDistance)<=200){distN+=performance*weight;distD+=weight}
-          if(run.venue&&run.venue===targetVenue){courseN+=performance*weight;courseD+=weight}
+          if(Number.isFinite(+run.distance)){
+            const proximity=Math.max(.15,1-Math.abs(+run.distance-targetDistance)/800);
+            distN+=performance*weight*proximity;distD+=weight*proximity;
+          }
+          if(run.venue&&(!run.surface||run.surface===(document.getElementById('surface')?.value||'芝'))){
+            const similarity=courseSimilarity(targetVenue,run.venue);
+            const distanceFit=Number.isFinite(+run.distance)?Math.max(.25,1-Math.abs(+run.distance-targetDistance)/800):.5;
+            if(similarity){
+              const courseWeight=weight*similarity*distanceFit;
+              courseN+=performance*courseWeight;courseD+=courseWeight;
+              if(similarity===1)courseExact++;else courseSimilar++;
+            }
+          }
           if(run.going&&run.going===targetGoing){goingN+=performance*weight;goingD+=weight}
         }
         const last3f=validLast3f(run.last3f);
@@ -342,6 +473,7 @@
       });
       const form=+(formD?formN/formD:65).toFixed(1);
       const closing=+(closingD?closingN/closingD:65).toFixed(1);
+      const grade=historyGradeFeature(hist);
       return {
         available:true,
         // 現在版の speed/last3f と旧描画の form/closing の両方へ同じ値を渡す。
@@ -350,10 +482,13 @@
         form,
         closing,
         distance:+(distD?distN/distD:70).toFixed(1),
-        course:+(courseD?courseN/courseD:70).toFixed(1),
+        course:+(courseD?courseN/courseD:65).toFixed(1),
         going:+(goingD?goingN/goingD:70).toFixed(1),
+        grade:grade.score,
+        gradeSamples:grade.count,
+        courseBasis:{exact:courseExact,similar:courseSimilar,label:`同競馬場${courseExact}走＋類似形状${courseSimilar}走`},
         samples:{form:+formD.toFixed(2),closing:+closingD.toFixed(2),distance:+distD.toFixed(2),course:+courseD.toFixed(2),going:+goingD.toFixed(2)},
-        source:'netkeiba距離別上がり補正'
+        source:'netkeiba距離別上がり・コース形状・レース格補正'
       };
     }
 
@@ -387,6 +522,61 @@
     }
     window.__bodyWeightFeatureV57=bodyWeightFeature;
 
+    function currentRaceActualOdds(h){
+      const direct=[h?.winOdds,h?.actual_odds,h?.odds].map(Number).find(x=>Number.isFinite(x)&&x>1);
+      return direct||null;
+    }
+
+    function addAnalysisEvidence(){
+      const evidence=document.getElementById('evidence');
+      if(evidence){
+        evidence.querySelector?.('[data-grade-odds-evidence]')?.remove();
+        const line=document.createElement('div');
+        line.dataset.gradeOddsEvidence='1';
+        line.textContent='追加評価：過去走のレース格 10% / 馬体重 6%。実オッズ未発表時はAI予想オッズ・予想人気を表示し、購入額と妙味判定には使いません。';
+        evidence.appendChild(line);
+      }
+      const profile=document.getElementById('courseProfile');
+      if(profile){
+        profile.querySelector?.('[data-course-basis]')?.remove();
+        const line=document.createElement('div');
+        line.dataset.courseBasis='1';
+        line.className='small';
+        line.style.marginTop='6px';
+        const venue=document.getElementById('venue')?.value||'';
+        const distance=document.getElementById('distance')?.value||'';
+        line.textContent=`コース指数の根拠：${venue}${distance}mの同競馬場実績を最優先し、同じ回り・直線形状・坂の近い競馬場と距離差を段階補正。着順を頭数で正規化し、直近ほど重く評価。`;
+        profile.appendChild(line);
+      }
+    }
+
+    function improveHorseHistoryPresentation(){
+      const cards=[...document.querySelectorAll('#horses .card')];
+      cards.forEach(card=>{
+        const title=card.querySelector('.rank')?.textContent||'';
+        const h=(horses||[]).find(x=>title.includes(x.name));
+        if(!h)return;
+        const runs=(h.histScores?.available?(h.history||[]):((h.jra_history||[]))).slice(0,5);
+        const histRows=[...card.querySelectorAll('.hist-row')];
+        histRows.forEach((row,index)=>{
+          const run=runs[index];
+          const spans=row.querySelectorAll('span');
+          if(!run||spans.length<3)return;
+          const grade=normalizeGrade(run.grade||run.race_name);
+          spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得'].join(' ');
+          if(run.race_name)spans[1].textContent=`${run.venue||'—'}・${run.race_name}`;
+        });
+        card.querySelector?.('[data-grade-summary]')?.remove();
+        const grade=historyGradeFeature(runs);
+        const summary=document.createElement('div');
+        summary.dataset.gradeSummary='1';
+        summary.className='metric';
+        summary.innerHTML=`<span>レース格</span><b>${grade.score.toFixed(1)}（${grade.label}）</b>`;
+        const hist=card.querySelector('.hist');
+        if(hist)card.insertBefore(summary,hist);else card.appendChild(summary);
+      });
+    }
+
     function bodyWeightEvidence(){
       const box=document.getElementById('evidence');
       if(!box||!(horses||[]).length)return;
@@ -405,39 +595,46 @@
       if(typeof evaluated==='undefined'||!Array.isArray(evaluated)||!evaluated.length)return;
       evaluated=evaluated.map(h=>{
         const body=bodyWeightFeature(h);
-        const score=Math.max(40,Math.min(99,(+h.score||65)*.94+body.score*.06));
-        const baseScore=Math.max(40,Math.min(99,(+h.baseScore||+h.score||65)*.94+body.score*.06));
-        return {...h,score,baseScore,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published};
+        const grade=historyGradeFeature((h.history||[]).length?h.history:h.jra_history||[]);
+        const score=Math.max(40,Math.min(99,(+h.score||65)*.84+grade.score*.10+body.score*.06));
+        const baseScore=Math.max(40,Math.min(99,(+h.baseScore||+h.score||65)*.84+grade.score*.10+body.score*.06));
+        return {...h,score,baseScore,gradeScore:grade.score,gradeLabel:grade.label,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published};
       }).sort((a,b)=>b.score-a.score);
       const ex=evaluated.map(h=>Math.exp((h.score-75)/7));
       const total=ex.reduce((sum,value)=>sum+value,0)||1;
       evaluated=evaluated.map((h,index)=>{
         const win=ex[index]/total*100;
         const place=Math.max(4,Math.min(88,win*2.35+(h.score-70)*.55));
-        return {...h,win,place};
+        return {...h,win,place,aiForecastOdds:+Math.max(1.1,80/Math.max(.75,win)).toFixed(1)};
       });
+      const forecastOrder=[...evaluated].sort((a,b)=>a.aiForecastOdds-b.aiForecastOdds);
+      const forecastPopularity=new Map(forecastOrder.map((h,index)=>[clean(h.name),index+1]));
+      evaluated=evaluated.map(h=>({...h,aiForecastPopularity:forecastPopularity.get(clean(h.name))||null}));
       const ranking=document.getElementById('ranking');
       if(ranking){
         ranking.innerHTML=evaluated.slice(0,6).map((h,index)=>{
-          const odds=Number.isFinite(+h.winOdds)&&+h.winOdds>0?`${(+h.winOdds).toFixed(1)}倍`:'未取得';
+          const actual=currentRaceActualOdds(h);
+          const odds=actual?`${actual.toFixed(1)}倍 / 実オッズ`:`${h.aiForecastOdds.toFixed(1)}倍 / AI予想${h.aiForecastPopularity}番人気 / 実オッズ未発表`;
           let popularity='';
-          try{const p=typeof winPopularityFor==='function'?winPopularityFor(h):null;if(p)popularity=` / ${p}番人気`}catch(_){}
+          if(actual){try{const p=typeof winPopularityFor==='function'?winPopularityFor(h):null;if(p)popularity=` / ${p}番人気`}catch(_){}}
           const value=h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
-          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${popularity}${value}</div></div>`;
+          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${popularity}${actual?value:''}</div></div>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
       if(rows){
         const table=rows.closest?.('table');
         const head=table?.querySelector('thead tr');
-        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>馬体重</th><th>距離</th><th>コース</th><th>1着率</th><th>3着内率</th>';
-        rows.innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join('');
+        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>AI予想オッズ</th><th>1着率</th><th>3着内率</th>';
+        rows.innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${h.aiForecastOdds.toFixed(1)}倍（${h.aiForecastPopularity}人気予想）</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join('');
       }
       bodyWeightEvidence();
+      addAnalysisEvidence();
+      improveHorseHistoryPresentation();
       const raceStatus=document.getElementById('raceStatus');
       if(raceStatus&&/最新オッズを取得してAI分析中/.test(raceStatus.textContent||'')){
-        raceStatus.innerHTML='<div class="status ok">AI分析が完了しました。馬体重と距離別の上がり補正を反映済みです。予想オッズ未発表の間はオッズ評価を除外します。</div>';
+        raceStatus.innerHTML='<div class="status ok">AI分析が完了しました。馬体重・距離別上がり・コース形状・過去走のレース格を反映済みです。実オッズ未発表中はAI予想オッズを表示します。</div>';
       }
     }
 
@@ -448,6 +645,7 @@
       applyCurrentRoster();
       clearPreentryOdds();
       const value=originalRenderHorses.apply(this,arguments);
+      improveHorseHistoryPresentation();
       scheduleOddsFix();
       return value;
     };
@@ -533,7 +731,7 @@
           applyVerifiedHistories();
           clearPreentryOdds();
 
-          const need=horses.filter(h=>force||(h.history||[]).length<5);
+          const need=horses.filter(h=>force||historyNeedsRefresh(h));
           let results=[];
           let fallbackError=null;
           try{
@@ -544,16 +742,18 @@
           }
           for(const row of results){
             const h=horses.find(x=>clean(x.name)===clean(row.name));
-            if(!h||!row.available||!Array.isArray(row.history)||!row.history.length)continue;
+            if(!h||!Array.isArray(row.history)||!row.history.length)continue;
             const expected=horseId(h);
             const received=responseHorseId(row);
-            if(expected&&received!==expected){
+            const trustedForeign=clean(h.name)==='ファストネットワーク'&&expected==='000a02c324'&&clean(row.name)===clean(h.name);
+            if(expected&&received!==expected&&!trustedForeign){
               rejected.push(h.name);
               h.netkeibaRejected=true;
               h.netkeibaError='同名の別馬を除外しました';
               continue;
             }
             applyHistory(h,row.history,row.via||'netkeiba過去走');
+            if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
           }
 
@@ -594,7 +794,7 @@
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      const incomplete=hasHorses&&horses.some(h=>(h.history||[]).length<5);
+      const incomplete=hasHorses&&horses.some(historyNeedsRefresh);
       if(hasHorses&&isNetkeiba()&&incomplete){
         loadNetkeibaHistories({silent:false}).catch(()=>{});
         return;
