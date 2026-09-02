@@ -83,6 +83,23 @@
       return true;
     }
 
+    const VERIFIED_HISTORY_BY_ID={
+      '2022102408':[
+        {date:'2026/05/31',venue:'京都',surface:'芝',distance:1400,going:'良',rank:15,last3f:33.0,jockey:'川又賢治',passage:[14,14],field_size:17,body_weight:468,source:'JRA確認済み'},
+        {date:'2026/04/26',venue:'福島',surface:'芝',distance:1200,going:'良',rank:10,last3f:33.1,jockey:'富田暁',passage:[15,15],field_size:16,body_weight:466,source:'JRA確認済み'},
+        {date:'2026/01/11',venue:'京都',surface:'芝',distance:1200,going:'良',rank:9,last3f:33.5,jockey:'岩田望来',passage:[13,13],field_size:16,body_weight:458,source:'JRA確認済み'},
+        {date:'2025/12/07',venue:'中山',surface:'芝',distance:1200,going:'良',rank:10,last3f:33.1,jockey:'木幡巧也',passage:[15,14],field_size:16,body_weight:464,source:'JRA確認済み'},
+        {date:'2025/10/13',venue:'京都',surface:'芝',distance:1400,going:'良',rank:14,last3f:33.9,jockey:'岩田望来',passage:[14,13],field_size:18,body_weight:478,source:'JRA確認済み'}
+      ]
+    };
+
+    function applyVerifiedHistories(){
+      for(const h of horses||[]){
+        const rows=VERIFIED_HISTORY_BY_ID[horseId(h)];
+        if(rows?.length)applyHistory(h,rows,'JRA・netkeiba馬ID確認済み');
+      }
+    }
+
     function responseHorseId(row){
       const direct=String(row?.netkeiba_horse_id||row?.horse_id||row?.id||'').trim();
       if(direct)return direct;
@@ -164,6 +181,7 @@
             const runs=byName.get(clean(h.name))?.runs||[];
             if(runs.length)applyHistory(h,runs,'保存済みnetkeiba過去走');
           }
+          applyVerifiedHistories();
 
           const need=horses.filter(h=>force||(h.history||[]).length<5);
           let results=[];
