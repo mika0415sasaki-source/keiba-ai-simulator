@@ -277,10 +277,156 @@
       oddsFixTimer=setTimeout(fixOddsPresentation,70);
     };
 
-    const originalScoreLocalHistory=scoreLocalHistory;
+    const historyRecencyWeights=[1,.82,.68,.56,.46];
+    function expectedLast3f(run){
+      const distance=+(run?.distance||document.getElementById('distance')?.value||1200);
+      const surface=String(run?.surface||document.getElementById('surface')?.value||'芝');
+      let base;
+      if(surface==='ダート'){
+        if(distance<=1000)base=36.0;
+        else if(distance<=1200)base=36.5;
+        else if(distance<=1400)base=37.0;
+        else if(distance<=1600)base=37.3;
+        else base=38.0+(Math.max(0,distance-1800)/400)*.35;
+      }else{
+        if(distance<=1000)base=32.8;
+        else if(distance<=1200)base=34.4;
+        else if(distance<=1400)base=34.6;
+        else if(distance<=1600)base=34.8;
+        else if(distance<=1800)base=35.0;
+        else base=35.1+(Math.max(0,distance-2000)/500)*.25;
+      }
+      const going=String(run?.going||'');
+      if(surface==='芝'){
+        if(going==='稍重')base+=.35;
+        else if(going==='重')base+=.75;
+        else if(going==='不良')base+=1.15;
+      }else{
+        if(going==='稍重')base-=.10;
+        else if(going==='重')base-=.20;
+      }
+      return base;
+    }
+
+    function scoreBalancedHistory(rows){
+      const hist=normalizeHistory(rows||[]).slice(0,5);
+      if(!hist.length)return null;
+      const targetVenue=document.getElementById('venue')?.value||'';
+      const targetDistance=+(document.getElementById('distance')?.value||0);
+      const targetGoing=document.getElementById('going')?.value||'';
+      let formN=0,formD=0,distN=0,distD=0,courseN=0,courseD=0,goingN=0,goingD=0,closingN=0,closingD=0;
+      hist.forEach((run,index)=>{
+        const weight=historyRecencyWeights[index]||.4;
+        const rank=+run.rank;
+        const field=Math.max(rank,+run.field_size||18,2);
+        const performance=Number.isFinite(rank)&&rank>0
+          ? Math.max(35,100-((rank-1)/Math.max(1,field-1))*65)
+          : null;
+        if(performance!==null){
+          formN+=performance*weight;formD+=weight;
+          if(Number.isFinite(+run.distance)&&Math.abs(+run.distance-targetDistance)<=200){distN+=performance*weight;distD+=weight}
+          if(run.venue&&run.venue===targetVenue){courseN+=performance*weight;courseD+=weight}
+          if(run.going&&run.going===targetGoing){goingN+=performance*weight;goingD+=weight}
+        }
+        const last3f=validLast3f(run.last3f);
+        if(last3f!==undefined){
+          // 距離・芝ダート・馬場別の標準値との差を点数化する。
+          // 短距離の33秒台を一律100点にせず、35～97点に分散させる。
+          const closing=Math.max(35,Math.min(97,75+(expectedLast3f(run)-last3f)*9.5));
+          closingN+=closing*weight;closingD+=weight;
+        }
+      });
+      return {
+        available:true,
+        form:+(formD?formN/formD:65).toFixed(1),
+        closing:+(closingD?closingN/closingD:65).toFixed(1),
+        distance:+(distD?distN/distD:70).toFixed(1),
+        course:+(courseD?courseN/courseD:70).toFixed(1),
+        going:+(goingD?goingN/goingD:70).toFixed(1),
+        samples:{form:+formD.toFixed(2),closing:+closingD.toFixed(2),distance:+distD.toFixed(2),course:+courseD.toFixed(2),going:+goingD.toFixed(2)},
+        source:'netkeiba距離別上がり補正'
+      };
+    }
+
     scoreLocalHistory=function(rows){
-      return originalScoreLocalHistory.call(this,normalizeHistory(rows||[]));
+      return scoreBalancedHistory(rows);
     };
+
+    function bodyWeightFeature(h){
+      const current=Number.isFinite(+h?.body_weight)&&+h.body_weight>=300?Math.round(+h.body_weight):null;
+      const historyWeight=(h?.history||[]).find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
+      const previous=Number.isFinite(+h?.last_body_weight)&&+h.last_body_weight>=300
+        ?Math.round(+h.last_body_weight)
+        :(Number.isFinite(+historyWeight)?Math.round(+historyWeight):null);
+      if(!current){
+        return {score:75,current:null,previous,change:null,published:false,label:previous?`未発表（前走${previous}kg・評価は中立）`:'未発表（評価は中立）'};
+      }
+      if(!previous){
+        return {score:75,current,previous:null,change:null,published:true,label:`${current}kg（前走比較なし・評価は中立）`};
+      }
+      const change=current-previous;
+      const rate=Math.abs(change)/previous*100;
+      let score=80;
+      if(rate>1.5)score=75;
+      if(rate>3)score=68;
+      if(rate>5)score=58;
+      // 大幅減は消耗の可能性を考えて同率の増加より少し慎重に扱う。
+      if(change<0&&rate>2)score-=3;
+      score=Math.max(50,Math.min(84,score));
+      const sign=change>0?'+':'';
+      return {score,current,previous,change,published:true,label:`${current}kg（${sign}${change}kg）`};
+    }
+    window.__bodyWeightFeatureV57=bodyWeightFeature;
+
+    function bodyWeightEvidence(){
+      const box=document.getElementById('evidence');
+      if(!box||!(horses||[]).length)return;
+      const current=(horses||[]).filter(h=>bodyWeightFeature(h).published).length;
+      const previous=(horses||[]).filter(h=>bodyWeightFeature(h).previous).length;
+      const old=box.querySelector?.('[data-body-weight-evidence]');
+      if(old)old.remove();
+      const line=document.createElement('div');
+      line.dataset.bodyWeightEvidence='1';
+      line.textContent=`馬体重：現在 ${current}/${horses.length}頭発表 / 前走体重 ${previous}/${horses.length}頭 / 総合指数6%（未発表は中立）`;
+      const detail=box.querySelector?.('.small');
+      if(detail)box.insertBefore(line,detail);else box.appendChild(line);
+    }
+
+    function rerenderBodyAwareRanking(){
+      if(typeof evaluated==='undefined'||!Array.isArray(evaluated)||!evaluated.length)return;
+      evaluated=evaluated.map(h=>{
+        const body=bodyWeightFeature(h);
+        const score=Math.max(40,Math.min(99,(+h.score||65)*.94+body.score*.06));
+        const baseScore=Math.max(40,Math.min(99,(+h.baseScore||+h.score||65)*.94+body.score*.06));
+        return {...h,score,baseScore,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published};
+      }).sort((a,b)=>b.score-a.score);
+      const ex=evaluated.map(h=>Math.exp((h.score-75)/7));
+      const total=ex.reduce((sum,value)=>sum+value,0)||1;
+      evaluated=evaluated.map((h,index)=>{
+        const win=ex[index]/total*100;
+        const place=Math.max(4,Math.min(88,win*2.35+(h.score-70)*.55));
+        return {...h,win,place};
+      });
+      const ranking=document.getElementById('ranking');
+      if(ranking){
+        ranking.innerHTML=evaluated.slice(0,6).map((h,index)=>{
+          const odds=Number.isFinite(+h.winOdds)&&+h.winOdds>0?`${(+h.winOdds).toFixed(1)}倍`:'未取得';
+          let popularity='';
+          try{const p=typeof winPopularityFor==='function'?winPopularityFor(h):null;if(p)popularity=` / ${p}番人気`}catch(_){}
+          const value=h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
+          const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
+          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${popularity}${value}</div></div>`;
+        }).join('');
+      }
+      const rows=document.getElementById('rows');
+      if(rows){
+        const table=rows.closest?.('table');
+        const head=table?.querySelector('thead tr');
+        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>馬体重</th><th>距離</th><th>コース</th><th>1着率</th><th>3着内率</th>';
+        rows.innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join('');
+      }
+      bodyWeightEvidence();
+    }
 
     const originalRenderHorses=renderHorses;
     renderHorses=function(){
@@ -334,6 +480,10 @@
         applyVerifiedHistories();
         applyCurrentRoster();
         clearPreentryOdds();
+        for(const h of horses||[]){
+          if((h.history||[]).length)h.histScores=scoreBalancedHistory(h.history);
+          else if((h.jra_history||[]).length)h.histScores=scoreBalancedHistory(h.jra_history);
+        }
         const usable=(horses||[]).filter(h=>(h.history||[]).length||(h.jra_history||[]).length).length;
         if((horses||[]).length&&usable===0){
           if(typeof evaluated!=='undefined')evaluated=[];
@@ -342,6 +492,7 @@
           return [];
         }
         const value=originalEvalAll.apply(this,arguments);
+        rerenderBodyAwareRanking();
         scheduleOddsFix();
         return value;
       };
