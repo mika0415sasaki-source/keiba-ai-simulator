@@ -12,6 +12,10 @@
 
     const clean=v=>String(v||'').replace(/[\s　]+/g,'').trim();
     const num=v=>Number.isFinite(+v)?+v:null;
+    const validLast3f=v=>{
+      const x=Number(v);
+      return Number.isFinite(x)&&x>=20&&x<=60?x:undefined;
+    };
     const horseId=h=>String(h?.netkeiba_horse_id||h?.horse_id||'').trim();
     const raceUrl=()=>String(document.getElementById('raceUrl')?.value||'');
     const isNetkeiba=()=>/netkeiba\.com/i.test(raceUrl());
@@ -35,20 +39,22 @@
       const passage=Array.isArray(row.passage)
         ? row.passage.map(Number).filter(Number.isFinite)
         : String(row.corners||row.passage||'').split(/[-‐－→]/).map(Number).filter(Number.isFinite);
-      return {
+      const run={
         date:row.date||'',
         venue:row.venue||row.course||'',
         surface:row.surface||'',
         distance:+(row.distance??row.dist)||0,
         going:row.going||'',
         rank:+(row.rank??row.pos)||0,
-        last3f:num(row.last3f??row.last3),
         jockey:row.jockey||'',
         passage,
         field_size:+(row.field_size||row.fieldSize||0)||null,
         body_weight:+(row.body_weight||0)||null,
         source:row.source||'netkeiba-history'
       };
+      const last3f=validLast3f(row.last3f??row.last3);
+      if(last3f!==undefined)run.last3f=last3f;
+      return run;
     }
 
     function normalizeHistory(rows){
@@ -61,7 +67,7 @@
     }
 
     function applyHistory(h,rows,via){
-      const combined=[...(h.history||[]),...normalizeHistory(rows)];
+      const combined=[...normalizeHistory(h.history||[]),...normalizeHistory(rows)];
       const unique=[];
       const seen=new Set();
       combined.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
@@ -95,6 +101,17 @@
 
     function applyVerifiedHistories(){
       for(const h of horses||[]){
+        if(horseId(h)==='2022106394'){
+          h.history=(h.history||[]).filter(run=>{
+            const date=String(run?.date||'').replace(/\D/g,'');
+            return date!=='20260613'&&date!=='0613';
+          });
+          applyHistory(h,[{
+            date:'2025/08/10',venue:'中京',surface:'芝',distance:1200,going:'良',rank:7,
+            last3f:33.2,jockey:'小崎綾也',passage:[6,7],field_size:18,body_weight:500,
+            source:'JRA・netkeiba確認済み'
+          }],'JRA・netkeiba馬ID確認済み');
+        }
         const rows=VERIFIED_HISTORY_BY_ID[horseId(h)];
         if(rows?.length)applyHistory(h,rows,'JRA・netkeiba馬ID確認済み');
       }
@@ -143,8 +160,80 @@
       }
     }
 
+    function sanitizeAllHistories(){
+      for(const h of horses||[]){
+        h.history=normalizeHistory(h.history||[]);
+        if(Array.isArray(h.jra_history))h.jra_history=normalizeHistory(h.jra_history);
+      }
+    }
+
+    function clearPreentryOdds(list=horses||[]){
+      if(!isNetkeiba())return;
+      for(const h of list){
+        h.odds=null;
+        h.popularity=null;
+        h.forecast_odds=null;
+        h.forecast_popularity=null;
+      }
+      try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
+    }
+
+    function fixOddsPresentation(){
+      if(!isNetkeiba())return;
+      document.querySelectorAll('#ranking .card .small').forEach(el=>{
+        if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
+          el.textContent='予想オッズ 未発表 / 人気未確定 / オッズ評価なし';
+        }
+      });
+      ['evidence','raceStatus'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(!el)return;
+        let s=el.innerHTML;
+        s=s.replace(/予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
+        s=s.replace(/オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
+        s=s.replace(/オッズ：単勝\s*0頭・ワイド\s*0点・3連複\s*0点反映/g,'netkeiba予想オッズ：現在未発表（ランキングへ未反映）');
+        if(s!==el.innerHTML)el.innerHTML=s;
+      });
+    }
+
+    let oddsFixTimer=0;
+    const scheduleOddsFix=()=>{
+      clearTimeout(oddsFixTimer);
+      oddsFixTimer=setTimeout(fixOddsPresentation,70);
+    };
+
+    const originalScoreLocalHistory=scoreLocalHistory;
+    scoreLocalHistory=function(rows){
+      return originalScoreLocalHistory.call(this,normalizeHistory(rows||[]));
+    };
+
+    const originalRenderHorses=renderHorses;
+    renderHorses=function(){
+      sanitizeAllHistories();
+      applyVerifiedHistories();
+      clearPreentryOdds();
+      const value=originalRenderHorses.apply(this,arguments);
+      scheduleOddsFix();
+      return value;
+    };
+
+    const originalJraImport=jraImport;
+    jraImport=async function(url){
+      const value=await originalJraImport.apply(this,arguments);
+      if(/netkeiba\.com/i.test(String(url||''))&&Array.isArray(value?.horses)){
+        clearPreentryOdds(value.horses);
+        value.meta={...(value.meta||{}),odds_type:'unpublished'};
+      }
+      scheduleOddsFix();
+      return value;
+    };
+
     const originalDataQuality=dataQuality;
     dataQuality=function(h){
+      if(h){
+        h.history=normalizeHistory(h.history||[]);
+        if(Array.isArray(h.jra_history))h.jra_history=normalizeHistory(h.jra_history);
+      }
       const hasRuns=(h?.history||[]).length||(h?.jra_history||[]).length;
       if(!hasRuns)return {score:0,label:'未取得',issues:[{date:'—',missing:['過去5走データ未取得']}],source:'未取得'};
       return originalDataQuality.apply(this,arguments);
@@ -153,6 +242,9 @@
     const originalEvalAll=typeof evalAll==='function'?evalAll:null;
     if(originalEvalAll){
       evalAll=function(){
+        sanitizeAllHistories();
+        applyVerifiedHistories();
+        clearPreentryOdds();
         const usable=(horses||[]).filter(h=>(h.history||[]).length||(h.jra_history||[]).length).length;
         if((horses||[]).length&&usable===0){
           if(typeof evaluated!=='undefined')evaluated=[];
@@ -160,9 +252,13 @@
           if(box)box.innerHTML='<div class="card"><b>分析を保留しています</b><div class="small" style="margin-top:8px">過去5走が0頭のため、仮の数値だけで順位を作らないよう停止しました。「過去5走を再取得」を押してください。</div></div>';
           return [];
         }
-        return originalEvalAll.apply(this,arguments);
+        const value=originalEvalAll.apply(this,arguments);
+        scheduleOddsFix();
+        return value;
       };
     }
+
+    new MutationObserver(scheduleOddsFix).observe(document.body,{subtree:true,childList:true});
 
     let loadingPromise=null;
     loadNetkeibaHistories=async function({silent=false,force=false}={}){
@@ -182,6 +278,7 @@
             if(runs.length)applyHistory(h,runs,'保存済みnetkeiba過去走');
           }
           applyVerifiedHistories();
+          clearPreentryOdds();
 
           const need=horses.filter(h=>force||(h.history||[]).length<5);
           let results=[];
@@ -206,6 +303,9 @@
             applyHistory(h,row.history,row.via||'netkeiba過去走');
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
           }
+
+          applyVerifiedHistories();
+          clearPreentryOdds();
 
           renderHorses();
           try{evalAll()}catch(error){console.warn('evaluation',error)}
