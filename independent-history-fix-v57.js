@@ -16,6 +16,26 @@
       const x=Number(v);
       return Number.isFinite(x)&&x>=20&&x<=60?x:undefined;
     };
+    const CURRENT_RACE_ID='202609040211';
+    const CURRENT_RACE_ROSTER=[
+      {name:'カルプスペルシュ',sex_age:'牝4',carried_weight:55,jockey:'西村淳'},
+      {name:'クラスペディア',sex_age:'牡4',carried_weight:57,jockey:'小崎'},
+      {name:'ダイヤモンドノット',sex_age:'牡3',carried_weight:55,jockey:'川田'},
+      {name:'タマモイカロス',sex_age:'牡3',carried_weight:55,jockey:'池添'},
+      {name:'タマモブラックタイ',sex_age:'牡6',carried_weight:57,jockey:'幸'},
+      {name:'ティニア',sex_age:'牡6',carried_weight:57,jockey:''},
+      {name:'ビッグシーザー',sex_age:'牡6',carried_weight:57,jockey:'Mデムーロ'},
+      {name:'ピューロマジック',sex_age:'牝5',carried_weight:55,jockey:'岩田望'},
+      {name:'ファストネットワーク',sex_age:'セ6',carried_weight:57,jockey:'レーン'},
+      {name:'フリッカージャブ',sex_age:'牡4',carried_weight:57,jockey:'松山'},
+      {name:'プロトポロス',sex_age:'牡6',carried_weight:57,jockey:'亀田'},
+      {name:'ママコチャ',sex_age:'牝7',carried_weight:56,jockey:'武豊'},
+      {name:'ムイ',sex_age:'牝4',carried_weight:55,jockey:''},
+      {name:'メイショウヨゾラ',sex_age:'牝5',carried_weight:55,jockey:'吉村'},
+      {name:'ヤブサメ',sex_age:'牡5',carried_weight:57,jockey:'田山'},
+      {name:'ヨシノイースター',sex_age:'牡8',carried_weight:57,jockey:'田辺'},
+      {name:'レッドモンレーヴ',sex_age:'牡7',carried_weight:57,jockey:'酒井'}
+    ];
     const horseId=h=>String(h?.netkeiba_horse_id||h?.horse_id||'').trim();
     const raceUrl=()=>String(document.getElementById('raceUrl')?.value||'');
     const isNetkeiba=()=>/netkeiba\.com/i.test(raceUrl());
@@ -180,6 +200,24 @@
       try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
     }
 
+    function applyCurrentRoster(list=horses||[],url=raceUrl()){
+      if(!String(url||'').includes(CURRENT_RACE_ID))return list;
+      const byName=new Map((list||[]).map(h=>[clean(h.name),h]));
+      CURRENT_RACE_ROSTER.forEach((row,index)=>{
+        const h=byName.get(clean(row.name));
+        if(!h)return;
+        h.no=index+1;
+        h.sex_age=row.sex_age;
+        h.weight=row.carried_weight;
+        h.carried_weight=row.carried_weight;
+        h.jockey=row.jockey;
+        h.rider=row.jockey;
+        h.provisional=true;
+        h.provisional_no=true;
+      });
+      return list;
+    }
+
     function fixOddsPresentation(){
       if(!isNetkeiba())return;
       document.querySelectorAll('#ranking .card .small').forEach(el=>{
@@ -213,6 +251,7 @@
     renderHorses=function(){
       sanitizeAllHistories();
       applyVerifiedHistories();
+      applyCurrentRoster();
       clearPreentryOdds();
       const value=originalRenderHorses.apply(this,arguments);
       scheduleOddsFix();
@@ -223,7 +262,7 @@
     jraImport=async function(url){
       const value=await originalJraImport.apply(this,arguments);
       if(/netkeiba\.com/i.test(String(url||''))&&Array.isArray(value?.horses)){
-        if(/202609040211/.test(String(url||''))&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
+        if(String(url||'').includes(CURRENT_RACE_ID)&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
           const insertAt=value.horses.findIndex(h=>clean(h.name)==='フリッカージャブ');
           value.horses.splice(insertAt>=0?insertAt:8,0,{
             no:9,name:'ファストネットワーク',sex_age:'セ6',weight:57,carried_weight:57,
@@ -234,6 +273,7 @@
           value.horses=value.horses.map((h,i)=>({...h,no:i+1,provisional:true,provisional_no:true}));
           value.meta={...(value.meta||{}),entry_count:17,entry_patch:'netkeiba外国馬補完'};
         }
+        applyCurrentRoster(value.horses,url);
         clearPreentryOdds(value.horses);
         value.meta={...(value.meta||{}),odds_type:'unpublished'};
       }
@@ -257,6 +297,7 @@
       evalAll=function(){
         sanitizeAllHistories();
         applyVerifiedHistories();
+        applyCurrentRoster();
         clearPreentryOdds();
         const usable=(horses||[]).filter(h=>(h.history||[]).length||(h.jra_history||[]).length).length;
         if((horses||[]).length&&usable===0){
