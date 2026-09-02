@@ -336,10 +336,15 @@
           closingN+=closing*weight;closingD+=weight;
         }
       });
+      const form=+(formD?formN/formD:65).toFixed(1);
+      const closing=+(closingD?closingN/closingD:65).toFixed(1);
       return {
         available:true,
-        form:+(formD?formN/formD:65).toFixed(1),
-        closing:+(closingD?closingN/closingD:65).toFixed(1),
+        // 現在版の speed/last3f と旧描画の form/closing の両方へ同じ値を渡す。
+        speed:form,
+        last3f:closing,
+        form,
+        closing,
         distance:+(distD?distN/distD:70).toFixed(1),
         course:+(courseD?courseN/courseD:70).toFixed(1),
         going:+(goingD?goingN/goingD:70).toFixed(1),
