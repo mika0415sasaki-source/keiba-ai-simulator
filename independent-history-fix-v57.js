@@ -115,7 +115,7 @@
       try{
         const response=await fetch(FALLBACK_API,{
           method:'POST',cache:'no-store',signal:controller.signal,
-          headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
+          headers:{'Content-Type':'application/json'},
           body:JSON.stringify({names,race_url:raceUrl(),horse_ids})
         });
         const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
@@ -129,7 +129,7 @@
     const originalDataQuality=dataQuality;
     dataQuality=function(h){
       const hasRuns=(h?.history||[]).length||(h?.jra_history||[]).length;
-      if(!hasRuns)return {score:0,label:'未取得',issues:['過去5走データを取得できていません']};
+      if(!hasRuns)return {score:0,label:'未取得',issues:[{date:'—',missing:['過去5走データ未取得']}],source:'未取得'};
       return originalDataQuality.apply(this,arguments);
     };
 
@@ -166,7 +166,14 @@
           }
 
           const need=horses.filter(h=>force||(h.history||[]).length<5);
-          const results=await fallbackRows(need);
+          let results=[];
+          let fallbackError=null;
+          try{
+            results=await fallbackRows(need);
+          }catch(firstError){
+            await new Promise(resolve=>setTimeout(resolve,1200));
+            try{results=await fallbackRows(need)}catch(secondError){fallbackError=secondError||firstError}
+          }
           for(const row of results){
             const h=horses.find(x=>clean(x.name)===clean(row.name));
             if(!h||!row.available||!Array.isArray(row.history)||!row.history.length)continue;
@@ -193,6 +200,7 @@
           if(count)count.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
           let message='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を取得しました。';
           if(rejected.length)message+=' 同名の別馬を除外：'+rejected.join('、')+'。';
+          if(fallbackError)message+=' 取得先への接続に失敗したため、保存済みデータだけを使用しています。';
           if(ok<horses.length)message+=' 未取得の馬は評価データなしとして表示します。';
           showStatus(message,ok===0);
 
