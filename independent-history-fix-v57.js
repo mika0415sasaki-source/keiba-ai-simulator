@@ -223,8 +223,8 @@
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      const hasRuns=hasHorses&&horses.some(h=>(h.history||[]).length);
-      if(hasHorses&&isNetkeiba()&&!hasRuns){
+      const incomplete=hasHorses&&horses.some(h=>(h.history||[]).length<5);
+      if(hasHorses&&isNetkeiba()&&incomplete){
         loadNetkeibaHistories({silent:false}).catch(()=>{});
         return;
       }
