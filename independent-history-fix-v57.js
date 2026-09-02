@@ -1,6 +1,7 @@
 (()=>{
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
+  const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
 
   const wait=()=>{
     if(!window.__coreFixApplied||typeof renderHorses!=='function'||typeof scoreLocalHistory!=='function'||typeof dataQuality!=='function'||!document.getElementById('raceUrl')){
@@ -253,20 +254,27 @@
 
     async function fallbackRows(list){
       if(!list.length)return [];
-      const names=list.map(h=>h.name);
-      const horse_ids={};
-      for(const h of list){const id=horseId(h);if(id)horse_ids[h.name]=id}
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),95000);
       try{
-        const response=await fetch(FALLBACK_API,{
-          method:'POST',cache:'no-store',signal:controller.signal,
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({names,race_url:raceUrl(),horse_ids})
-        });
+        const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
+        let exactResults=[];
+        if(exactItems.length){
+          const response=await fetch(HISTORY_V3_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({items:exactItems})});
+          const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
+          if(response.ok)exactResults=value.results||[];
+        }
+        const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
+        const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
+        if(!remaining.length)return exactResults;
+        const names=remaining.map(h=>h.name),horse_ids={};
+        for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
+        const response=await fetch(FALLBACK_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({names,race_url:raceUrl(),horse_ids})});
         const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
         if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
-        return value.results||[];
+        const byName=new Map(exactResults.map(x=>[clean(x.name),x]));
+        for(const row of value.results||[])if(!byName.get(clean(row.name))?.available)byName.set(clean(row.name),row);
+        return [...byName.values()];
       }finally{
         clearTimeout(timer);
       }
