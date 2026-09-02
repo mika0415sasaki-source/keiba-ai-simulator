@@ -435,6 +435,10 @@
         rows.innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join('');
       }
       bodyWeightEvidence();
+      const raceStatus=document.getElementById('raceStatus');
+      if(raceStatus&&/最新オッズを取得してAI分析中/.test(raceStatus.textContent||'')){
+        raceStatus.innerHTML='<div class="status ok">AI分析が完了しました。馬体重と距離別の上がり補正を反映済みです。予想オッズ未発表の間はオッズ評価を除外します。</div>';
+      }
     }
 
     const originalRenderHorses=renderHorses;
