@@ -21,7 +21,8 @@
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
            .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
   const tag='<scr'+'ipt src="./independent-patch.js?v=20260901-base7"></scr'+'ipt>'+
-            '<scr'+'ipt src="./core-fix.js?v=20260902-core6"></scr'+'ipt>'+\n            '<scr'+'ipt src="./independent-history-fix-v57.js?v=20260902-hist1"></scr'+'ipt>';
+            '<scr'+'ipt src="./core-fix.js?v=20260902-core6"></scr'+'ipt>'+
+            '<scr'+'ipt src="./independent-history-fix-v57.js?v=20260902-hist1"></scr'+'ipt>';
   html=html.replace('</body>',tag+'</body>');
   document.open();
   document.write(html);
