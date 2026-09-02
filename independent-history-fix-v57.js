@@ -2,6 +2,7 @@
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
   const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
+  const FORECAST_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-forecast-v2';
 
   const wait=()=>{
     if(!window.__coreFixApplied||typeof renderHorses!=='function'||typeof scoreLocalHistory!=='function'||typeof dataQuality!=='function'||!document.getElementById('raceUrl')){
@@ -331,6 +332,83 @@
       try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
     }
 
+    let forecastPromise=null;
+    let forecastMeta={status:'idle',raceKey:'',oddsType:'unavailable',count:0,officialDatetime:null,error:''};
+
+    function netkeibaMarketFor(h){
+      const base=(horses||[]).find(x=>clean(x.name)===clean(h?.name))||h||{};
+      const actualOdds=Number(base.netkeiba_actual_odds);
+      const actualPopularity=Number(base.netkeiba_actual_popularity);
+      if(Number.isFinite(actualOdds)&&actualOdds>1){
+        return {odds:actualOdds,popularity:Number.isFinite(actualPopularity)&&actualPopularity>0?actualPopularity:null,type:'actual'};
+      }
+      const forecastOdds=Number(base.netkeiba_forecast_odds);
+      const forecastPopularity=Number(base.netkeiba_forecast_popularity);
+      if(Number.isFinite(forecastOdds)&&forecastOdds>1){
+        return {odds:forecastOdds,popularity:Number.isFinite(forecastPopularity)&&forecastPopularity>0?forecastPopularity:null,type:'forecast'};
+      }
+      return null;
+    }
+
+    async function loadNetkeibaForecast(list=horses||[],url=raceUrl()){
+      const targetList=Array.isArray(list)?list:[];
+      const names=[...new Set(targetList.map(h=>String(h?.name||'').trim()).filter(Boolean))];
+      const raceId=(String(url||'').match(/race_id=(\d{12})/)||[])[1]||'';
+      const raceKey=raceId+'|'+names.map(clean).join('|');
+      if(!raceId||!names.length||!/netkeiba\.com/i.test(String(url||'')))return forecastMeta;
+      if(forecastMeta.status==='ready'&&forecastMeta.raceKey===raceKey&&forecastMeta.count===names.length)return forecastMeta;
+      if(forecastPromise&&forecastMeta.raceKey===raceKey)return forecastPromise;
+      forecastMeta={status:'loading',raceKey,oddsType:'unavailable',count:0,officialDatetime:null,error:''};
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),15000);
+      forecastPromise=(async()=>{
+        try{
+          const response=await fetch(FORECAST_API,{
+            method:'POST',cache:'no-store',signal:controller.signal,
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({url,names})
+          });
+          const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
+          if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
+          const oddsType=value.odds_type==='forecast'?'forecast':(/^(middle|result)$/.test(String(value.odds_status||''))?'actual':'unavailable');
+          const rows=Array.isArray(value.results)?value.results:[];
+          const globalList=typeof horses!=='undefined'&&Array.isArray(horses)?horses:[];
+          const targets=[...new Set([...targetList,...globalList])];
+          for(const target of targets){
+            const row=rows.find(x=>clean(x.name)===clean(target.name));
+            const odds=Number(row?.odds),popularity=Number(row?.popularity);
+            delete target.netkeiba_forecast_odds;
+            delete target.netkeiba_forecast_popularity;
+            delete target.netkeiba_actual_odds;
+            delete target.netkeiba_actual_popularity;
+            if(!(Number.isFinite(odds)&&odds>1))continue;
+            if(oddsType==='forecast'){
+              target.netkeiba_forecast_odds=odds;
+              target.netkeiba_forecast_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
+            }else if(oddsType==='actual'){
+              target.netkeiba_actual_odds=odds;
+              target.netkeiba_actual_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
+            }
+          }
+          const count=targets.filter(h=>netkeibaMarketFor(h)).length;
+          forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,error:''};
+          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
+          scheduleOddsFix();
+          return forecastMeta;
+        }catch(error){
+          forecastMeta={status:'error',raceKey,oddsType:'unavailable',count:0,officialDatetime:null,error:error?.name==='AbortError'?'時間切れ':String(error?.message||error)};
+          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
+          scheduleOddsFix();
+          return forecastMeta;
+        }finally{
+          clearTimeout(timer);
+          forecastPromise=null;
+        }
+      })();
+      return forecastPromise;
+    }
+    window.__loadNetkeibaForecastV59=loadNetkeibaForecast;
+
     function historyNeedsRefresh(h){
       const rows=h?.history||[];
       const bodies=rows.filter(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300).length;
@@ -392,16 +470,16 @@
       });
       document.querySelectorAll('#ranking .card .small').forEach(el=>{
         if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
-          if(!/AI予想|実オッズ/.test(el.textContent||''))el.textContent='実オッズ未発表 / AI予想を計算中';
+          if(!/netkeiba予想|実オッズ/.test(el.textContent||''))el.textContent='netkeiba予想オッズ取得中';
         }
       });
       ['evidence','raceStatus'].forEach(id=>{
         const el=document.getElementById(id);
         if(!el)return;
         let s=el.innerHTML;
-        s=s.replace(/予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
-        s=s.replace(/オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
-        s=s.replace(/オッズ：単勝\s*0頭・ワイド\s*0点・3連複\s*0点反映/g,'実オッズ未発表：AI予想オッズ・予想人気を表示（妙味判定には未使用）');
+        s=s.replace(/予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）/g,'netkeiba予想オッズ・人気を表示（AI指数と妙味判定には未使用）');
+        s=s.replace(/オッズ：netkeiba予想オッズを参考（JRA実オッズ未反映）/g,'netkeiba予想オッズ・人気を表示（AI指数と妙味判定には未使用）');
+        s=s.replace(/オッズ：単勝\s*0頭・ワイド\s*0点・3連複\s*0点反映/g,'netkeiba予想オッズ・人気を表示（AI指数と妙味判定には未使用）');
         if(s!==el.innerHTML)el.innerHTML=s;
       });
     }
@@ -576,6 +654,8 @@
     window.__bodyWeightFeatureV57=bodyWeightFeature;
 
     function currentRaceActualOdds(h){
+      const netkeiba=netkeibaMarketFor(h);
+      if(netkeiba?.type==='actual')return netkeiba.odds;
       if(!officialOddsCache())return null;
       const record=cachedWinRecord(h);
       let fromCache=null;
@@ -590,7 +670,8 @@
         evidence.querySelector?.('[data-grade-odds-evidence]')?.remove();
         const line=document.createElement('div');
         line.dataset.gradeOddsEvidence='1';
-        line.textContent='追加評価：過去走のレース格 10% / 馬体重 6%。実オッズ未発表時はAI予想オッズ・予想人気を表示し、購入額と妙味判定には使いません。';
+        const forecastCount=(horses||[]).filter(h=>netkeibaMarketFor(h)?.type==='forecast').length;
+        line.textContent=`追加評価：過去走のレース格 10% / 馬体重 6%。netkeiba予想オッズ・人気 ${forecastCount}/${horses.length}頭（表示のみ・AI指数と妙味判定には未使用）。`;
         evidence.appendChild(line);
       }
       const profile=document.getElementById('courseProfile');
@@ -662,36 +743,60 @@
       evaluated=evaluated.map((h,index)=>{
         const win=ex[index]/total*100;
         const place=Math.max(4,Math.min(88,win*2.35+(h.score-70)*.55));
-        return {...h,win,place,aiForecastOdds:+Math.max(1.1,80/Math.max(.75,win)).toFixed(1)};
+        return {...h,win,place};
       });
-      const forecastOrder=[...evaluated].sort((a,b)=>a.aiForecastOdds-b.aiForecastOdds);
-      const forecastPopularity=new Map(forecastOrder.map((h,index)=>[clean(h.name),index+1]));
-      evaluated=evaluated.map(h=>({...h,aiForecastPopularity:forecastPopularity.get(clean(h.name))||null}));
       const ranking=document.getElementById('ranking');
       if(ranking){
         ranking.innerHTML=evaluated.slice(0,6).map((h,index)=>{
+          const market=netkeibaMarketFor(h);
           const actual=currentRaceActualOdds(h);
-          const odds=actual?`${actual.toFixed(1)}倍 / 実オッズ`:`${h.aiForecastOdds.toFixed(1)}倍 / AI予想${h.aiForecastPopularity}番人気 / 実オッズ未発表`;
-          let popularity='';
-          if(actual){try{const p=typeof winPopularityFor==='function'?winPopularityFor(h):null;if(p)popularity=` / ${p}番人気`}catch(_){}}
-          const value=h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
+          let odds='netkeiba予想オッズ未取得';
+          if(actual){
+            const popularity=market?.type==='actual'&&market.popularity?` / ${market.popularity}番人気`:'';
+            odds=`${actual.toFixed(1)}倍 / 実オッズ${popularity}`;
+          }else if(market?.type==='forecast'){
+            const popularity=market.popularity?` / netkeiba予想${market.popularity}番人気`:'';
+            odds=`${market.odds.toFixed(1)}倍${popularity} / 実オッズ未発表`;
+          }else if(forecastMeta.status==='loading'){
+            odds='netkeiba予想オッズ取得中';
+          }
+          const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
-          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${popularity}${actual?value:''}</div></div>`;
+          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
       if(rows){
         const table=rows.closest?.('table');
         const head=table?.querySelector('thead tr');
-        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>AI予想オッズ</th><th>1着率</th><th>3着内率</th>';
-        rows.innerHTML=evaluated.map(h=>{const actual=currentRaceActualOdds(h);const odds=actual?`${actual.toFixed(1)}倍（実オッズ）`:`${h.aiForecastOdds.toFixed(1)}倍（AI予想${h.aiForecastPopularity}番人気）`;return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`}).join('');
+        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>単勝オッズ・人気</th><th>1着率</th><th>3着内率</th>';
+        rows.innerHTML=evaluated.map(h=>{
+          const market=netkeibaMarketFor(h);
+          const actual=currentRaceActualOdds(h);
+          let odds='netkeiba予想オッズ未取得';
+          if(actual){
+            const popularity=market?.type==='actual'&&market.popularity?`・${market.popularity}番人気`:'';
+            odds=`${actual.toFixed(1)}倍（実オッズ${popularity}）`;
+          }else if(market?.type==='forecast'){
+            const popularity=market.popularity?`・${market.popularity}番人気`:'';
+            odds=`${market.odds.toFixed(1)}倍（netkeiba予想${popularity}）`;
+          }else if(forecastMeta.status==='loading'){
+            odds='netkeiba予想オッズ取得中';
+          }
+          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
+        }).join('');
       }
       bodyWeightEvidence();
       addAnalysisEvidence();
       improveHorseHistoryPresentation();
       const raceStatus=document.getElementById('raceStatus');
       if(raceStatus&&/最新オッズを取得してAI分析中/.test(raceStatus.textContent||'')){
-        raceStatus.innerHTML='<div class="status ok">AI分析が完了しました。馬体重・距離別上がり・コース形状・過去走のレース格を反映済みです。実オッズ未発表中はAI予想オッズを表示します。</div>';
+        const oddsState=forecastMeta.status==='ready'
+          ?`netkeiba予想オッズ・人気 ${forecastMeta.count}/${horses.length}頭を表示しています。`
+          :forecastMeta.status==='loading'
+            ?'netkeiba予想オッズ・人気を取得中です。'
+            :'netkeiba予想オッズ・人気は未取得です。';
+        raceStatus.innerHTML=`<div class="status ok">AI分析が完了しました。馬体重・距離別上がり・コース形状・過去走のレース格を反映済みです。${oddsState}</div>`;
       }
     }
 
@@ -725,6 +830,7 @@
         applyCurrentRoster(value.horses,url);
         clearPreentryOdds(value.horses);
         value.meta={...(value.meta||{}),odds_type:'unpublished'};
+        setTimeout(()=>loadNetkeibaForecast(value.horses,url).catch(()=>{}),0);
       }
       scheduleOddsFix();
       return value;
@@ -749,6 +855,7 @@
         applyCurrentRoster();
         correctCourseMetadata();
         clearPreentryOdds();
+        if(forecastMeta.status==='idle')loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
         for(const h of horses||[]){
           if((h.history||[]).length)h.histScores=scoreBalancedHistory(h.history);
           else if((h.jra_history||[]).length)h.histScores=scoreBalancedHistory(h.jra_history);
