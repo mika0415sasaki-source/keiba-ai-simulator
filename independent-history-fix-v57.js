@@ -191,6 +191,14 @@
       'ママコチャ':['20260329','高松宮記念','G1'],'メイショウヨゾラ':['20260711','会津S','3勝'],
       'ヤブサメ':['20260822','朱鷺S','L'],'ヨシノイースター':['20260705','北九州記念','G3']
     };
+    const VERIFIED_HISTORY_ID_BY_NAME={
+      'クラスペディア':'2022106394',
+      'タマモイカロス':'2022102408',
+      'ダイヤモンドノット':'2023105685',
+      'ピューロマジック':'2021107058',
+      'ファストネットワーク':'000a02c324',
+      'レッドモンレーヴ':'2019105496'
+    };
 
     function decorateKnownRaceGrades(){
       for(const h of horses||[]){
@@ -204,13 +212,14 @@
 
     function applyVerifiedHistories(){
       for(const h of horses||[]){
-        if(horseId(h)==='2022106394'){
+        const verifiedId=VERIFIED_HISTORY_ID_BY_NAME[clean(h.name)]||horseId(h);
+        if(verifiedId==='2022106394'){
           h.history=(h.history||[]).filter(run=>{
             const date=String(run?.date||'').replace(/\D/g,'');
             return date!=='20260613'&&date!=='0613';
           });
         }
-        const rows=VERIFIED_HISTORY_BY_ID[horseId(h)];
+        const rows=VERIFIED_HISTORY_BY_ID[verifiedId];
         if(rows?.length){
           const dates=new Set(rows.map(run=>String(run.date||'').replace(/\D/g,'')));
           h.history=(h.history||[]).filter(run=>!dates.has(String(run?.date||'').replace(/\D/g,'')));
