@@ -260,7 +260,7 @@
     async function fallbackRows(list){
       if(!list.length)return [];
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),95000);
+      const timer=setTimeout(()=>controller.abort(),30000);
       try{
         const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
         let exactResults=[];
@@ -772,7 +772,7 @@
         return {ok:0,total:0,totalRuns:0};
       }
       loadingPromise=(async()=>{
-        if(!silent)showStatus('過去5走を取得中です。全頭確認に最大1分ほどかかります…');
+        if(!silent)showStatus('過去5走を取得中です。通常30秒以内で完了します…');
         const rejected=[];
         try{
           const rows=await memoryRows();
@@ -789,9 +789,8 @@
           let fallbackError=null;
           try{
             results=await fallbackRows(need);
-          }catch(firstError){
-            await new Promise(resolve=>setTimeout(resolve,1200));
-            try{results=await fallbackRows(need)}catch(secondError){fallbackError=secondError||firstError}
+          }catch(error){
+            fallbackError=error;
           }
           for(const row of results){
             const h=horses.find(x=>clean(x.name)===clean(row.name));
