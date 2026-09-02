@@ -279,6 +279,23 @@
       }
     }
 
+    function cachedWinRecord(h){
+      const no=String(+(h?.no||0));
+      const win=(typeof oddsCache!=='undefined'&&oddsCache?.win)||{};
+      if(win[no]!=null)return win[no];
+      if(Array.isArray(win))return win.find(x=>String(+(x?.no??x?.horse_no??x?.number))===no)||null;
+      return Object.entries(win).find(([key,value])=>String(+key)===no||(value&&typeof value==='object'&&String(+(value.no??value.horse_no??value.number))===no))?.[1]||null;
+    }
+
+    function officialOddsCache(){
+      if(typeof oddsCache==='undefined'||!oddsCache)return false;
+      const marketCount=Object.keys(oddsCache.wide||{}).length+Object.keys(oddsCache.trio||{}).length;
+      if(marketCount>0)return true;
+      const sources=[oddsCache.source,oddsCache.odds_type,...Object.values(oddsCache.win||{}).slice(0,4).map(x=>x&&typeof x==='object'?x.source:'')]
+        .filter(Boolean).join(' ');
+      return /(?:JRA|公式|実オッズ|ACTUAL|OFFICIAL)/i.test(sources)&&!/(?:予想|FORECAST)/i.test(sources);
+    }
+
     function clearPreentryOdds(list=horses||[]){
       if(!isNetkeiba())return;
       // odds APIから実際の発売オッズを取得済みなら消さない。
@@ -286,7 +303,7 @@
       const currentId=(raceUrl().match(/race_id=(\d+)/)||[])[1]||'';
       const cacheId=typeof oddsCache!=='undefined'?String(oddsCache?.race_id||''):'';
       const liveCount=cacheId===currentId?Object.keys((typeof oddsCache!=='undefined'&&oddsCache?.win)||{}).length:0;
-      if(liveCount)return;
+      if(liveCount&&officialOddsCache())return;
       for(const h of list){
         h.odds=null;
         h.popularity=null;
@@ -327,6 +344,15 @@
         h.provisional_no=true;
       });
       return list;
+    }
+
+    function correctCourseMetadata(){
+      const venue=document.getElementById('venue')?.value||'';
+      const turns={札幌:'右',函館:'右',福島:'右',新潟:'左',東京:'左',中山:'右',中京:'左',京都:'右',阪神:'右',小倉:'右'};
+      if(typeof raceMeta==='object'&&raceMeta&&turns[venue]){
+        raceMeta.turn=turns[venue];
+        if(raceUrl().includes(CURRENT_RACE_ID)&&venue==='阪神'&&+(document.getElementById('distance')?.value||0)===1200)raceMeta.course_layout='内';
+      }
     }
 
     function fixOddsPresentation(){
@@ -532,7 +558,11 @@
     window.__bodyWeightFeatureV57=bodyWeightFeature;
 
     function currentRaceActualOdds(h){
-      const direct=[h?.winOdds,h?.actual_odds,h?.odds].map(Number).find(x=>Number.isFinite(x)&&x>1);
+      if(!officialOddsCache())return null;
+      const record=cachedWinRecord(h);
+      let fromCache=null;
+      try{fromCache=typeof oddsNumber==='function'?oddsNumber(record):Number(record?.odds??record)}catch(_){}
+      const direct=[fromCache,h?.actual_odds,h?.winOdds,h?.odds].map(Number).find(x=>Number.isFinite(x)&&x>1);
       return direct||null;
     }
 
@@ -636,7 +666,7 @@
         const table=rows.closest?.('table');
         const head=table?.querySelector('thead tr');
         if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>AI予想オッズ</th><th>1着率</th><th>3着内率</th>';
-        rows.innerHTML=evaluated.map(h=>`<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${h.aiForecastOdds.toFixed(1)}倍（${h.aiForecastPopularity}人気予想）</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`).join('');
+        rows.innerHTML=evaluated.map(h=>{const actual=currentRaceActualOdds(h);const odds=actual?`${actual.toFixed(1)}倍（実オッズ）`:`${h.aiForecastOdds.toFixed(1)}倍（AI予想${h.aiForecastPopularity}番人気）`;return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`}).join('');
       }
       bodyWeightEvidence();
       addAnalysisEvidence();
@@ -699,6 +729,7 @@
         sanitizeAllHistories();
         applyVerifiedHistories();
         applyCurrentRoster();
+        correctCourseMetadata();
         clearPreentryOdds();
         for(const h of horses||[]){
           if((h.history||[]).length)h.histScores=scoreBalancedHistory(h.history);
