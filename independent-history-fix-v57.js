@@ -310,7 +310,11 @@
 
     function scoreBalancedHistory(rows){
       const hist=normalizeHistory(rows||[]).slice(0,5);
-      if(!hist.length)return null;
+      if(!hist.length)return {
+        available:false,speed:50,last3f:50,form:50,closing:50,
+        distance:50,course:50,going:50,
+        samples:{form:0,closing:0,distance:0,course:0,going:0},source:'未取得'
+      };
       const targetVenue=document.getElementById('venue')?.value||'';
       const targetDistance=+(document.getElementById('distance')?.value||0);
       const targetGoing=document.getElementById('going')?.value||'';
