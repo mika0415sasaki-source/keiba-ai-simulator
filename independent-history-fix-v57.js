@@ -90,6 +90,13 @@
     }
 
     const VERIFIED_HISTORY_BY_ID={
+      '2022106394':[
+        {date:'2026/08/09',venue:'中京',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.5,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
+        {date:'2026/04/12',venue:'中山',surface:'芝',distance:1200,going:'良',rank:1,last3f:33.9,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
+        {date:'2025/11/30',venue:'京都',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.8,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
+        {date:'2025/10/04',venue:'京都',surface:'芝',distance:1200,going:'重',rank:3,last3f:34.1,jockey:'藤岡佑介',source:'JRA・netkeiba確認済み'},
+        {date:'2025/08/10',venue:'中京',surface:'芝',distance:1200,going:'良',rank:7,last3f:33.2,jockey:'小崎綾也',passage:[6,7],field_size:18,body_weight:500,source:'JRA・netkeiba確認済み'}
+      ],
       '2022102408':[
         {date:'2026/05/31',venue:'京都',surface:'芝',distance:1400,going:'良',rank:15,last3f:33.0,jockey:'川又賢治',passage:[14,14],field_size:17,body_weight:468,source:'JRA確認済み'},
         {date:'2026/04/26',venue:'福島',surface:'芝',distance:1200,going:'良',rank:10,last3f:33.1,jockey:'富田暁',passage:[15,15],field_size:16,body_weight:466,source:'JRA確認済み'},
@@ -106,11 +113,6 @@
             const date=String(run?.date||'').replace(/\D/g,'');
             return date!=='20260613'&&date!=='0613';
           });
-          applyHistory(h,[{
-            date:'2025/08/10',venue:'中京',surface:'芝',distance:1200,going:'良',rank:7,
-            last3f:33.2,jockey:'小崎綾也',passage:[6,7],field_size:18,body_weight:500,
-            source:'JRA・netkeiba確認済み'
-          }],'JRA・netkeiba馬ID確認済み');
         }
         const rows=VERIFIED_HISTORY_BY_ID[horseId(h)];
         if(rows?.length)applyHistory(h,rows,'JRA・netkeiba馬ID確認済み');
@@ -221,6 +223,17 @@
     jraImport=async function(url){
       const value=await originalJraImport.apply(this,arguments);
       if(/netkeiba\.com/i.test(String(url||''))&&Array.isArray(value?.horses)){
+        if(/202609040211/.test(String(url||''))&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
+          const insertAt=value.horses.findIndex(h=>clean(h.name)==='フリッカージャブ');
+          value.horses.splice(insertAt>=0?insertAt:8,0,{
+            no:9,name:'ファストネットワーク',sex_age:'セ6',weight:57,carried_weight:57,
+            jockey:'レーン',trainer:'イプ',horse_id:'000a02c324',netkeiba_horse_id:'000a02c324',
+            horse_url:'https://db.netkeiba.com/horse/000a02c324/',history:[],jra_history:[],
+            sire:'',dam:'',damsire:'',provisional:true,provisional_no:true
+          });
+          value.horses=value.horses.map((h,i)=>({...h,no:i+1,provisional:true,provisional_no:true}));
+          value.meta={...(value.meta||{}),entry_count:17,entry_patch:'netkeiba外国馬補完'};
+        }
         clearPreentryOdds(value.horses);
         value.meta={...(value.meta||{}),odds_type:'unpublished'};
       }
