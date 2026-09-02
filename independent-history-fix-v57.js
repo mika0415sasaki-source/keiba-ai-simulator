@@ -112,11 +112,11 @@
 
     const VERIFIED_HISTORY_BY_ID={
       '2022106394':[
-        {date:'2026/08/09',venue:'中京',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.5,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
-        {date:'2026/04/12',venue:'中山',surface:'芝',distance:1200,going:'良',rank:1,last3f:33.9,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
-        {date:'2025/11/30',venue:'京都',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.8,jockey:'小崎綾也',source:'JRA・netkeiba確認済み'},
-        {date:'2025/10/04',venue:'京都',surface:'芝',distance:1200,going:'重',rank:3,last3f:34.1,jockey:'藤岡佑介',source:'JRA・netkeiba確認済み'},
-        {date:'2025/08/10',venue:'中京',surface:'芝',distance:1200,going:'良',rank:7,last3f:33.2,jockey:'小崎綾也',passage:[6,7],field_size:18,body_weight:500,source:'JRA・netkeiba確認済み'}
+        {date:'2026/08/09',venue:'中京',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.5,jockey:'小崎綾也',passage:[2,2],field_size:18,body_weight:518,source:'JRA・netkeiba確認済み'},
+        {date:'2026/04/12',venue:'中山',surface:'芝',distance:1200,going:'良',rank:1,last3f:33.9,jockey:'小崎綾也',passage:[2,1],field_size:16,body_weight:532,source:'JRA・netkeiba確認済み'},
+        {date:'2025/11/30',venue:'京都',surface:'芝',distance:1200,going:'良',rank:11,last3f:34.8,jockey:'小崎綾也',passage:[3,3],field_size:18,body_weight:514,source:'JRA・netkeiba確認済み'},
+        {date:'2025/10/04',venue:'京都',surface:'芝',distance:1200,going:'重',rank:3,last3f:34.1,jockey:'藤岡佑介',passage:[2,2],field_size:18,body_weight:510,source:'JRA・netkeiba確認済み'},
+        {date:'2025/08/10',venue:'中京',surface:'芝',distance:1200,going:'良',rank:7,last3f:33.2,jockey:'小崎綾也',passage:[6,7],field_size:17,body_weight:500,source:'JRA・netkeiba確認済み'}
       ],
       '2022102408':[
         {date:'2026/05/31',venue:'京都',surface:'芝',distance:1400,going:'良',rank:15,last3f:33.0,jockey:'川又賢治',passage:[14,14],field_size:17,body_weight:468,source:'JRA確認済み'},
