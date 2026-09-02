@@ -115,7 +115,11 @@
     }
 
     function applyHistory(h,rows,via){
-      const combined=[...normalizeHistory(h.history||[]),...normalizeHistory(rows)];
+      // Prefer freshly fetched rows when the same race already exists in cache.
+      // The new parser may contain fields (race name, grade, body weight) that an
+      // older saved row did not have, so keeping the old row first would silently
+      // discard the richer data during de-duplication.
+      const combined=[...normalizeHistory(rows),...normalizeHistory(h.history||[])];
       const unique=[];
       const seen=new Set();
       combined.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
@@ -138,6 +142,7 @@
       try{mergeNetkeibaWithJra(h)}catch(_){}
       return true;
     }
+    window.__applyHistoryV57=applyHistory;
 
     const VERIFIED_HISTORY_BY_ID={
       '2022106394':[
