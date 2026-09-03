@@ -28,6 +28,14 @@
         .ranking-card>summary::-webkit-details-marker{display:none}
         .ranking-card>summary .rank{min-width:0;margin:0}
         .ranking-card>summary .score{margin:0}
+        .ranking-summary-main{min-width:0}
+        .summary-market{
+          margin-top:4px;
+          color:#9fb1d2;
+          font-size:12px;
+          font-weight:500;
+          line-height:1.35;
+        }
         .ranking-card .accordion-chevron{
           color:#9fb1d2;
           font-size:15px;
@@ -44,6 +52,15 @@
           cursor:pointer;
         }
         .comparison-rank{color:#61dfa9;margin-right:6px}
+        .comparison-main{display:block;min-width:0}
+        .comparison-market{
+          display:block;
+          margin-top:4px;
+          color:#9fb1d2;
+          font-size:11px;
+          font-weight:500;
+          line-height:1.35;
+        }
         .comparison-chevron{display:none}
         @media (max-width:720px){
           .comparison-wrap{overflow:visible!important}
@@ -979,9 +996,14 @@
             odds='netkeiba予想オッズ取得中';
           }
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
+          const summaryMarket=actual
+            ?`単勝${actual.toFixed(1)}倍${market?.type==='actual'&&market.popularity?` ／ ${market.popularity}番人気`:''}`
+            :market?.type==='forecast'
+              ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
+              :'単勝オッズ未取得';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
           const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
-          return `<details class="card ranking-card"><summary aria-label="${index+1}位 ${h.name}の詳細を開く"><div class="rank">${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
+          return `<details class="card ranking-card"><summary aria-label="${index+1}位 ${h.name}の詳細を開く"><div class="ranking-summary-main"><div class="rank">${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="summary-market">${summaryMarket}</div></div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
@@ -1005,7 +1027,12 @@
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
-          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span><b class="comparison-rank">${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
+          const summaryMarket=actual
+            ?`単勝${actual.toFixed(1)}倍${market?.type==='actual'&&market.popularity?` ／ ${market.popularity}番人気`:''}`
+            :market?.type==='forecast'
+              ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
+              :'単勝オッズ未取得';
+          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span class="comparison-main"><span><b class="comparison-rank">${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-market">${summaryMarket}</span></span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
         rows.onclick=event=>{
           const button=event.target?.closest?.('.comparison-toggle');
