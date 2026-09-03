@@ -1,7 +1,8 @@
 (()=>{
-  if(window.__historyRefreshV245)return;
-  window.__historyRefreshV245=true;
+  if(window.__historyRefreshV246)return;
+  window.__historyRefreshV246=true;
 
+  const HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
   const domestic=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
   const clean=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
   const isDomesticVenue=v=>{
@@ -14,60 +15,43 @@
     return Number.isFinite(n)&&n>=20&&n<=60;
   };
   const explicitNonFinish=run=>{
-    const values=[
-      run?.status,run?.result_status,run?.finish_status,run?.rank_text,
-      run?.result,run?.remarks,run?.note,run?.race_name,run?.source
-    ].filter(v=>v!=null&&v!=='').map(v=>String(v).normalize('NFKC'));
+    const values=[run?.status,run?.result_status,run?.finish_status,run?.rank_text,run?.result,run?.remarks,run?.note,run?.race_name,run?.source]
+      .filter(v=>v!=null&&v!=='').map(v=>String(v).normalize('NFKC'));
     const text=values.join(' ');
-    return /出走取消|取消|競走除外|除外|競走中止|中止|失格/.test(text)
-      || values.some(v=>/^\s*取\s*$/.test(v));
+    return /出走取消|取消|競走除外|除外|競走中止|中止|失格/.test(text)||values.some(v=>/^\s*取\s*$/.test(v));
   };
   const shouldDrop=run=>{
     if(!run)return true;
     if(explicitNonFinish(run))return true;
-
     const venue=String(run?.venue||run?.course||'');
     const rank=Number(run?.rank??run?.pos);
     const passage=Array.isArray(run?.passage)
       ? run.passage.filter(x=>Number.isFinite(Number(x)))
       : String(run?.corners||'').split(/[-‐－→]/).filter(x=>/^\d+$/.test(x));
-
-    // JRA国内の完走馬には通常「上がり3F」か「通過順」の少なくとも一方が残る。
-    // 取消・除外行で列がずれ、馬番等が着順として誤読された場合は
-    // 「着順だけ数値・上がり無し・通過順無し」になるため、完走扱いしない。
-    if(isDomesticVenue(venue)&&Number.isFinite(rank)&&rank>0&&!validLast3f(run?.last3f??run?.last3)&&passage.length===0){
-      return true;
-    }
+    if(isDomesticVenue(venue)&&Number.isFinite(rank)&&rank>0&&!validLast3f(run?.last3f??run?.last3)&&passage.length===0)return true;
     return false;
-  };
-  const sanitize=(list)=>{
-    let removed=0;
-    for(const h of list||[]){
-      if(!h||!Array.isArray(h.history))continue;
-      const before=h.history.length;
-      h.history=h.history.filter(run=>!shouldDrop(run));
-      removed+=before-h.history.length;
-      if(typeof scoreLocalHistory==='function'&&h.history.length){
-        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
-      }
-    }
-    return removed;
   };
   const currentList=()=>{
     try{if(typeof horses!=='undefined'&&Array.isArray(horses))return horses;}catch(_){}
     return Array.isArray(window.horses)?window.horses:[];
   };
+  const horseId=h=>String(h?.netkeiba_horse_id||h?.horse_id||'').replace(/\D/g,'');
 
-  // 画面描画直前にも共通チェックを掛ける。
-  // 後から別API・保存メモリが古い誤データを戻しても表示させない。
+  const sanitize=(list)=>{
+    for(const h of list||[]){
+      if(!h||!Array.isArray(h.history))continue;
+      h.history=h.history.filter(run=>!shouldDrop(run)).slice(0,5);
+      if(typeof scoreLocalHistory==='function'&&h.history.length){
+        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+      }
+    }
+  };
+
   const wrapRender=()=>{
     try{
       if(typeof renderHorses!=='function'||renderHorses.__genericHistoryGuard)return false;
       const original=renderHorses;
-      const wrapped=function(...args){
-        sanitize(currentList());
-        return original.apply(this,args);
-      };
+      const wrapped=function(...args){sanitize(currentList());return original.apply(this,args);};
       wrapped.__genericHistoryGuard=true;
       wrapped.__original=original;
       renderHorses=wrapped;
@@ -76,6 +60,33 @@
     }catch(_){return false;}
   };
 
+  async function refillFromHistoryApi(list){
+    const items=(list||[]).map(h=>({name:h?.name,id:horseId(h)})).filter(x=>x.name&&/^\d{10}$/.test(x.id));
+    if(!items.length)return 0;
+    const response=await fetch(HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({items})});
+    const value=await response.json().catch(()=>({results:[]}));
+    if(!response.ok)throw new Error(value?.error||('HTTP '+response.status));
+    const rows=Array.isArray(value.results)?value.results:[];
+    let updated=0;
+    for(const h of list||[]){
+      const row=rows.find(x=>clean(x?.name)===clean(h?.name));
+      if(!row||!Array.isArray(row.history))continue;
+      const valid=row.history.filter(run=>!shouldDrop(run)).slice(0,5);
+      if(!valid.length)continue;
+      h.history=[];
+      if(typeof window.__applyHistoryV57==='function'){
+        try{window.__applyHistoryV57(h,valid,'netkeiba正常完走5走');}
+        catch(_){h.history=valid;}
+      }else h.history=valid;
+      h.history=(h.history||[]).filter(run=>!shouldDrop(run)).slice(0,5);
+      if(typeof scoreLocalHistory==='function'&&h.history.length){
+        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+      }
+      updated++;
+    }
+    return updated;
+  }
+
   const run=async()=>{
     try{
       const url=String(document.getElementById('raceUrl')?.value||'');
@@ -83,16 +94,12 @@
       const list=currentList();
       if(!list.length)return false;
       wrapRender();
-      if(typeof loadNetkeibaHistories==='function'){
-        // 旧キャッシュを捨てて現行取得処理から再構築。
-        for(const h of list){if(h&&Array.isArray(h.history))h.history=[];}
-        await loadNetkeibaHistories({silent:false,force:true}).catch(()=>{});
-      }
+      await refillFromHistoryApi(list).catch(e=>console.warn('history refill',e));
       sanitize(list);
       if(typeof renderHorses==='function')renderHorses();
       return true;
     }catch(e){
-      console.warn('history refresh v245',e);
+      console.warn('history refresh v246',e);
       return false;
     }
   };
@@ -101,20 +108,16 @@
   const tick=async()=>{
     tries++;
     wrapRender();
-    sanitize(currentList());
     if(await run())return;
     if(tries<30)setTimeout(tick,500);
   };
   setTimeout(tick,500);
 
-  // 読込直後に複数の非同期処理が走るため、短時間だけ共通ガードを再実行。
   let checks=0;
   const guard=setInterval(()=>{
     checks++;
     wrapRender();
-    const list=currentList();
-    const removed=sanitize(list);
-    if(removed&&typeof renderHorses==='function')renderHorses();
+    sanitize(currentList());
     if(checks>=20)clearInterval(guard);
   },1000);
 })();
