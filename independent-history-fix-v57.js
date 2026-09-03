@@ -12,6 +12,11 @@
     if(window.__independentHistoryFixV57)return;
     window.__independentHistoryFixV57=true;
 
+    // Keep the race-card roster authoritative.  The newspaper enrichment is
+    // useful for histories, but its pre-entry jockey column can be offset when
+    // the mobile page contains a duplicate horse-link list.
+    let importedRosterByName=new Map();
+
     function ensureResponsiveComparisonCss(){
       if(document.getElementById('comparison-mobile-style'))return;
       const style=document.createElement('style');
@@ -208,8 +213,20 @@
     }
 
     function raceDateNumber(){
-      const matches=raceUrl().match(/20\d{6}/g)||[];
-      return matches.length?+matches[matches.length-1]:null;
+      const values=[
+        typeof raceMeta==='object'&&raceMeta?.race_date,
+        typeof raceMeta==='object'&&raceMeta?.date,
+        typeof raceMeta==='object'&&raceMeta?.raceDate
+      ].filter(Boolean);
+      for(const value of values){
+        const m=String(value).match(/(20\d{2})[\/\.\-年](\d{1,2})[\/\.\-月](\d{1,2})/);
+        if(m)return +m[1]*10000+(+m[2])*100+(+m[3]);
+        const compact=String(value).replace(/\D/g,'');
+        if(/^20\d{6}$/.test(compact))return +compact;
+      }
+      // race_id は日付ではない（例: 202606040211 の 0604 は開催回・日）。
+      // 明示的な開催日が無い場合は切らず、取得先の最新5走をそのまま使う。
+      return null;
     }
 
     function normalizeRun(row){
@@ -444,14 +461,15 @@
       if(!remaining.length)return exactResults;
       const names=remaining.map(h=>h.name),horse_ids={};
       for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
-      const fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),horse_ids},18000);
+      const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
+      const fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),race_date,horse_ids},18000);
       const resolved=new Set(fallbackResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const retryHorses=remaining.filter(h=>!resolved.has(clean(h.name)));
       if(retryHorses.length){
         const retryNames=retryHorses.map(h=>h.name),retryIds={};
         for(const h of retryHorses){const id=horseId(h);if(id)retryIds[h.name]=id}
         try{
-          const retried=await postHistory(FALLBACK_API,{names:retryNames,race_url:raceUrl(),horse_ids:retryIds},7000);
+          const retried=await postHistory(FALLBACK_API,{names:retryNames,race_url:raceUrl(),race_date,horse_ids:retryIds},7000);
           const retryByName=new Map(retried.map(x=>[clean(x.name),x]));
           for(let i=0;i<fallbackResults.length;i++){
             if(!fallbackResults[i]?.available&&retryByName.get(clean(fallbackResults[i]?.name))?.available)fallbackResults[i]=retryByName.get(clean(fallbackResults[i].name));
@@ -507,6 +525,7 @@
     }
 
     let forecastPromise=null;
+    let forecastAutoRetryKey='';
     let forecastMeta={status:'idle',raceKey:'',oddsType:'unavailable',count:0,officialDatetime:null,error:''};
 
     function netkeibaMarketFor(h){
@@ -540,7 +559,7 @@
           let value=null;
           // netkeiba can briefly return an empty odds map while refreshing its
           // forecast. Retry once only; never loop or wait indefinitely.
-          for(let attempt=0;attempt<2;attempt++){
+          for(let attempt=0;attempt<3;attempt++){
             const response=await fetch(FORECAST_API,{
               method:'POST',cache:'no-store',signal:controller.signal,
               headers:{'Content-Type':'application/json'},
@@ -549,11 +568,13 @@
             value=await response.json().catch(()=>({error:'応答を読み取れません'}));
             if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
             const valid=(Array.isArray(value.results)?value.results:[]).filter(row=>Number.isFinite(+row?.odds)&&+row.odds>1).length;
-            if(valid===names.length||attempt===1)break;
-            await new Promise(resolve=>setTimeout(resolve,700));
+            if(valid===names.length||attempt===2)break;
+            await new Promise(resolve=>setTimeout(resolve,attempt===0?700:1600));
           }
           const oddsType=value.odds_type==='forecast'?'forecast':(/^(middle|result)$/.test(String(value.odds_status||''))?'actual':'unavailable');
           const rows=Array.isArray(value.results)?value.results:[];
+          const validRows=rows.filter(row=>Number.isFinite(+row?.odds)&&+row.odds>1);
+          if(!validRows.length)throw new Error('netkeiba予想オッズが一時的に空です');
           const globalList=typeof horses!=='undefined'&&Array.isArray(horses)?horses:[];
           const targets=[...new Set([...targetList,...globalList])];
           for(const target of targets){
@@ -577,11 +598,19 @@
           }
           const count=names.filter(name=>targets.some(h=>clean(h.name)===clean(name)&&netkeibaMarketFor(h))).length;
           forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,snapshotCount:Number(value.snapshot_count)||0,error:''};
+          forecastAutoRetryKey='';
           if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
           scheduleOddsFix();
           return forecastMeta;
         }catch(error){
           forecastMeta={status:'error',raceKey,oddsType:'unavailable',count:0,officialDatetime:null,error:error?.name==='AbortError'?'時間切れ':String(error?.message||error)};
+          if(forecastAutoRetryKey!==raceKey){
+            forecastAutoRetryKey=raceKey;
+            setTimeout(()=>{
+              const currentId=(raceUrl().match(/race_id=(\d{12})/)||[])[1]||'';
+              if(currentId===raceId)loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
+            },3000);
+          }
           if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
           scheduleOddsFix();
           return forecastMeta;
@@ -605,6 +634,30 @@
     }
 
     function applyCurrentRoster(list=horses||[],url=raceUrl()){
+      for(const h of list||[]){
+        const roster=importedRosterByName.get(clean(h.name));
+        if(!roster)continue;
+        if(roster.jockey){h.jockey=roster.jockey;h.rider=roster.jockey;}
+        if(roster.sex_age)h.sex_age=roster.sex_age;
+        if(Number.isFinite(+roster.carried_weight))h.carried_weight=+roster.carried_weight;
+      }
+      if(/netkeiba\.com/i.test(String(url||''))&&window.__preentryMode){
+        const date=raceDateNumber();
+        const year=date?Math.floor(date/10000):0;
+        const month=date?Math.floor(date/100)%100:0;
+        const day=date?date%100:0;
+        const releaseAt=date?Date.UTC(year,month-1,day,5,0,0):Infinity;
+        if(Date.now()<releaseAt){
+          for(const h of list||[]){
+            const imported=Number.isFinite(+h.body_weight)&&+h.body_weight>=300
+              ?Math.round(+h.body_weight)
+              :(Number.isFinite(+h.weight)&&+h.weight>=300?Math.round(+h.weight):null);
+            if(imported&&!h.last_body_weight)h.last_body_weight=imported;
+            h.body_weight=null;
+            if(Number.isFinite(+h.weight)&&+h.weight>=300)h.weight=null;
+          }
+        }
+      }
       if(!String(url||'').includes(CURRENT_RACE_ID))return list;
       const byName=new Map((list||[]).map(h=>[clean(h.name),h]));
       CURRENT_RACE_ROSTER.forEach((row,index)=>{
@@ -1072,6 +1125,11 @@
     jraImport=async function(url){
       const value=await originalJraImport.apply(this,arguments);
       if(/netkeiba\.com/i.test(String(url||''))&&Array.isArray(value?.horses)){
+        importedRosterByName=new Map(value.horses.map(h=>[clean(h.name),{
+          jockey:String(h.jockey||h.rider||'').trim(),
+          sex_age:String(h.sex_age||'').trim(),
+          carried_weight:Number.isFinite(+h.carried_weight)?+h.carried_weight:null
+        }]));
         if(String(url||'').includes(CURRENT_RACE_ID)&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
           const insertAt=value.horses.findIndex(h=>clean(h.name)==='フリッカージャブ');
           value.horses.splice(insertAt>=0?insertAt:8,0,{
