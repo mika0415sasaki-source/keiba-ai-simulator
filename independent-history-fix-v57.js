@@ -205,10 +205,11 @@
     };
     const VERIFIED_HISTORY_ID_BY_NAME={
       'クラスペディア':'2022106394',
-      'タマモイカロス':'2022102408',
+      'タマモイカロス':'2023103162',
       'ダイヤモンドノット':'2023105685',
       'ピューロマジック':'2021107058',
       'ファストネットワーク':'000a02c324',
+      'ムイ':'2022102408',
       'レッドモンレーヴ':'2019105496'
     };
 
@@ -265,30 +266,32 @@
 
     async function fallbackRows(list){
       if(!list.length)return [];
-      const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),30000);
-      try{
-        const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
-        let exactResults=[];
-        if(exactItems.length){
-          const response=await fetch(HISTORY_V3_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({items:exactItems})});
+      async function postHistory(url,body,timeoutMs){
+        const controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort(),timeoutMs);
+        try{
+          const response=await fetch(url,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
           const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
-          if(response.ok)exactResults=value.results||[];
+          if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
+          return value.results||[];
+        }finally{
+          clearTimeout(timer);
         }
-        const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
-        const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
-        if(!remaining.length)return exactResults;
-        const names=remaining.map(h=>h.name),horse_ids={};
-        for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
-        const response=await fetch(FALLBACK_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({names,race_url:raceUrl(),horse_ids})});
-        const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
-        if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
-        const byName=new Map(exactResults.map(x=>[clean(x.name),x]));
-        for(const row of value.results||[])if(!byName.get(clean(row.name))?.available)byName.set(clean(row.name),row);
-        return [...byName.values()];
-      }finally{
-        clearTimeout(timer);
       }
+      const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
+      let exactResults=[];
+      if(exactItems.length){
+        try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
+      }
+      const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
+      const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
+      if(!remaining.length)return exactResults;
+      const names=remaining.map(h=>h.name),horse_ids={};
+      for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
+      const fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),horse_ids},18000);
+      const byName=new Map(exactResults.map(x=>[clean(x.name),x]));
+      for(const row of fallbackResults)if(!byName.get(clean(row.name))?.available)byName.set(clean(row.name),row);
+      return [...byName.values()];
     }
 
     function sanitizeAllHistories(){
