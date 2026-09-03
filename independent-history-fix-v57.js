@@ -390,7 +390,7 @@
               target.netkeiba_actual_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
             }
           }
-          const count=targets.filter(h=>netkeibaMarketFor(h)).length;
+          const count=names.filter(name=>targets.some(h=>clean(h.name)===clean(name)&&netkeibaMarketFor(h))).length;
           forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,error:''};
           if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
           scheduleOddsFix();
