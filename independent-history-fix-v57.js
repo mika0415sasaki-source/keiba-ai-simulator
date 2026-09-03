@@ -12,6 +12,71 @@
     if(window.__independentHistoryFixV57)return;
     window.__independentHistoryFixV57=true;
 
+    function ensureResponsiveComparisonCss(){
+      if(document.getElementById('comparison-mobile-style'))return;
+      const style=document.createElement('style');
+      style.id='comparison-mobile-style';
+      style.textContent=`
+        @media (max-width:720px){
+          .comparison-wrap{overflow:visible!important}
+          .comparison-table{display:block;width:100%!important;min-width:0!important;border-collapse:separate!important}
+          .comparison-table thead{display:none}
+          .comparison-table tbody{display:grid;gap:14px}
+          .comparison-table tr{
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            column-gap:16px;
+            padding:14px 16px;
+            border:1px solid #2b4068;
+            border-radius:16px;
+            background:#18243c;
+          }
+          .comparison-table td{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+            min-width:0;
+            padding:9px 0;
+            border-bottom:1px solid rgba(73,99,145,.38);
+            text-align:right;
+            font-size:14px;
+            line-height:1.4;
+            overflow-wrap:anywhere;
+          }
+          .comparison-table td::before{
+            content:attr(data-label);
+            flex:0 0 auto;
+            color:#9fb1d2;
+            font-size:12px;
+            font-weight:500;
+          }
+          .comparison-table td:first-child{
+            grid-column:1/-1;
+            display:block;
+            padding:0 0 11px;
+            color:#f2f6ff;
+            font-size:18px;
+            font-weight:800;
+            text-align:left;
+          }
+          .comparison-table td:first-child::before{display:none}
+          .comparison-table td:nth-child(2){
+            grid-column:1/-1;
+            color:#61dfa9;
+            font-size:27px;
+            font-weight:800;
+          }
+          .comparison-table td:nth-child(4),
+          .comparison-table td:nth-child(6),
+          .comparison-table td:nth-child(9){grid-column:1/-1}
+          .comparison-table td:nth-last-child(-n+2){border-bottom:0}
+        }
+      `;
+      document.head?.appendChild(style);
+    }
+    ensureResponsiveComparisonCss();
+
     const clean=v=>String(v||'').replace(/[\s　]+/g,'').trim();
     const num=v=>Number.isFinite(+v)?+v:null;
     const validLast3f=v=>{
@@ -871,6 +936,8 @@
       const rows=document.getElementById('rows');
       if(rows){
         const table=rows.closest?.('table');
+        table?.classList.add('comparison-table');
+        table?.parentElement?.classList.add('comparison-wrap');
         const head=table?.querySelector('thead tr');
         if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>単勝オッズ・人気</th><th>1着率</th><th>3着内率</th>';
         rows.innerHTML=evaluated.map(h=>{
@@ -887,7 +954,7 @@
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
-          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
+          return `<tr><td data-label="馬">${h.no} ${h.name}</td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
       }
       bodyWeightEvidence();
