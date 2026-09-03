@@ -919,6 +919,10 @@
               h.netkeibaError='同名の別馬を除外しました';
               continue;
             }
+            // A response whose horse ID matches the current entry is authoritative.
+            // Replace cached rows so an old same-name/incorrect-ID association cannot
+            // remain among the latest five races.
+            h.history=[];
             applyHistory(h,row.history,row.via||'netkeiba過去走');
             if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
