@@ -759,6 +759,12 @@
         });
         card.querySelector?.('[data-grade-summary]')?.remove();
         const grade=historyGradeFeature(runs);
+        const closingSamples=runs.filter(run=>validLast3f(run.last3f)!==undefined).length;
+        if(!closingSamples){
+          const metric=[...card.querySelectorAll('.metric')].find(el=>(el.querySelector('span')?.textContent||'').trim()==='上がり');
+          const value=metric?.querySelector('b');
+          if(value)value.textContent='—（掲載なし・評価除外）';
+        }
         const summary=document.createElement('div');
         summary.dataset.gradeSummary='1';
         summary.className='metric';
@@ -786,10 +792,24 @@
       if(typeof evaluated==='undefined'||!Array.isArray(evaluated)||!evaluated.length)return;
       evaluated=evaluated.map(h=>{
         const body=bodyWeightFeature(h);
-        const grade=historyGradeFeature((h.history||[]).length?h.history:h.jra_history||[]);
-        const score=Math.max(40,Math.min(99,(+h.score||65)*.84+grade.score*.10+body.score*.06));
-        const baseScore=Math.max(40,Math.min(99,(+h.baseScore||+h.score||65)*.84+grade.score*.10+body.score*.06));
-        return {...h,score,baseScore,gradeScore:grade.score,gradeLabel:grade.label,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published};
+        const historyRows=(h.history||[]).length?h.history:h.jra_history||[];
+        const grade=historyGradeFeature(historyRows);
+        const closingSamples=historyRows.filter(run=>validLast3f(run.last3f)!==undefined).length;
+        const rawScore=Number.isFinite(+h.__rawScore)?+h.__rawScore:(+h.score||65);
+        const rawBase=Number.isFinite(+h.__rawBaseScore)?+h.__rawBaseScore:(+h.baseScore||+h.score||65);
+        let adjustedScore=rawScore,adjustedBase=rawBase;
+        if(!closingSamples){
+          const closingWeight=typeof weights!=='undefined'&&Number.isFinite(+weights?.last3f)?+weights.last3f:.18;
+          const usedClosing=Number.isFinite(+h.last3f)?+h.last3f:65;
+          if(closingWeight>0&&closingWeight<.5){
+            const withoutClosing=(rawBase-usedClosing*closingWeight)/(1-closingWeight);
+            adjustedScore=rawScore+(withoutClosing-rawBase);
+            adjustedBase=withoutClosing;
+          }
+        }
+        const score=Math.max(40,Math.min(99,adjustedScore*.84+grade.score*.10+body.score*.06));
+        const baseScore=Math.max(40,Math.min(99,adjustedBase*.84+grade.score*.10+body.score*.06));
+        return {...h,__rawScore:rawScore,__rawBaseScore:rawBase,score,baseScore,gradeScore:grade.score,gradeLabel:grade.label,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published,closingSamples};
       }).sort((a,b)=>b.score-a.score);
       const ex=evaluated.map(h=>Math.exp((h.score-75)/7));
       const total=ex.reduce((sum,value)=>sum+value,0)||1;
@@ -815,7 +835,8 @@
           }
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
-          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${(+h.last3f).toFixed(1)}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div>`;
+          const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（海外戦・掲載なし）';
+          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
@@ -836,7 +857,7 @@
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
-          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${(+h.last3f).toFixed(1)}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
+          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${h.closingSamples?(+h.last3f).toFixed(1):'—（評価除外）'}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
       }
       bodyWeightEvidence();
