@@ -187,7 +187,7 @@
         {date:'2025/06/08',venue:'東京',surface:'芝',distance:1600,going:'良',rank:15,last3f:35.2,jockey:'M.ディー',field_size:18,body_weight:524,popularity:12,rating:105,race_name:'安田記念',grade:'G1',source:'netkeiba確認済み'}
       ],
       '000a02c324':[
-        {date:'2026/04/26',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:4,jockey:'J.マクドナルド',race_name:'チェアマンズスプリントプライズ',grade:'G1',source:'JRA-VAN World確認済み'},
+        {date:'2026/04/26',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:4,body_weight:534,jockey:'J.マクドナルド',race_name:'チェアマンズスプリントプライズ',grade:'G1',source:'JRA-VAN World確認済み'},
         {date:'2026/04/06',venue:'シャティン',surface:'芝',distance:1600,going:'良',rank:5,jockey:'Z.パートン',race_name:'チェアマンズトロフィー',grade:'G2',source:'JRA-VAN World確認済み'},
         {date:'2026/03/08',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:1,jockey:'Z.パートン',race_name:'ハンデ戦',grade:'海外ハンデ',source:'JRA-VAN World確認済み'},
         {date:'2026/01/25',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:3,jockey:'J.マクドナルド',race_name:'センテナリースプリントC',grade:'G1',source:'JRA-VAN World確認済み'},
@@ -368,6 +368,7 @@
         h.popularity=null;
         h.forecast_odds=null;
         h.forecast_popularity=null;
+        h.netkeiba_forecast_snapshot=false;
       }
       try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
     }
@@ -385,7 +386,7 @@
       const forecastOdds=Number(base.netkeiba_forecast_odds);
       const forecastPopularity=Number(base.netkeiba_forecast_popularity);
       if(Number.isFinite(forecastOdds)&&forecastOdds>1){
-        return {odds:forecastOdds,popularity:Number.isFinite(forecastPopularity)&&forecastPopularity>0?forecastPopularity:null,type:'forecast'};
+        return {odds:forecastOdds,popularity:Number.isFinite(forecastPopularity)&&forecastPopularity>0?forecastPopularity:null,type:'forecast',snapshot:!!base.netkeiba_forecast_snapshot};
       }
       return null;
     }
@@ -435,13 +436,14 @@
             if(oddsType==='forecast'){
               target.netkeiba_forecast_odds=odds;
               target.netkeiba_forecast_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
+              target.netkeiba_forecast_snapshot=row?.odds_source==='last_successful_forecast';
             }else if(oddsType==='actual'){
               target.netkeiba_actual_odds=odds;
               target.netkeiba_actual_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
             }
           }
           const count=names.filter(name=>targets.some(h=>clean(h.name)===clean(name)&&netkeibaMarketFor(h))).length;
-          forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,error:''};
+          forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,snapshotCount:Number(value.snapshot_count)||0,error:''};
           if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
           scheduleOddsFix();
           return forecastMeta;
@@ -724,7 +726,8 @@
         const line=document.createElement('div');
         line.dataset.gradeOddsEvidence='1';
         const forecastCount=(horses||[]).filter(h=>netkeibaMarketFor(h)?.type==='forecast').length;
-        line.textContent=`追加評価：過去走のレース格 10% / 馬体重 6%。上がりが掲載されていない馬は上がり18%を減点せず、残る実データ軸へ比率再配分。netkeiba予想オッズ・人気 ${forecastCount}/${horses.length}頭（表示のみ・AI指数と妙味判定には未使用）。`;
+        const snapshotCount=(horses||[]).filter(h=>netkeibaMarketFor(h)?.snapshot).length;
+        line.textContent=`追加評価：過去走のレース格 10% / 馬体重 6%。上がりが掲載されていない馬は上がり18%を減点せず、残る実データ軸へ比率再配分。netkeiba予想オッズ・人気 ${forecastCount}/${horses.length}頭（表示のみ・AI指数と妙味判定には未使用${snapshotCount?`／外国馬${snapshotCount}頭は直近正常取得値`:''}）。`;
         evidence.appendChild(line);
       }
       const profile=document.getElementById('courseProfile');
@@ -854,7 +857,8 @@
             odds=`${actual.toFixed(1)}倍 / 実オッズ${popularity}`;
           }else if(market?.type==='forecast'){
             const popularity=market.popularity?` / netkeiba予想${market.popularity}番人気`:'';
-            odds=`${market.odds.toFixed(1)}倍${popularity} / 実オッズ未発表`;
+            const snapshot=market.snapshot?'（直近取得）':'';
+            odds=`${market.odds.toFixed(1)}倍${popularity}${snapshot} / 実オッズ未発表`;
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
@@ -878,7 +882,8 @@
             odds=`${actual.toFixed(1)}倍（実オッズ${popularity}）`;
           }else if(market?.type==='forecast'){
             const popularity=market.popularity?`・${market.popularity}番人気`:'';
-            odds=`${market.odds.toFixed(1)}倍（netkeiba予想${popularity}）`;
+            const snapshot=market.snapshot?'・直近取得':'';
+            odds=`${market.odds.toFixed(1)}倍（netkeiba予想${popularity}${snapshot}）`;
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
