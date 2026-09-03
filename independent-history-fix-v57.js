@@ -17,6 +17,34 @@
       const style=document.createElement('style');
       style.id='comparison-mobile-style';
       style.textContent=`
+        .ranking-card>summary{
+          display:grid;
+          grid-template-columns:minmax(0,1fr) auto 18px;
+          align-items:center;
+          gap:10px;
+          cursor:pointer;
+          list-style:none;
+        }
+        .ranking-card>summary::-webkit-details-marker{display:none}
+        .ranking-card>summary .rank{min-width:0;margin:0}
+        .ranking-card>summary .score{margin:0}
+        .ranking-card .accordion-chevron{
+          color:#9fb1d2;
+          font-size:15px;
+          transition:transform .18s ease;
+        }
+        .ranking-card[open] .accordion-chevron{transform:rotate(180deg)}
+        .ranking-card-details{padding-top:12px}
+        .comparison-toggle{
+          all:unset;
+          display:block;
+          width:100%;
+          color:inherit;
+          font:inherit;
+          cursor:pointer;
+        }
+        .comparison-rank{color:#61dfa9;margin-right:6px}
+        .comparison-chevron{display:none}
         @media (max-width:720px){
           .comparison-wrap{overflow:visible!important}
           .comparison-table{display:block;width:100%!important;min-width:0!important;border-collapse:separate!important}
@@ -24,9 +52,9 @@
           .comparison-table tbody{display:grid;gap:14px}
           .comparison-table tr{
             display:grid;
-            grid-template-columns:repeat(2,minmax(0,1fr));
+            grid-template-columns:minmax(0,1fr) auto;
             column-gap:16px;
-            padding:14px 16px;
+            padding:13px 16px;
             border:1px solid #2b4068;
             border-radius:16px;
             background:#18243c;
@@ -52,25 +80,48 @@
             font-weight:500;
           }
           .comparison-table td:first-child{
-            grid-column:1/-1;
             display:block;
-            padding:0 0 11px;
+            padding:4px 0;
+            border-bottom:0;
             color:#f2f6ff;
-            font-size:18px;
+            font-size:16px;
             font-weight:800;
             text-align:left;
           }
           .comparison-table td:first-child::before{display:none}
           .comparison-table td:nth-child(2){
-            grid-column:1/-1;
+            display:block;
+            padding:3px 0;
+            border-bottom:0;
             color:#61dfa9;
-            font-size:27px;
+            font-size:22px;
             font-weight:800;
           }
+          .comparison-table td:nth-child(2)::before{display:none}
+          .comparison-table tr:not(.is-open) td:nth-child(n+3){display:none}
+          .comparison-table tr.is-open{
+            grid-template-columns:repeat(2,minmax(0,1fr));
+          }
+          .comparison-table tr.is-open td:first-child{grid-column:1/2}
+          .comparison-table tr.is-open td:nth-child(2){grid-column:2/3}
           .comparison-table td:nth-child(4),
           .comparison-table td:nth-child(6),
           .comparison-table td:nth-child(9){grid-column:1/-1}
           .comparison-table td:nth-last-child(-n+2){border-bottom:0}
+          .comparison-toggle{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+          }
+          .comparison-chevron{
+            display:inline-block;
+            flex:0 0 auto;
+            color:#9fb1d2;
+            font-size:14px;
+            transition:transform .18s ease;
+          }
+          .comparison-table tr.is-open .comparison-chevron{transform:rotate(180deg)}
         }
       `;
       document.head?.appendChild(style);
@@ -930,7 +981,7 @@
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
           const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
-          return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div>`;
+          return `<details class="card ranking-card"><summary aria-label="${index+1}位 ${h.name}の詳細を開く"><div class="rank">${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
@@ -940,7 +991,7 @@
         table?.parentElement?.classList.add('comparison-wrap');
         const head=table?.querySelector('thead tr');
         if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>単勝オッズ・人気</th><th>1着率</th><th>3着内率</th>';
-        rows.innerHTML=evaluated.map(h=>{
+        rows.innerHTML=evaluated.map((h,index)=>{
           const market=netkeibaMarketFor(h);
           const actual=currentRaceActualOdds(h);
           let odds='netkeiba予想オッズ未取得';
@@ -954,8 +1005,15 @@
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
-          return `<tr><td data-label="馬">${h.no} ${h.name}</td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
+          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span><b class="comparison-rank">${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
+        rows.onclick=event=>{
+          const button=event.target?.closest?.('.comparison-toggle');
+          if(!button)return;
+          const row=button.closest('tr');
+          const open=row?.classList.toggle('is-open');
+          button.setAttribute('aria-expanded',open?'true':'false');
+        };
       }
       bodyWeightEvidence();
       addAnalysisEvidence();
