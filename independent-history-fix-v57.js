@@ -174,17 +174,17 @@
       ],
       '2023105685':[
         {date:'2026/05/10',venue:'東京',surface:'芝',distance:1600,going:'良',rank:5,last3f:34.8,jockey:'川田将雅',passage:[4,5],field_size:18,body_weight:480,popularity:3,rating:110,race_name:'NHKマイルC',grade:'G1',source:'JRA確認済み'},
-        {date:'2026/03/21',venue:'中京',surface:'芝',distance:1400,going:'良',rank:1,jockey:'川田将雅',field_size:17,body_weight:474,popularity:1,rating:111,race_name:'ファルコンS',grade:'G3',source:'JRA確認済み'},
-        {date:'2025/12/21',venue:'阪神',surface:'芝',distance:1600,going:'重',rank:2,jockey:'ルメール',field_size:14,body_weight:472,popularity:5,rating:114,race_name:'朝日杯FS',grade:'G1',source:'JRA確認済み'},
-        {date:'2025/11/08',venue:'東京',surface:'芝',distance:1400,going:'良',rank:1,jockey:'ルメール',field_size:16,body_weight:468,popularity:1,rating:111,race_name:'京王杯2歳S',grade:'G2',source:'JRA確認済み'},
-        {date:'2025/10/19',venue:'京都',surface:'芝',distance:1400,going:'良',rank:2,jockey:'川田将雅',field_size:7,body_weight:474,popularity:1,rating:105,race_name:'もみじS',grade:'L',source:'JRA確認済み'}
+        {date:'2026/03/21',venue:'中京',surface:'芝',distance:1400,going:'良',rank:1,last3f:33.6,jockey:'川田将雅',field_size:17,body_weight:474,popularity:1,rating:111,race_name:'ファルコンS',grade:'G3',source:'netkeiba確認済み'},
+        {date:'2025/12/21',venue:'阪神',surface:'芝',distance:1600,going:'重',rank:2,last3f:35.1,jockey:'ルメール',field_size:14,body_weight:472,popularity:5,rating:114,race_name:'朝日杯FS',grade:'G1',source:'netkeiba確認済み'},
+        {date:'2025/11/08',venue:'東京',surface:'芝',distance:1400,going:'良',rank:1,last3f:33.6,jockey:'ルメール',field_size:16,body_weight:468,popularity:1,rating:111,race_name:'京王杯2歳S',grade:'G2',source:'netkeiba確認済み'},
+        {date:'2025/10/19',venue:'京都',surface:'芝',distance:1400,going:'良',rank:2,last3f:33.3,jockey:'川田将雅',field_size:7,body_weight:474,popularity:1,rating:105,race_name:'もみじS',grade:'L',source:'netkeiba確認済み'}
       ],
       '2019105496':[
         {date:'2026/03/29',venue:'中京',surface:'芝',distance:1200,going:'良',rank:2,last3f:32.5,jockey:'酒井学',passage:[13,11],field_size:18,body_weight:500,popularity:15,rating:114,race_name:'高松宮記念',grade:'G1',source:'JRA確認済み'},
         {date:'2026/02/10',venue:'東京',surface:'芝',distance:1600,going:'良',rank:8,last3f:32.9,jockey:'佐々木大輔',passage:[14,14],field_size:16,body_weight:518,popularity:10,rating:109,race_name:'東京新聞杯',grade:'G3',source:'JRA確認済み'},
-        {date:'2025/11/16',venue:'東京',surface:'芝',distance:1400,going:'良',rank:2,jockey:'酒井学',field_size:18,body_weight:510,popularity:3,rating:107,race_name:'オーロカップ',grade:'L',source:'JRA確認済み'},
-        {date:'2025/10/13',venue:'京都',surface:'芝',distance:1400,going:'良',rank:9,jockey:'酒井学',field_size:18,body_weight:512,popularity:15,rating:108,race_name:'MBSスワンS',grade:'G2',source:'JRA確認済み'},
-        {date:'2025/06/08',venue:'東京',surface:'芝',distance:1600,going:'良',rank:15,jockey:'M.ディー',field_size:18,body_weight:524,popularity:12,rating:105,race_name:'安田記念',grade:'G1',source:'JRA確認済み'}
+        {date:'2025/11/16',venue:'東京',surface:'芝',distance:1400,going:'良',rank:2,last3f:32.5,jockey:'酒井学',field_size:18,body_weight:510,popularity:3,rating:107,race_name:'オーロカップ',grade:'L',source:'netkeiba確認済み'},
+        {date:'2025/10/13',venue:'京都',surface:'芝',distance:1400,going:'良',rank:9,last3f:33.0,jockey:'酒井学',field_size:18,body_weight:512,popularity:15,rating:108,race_name:'MBSスワンS',grade:'G2',source:'netkeiba確認済み'},
+        {date:'2025/06/08',venue:'東京',surface:'芝',distance:1600,going:'良',rank:15,last3f:35.2,jockey:'M.ディー',field_size:18,body_weight:524,popularity:12,rating:105,race_name:'安田記念',grade:'G1',source:'netkeiba確認済み'}
       ],
       '000a02c324':[
         {date:'2026/04/26',venue:'シャティン',surface:'芝',distance:1200,going:'良',rank:4,jockey:'J.マクドナルド',race_name:'チェアマンズスプリントプライズ',grade:'G1',source:'JRA-VAN World確認済み'},
@@ -234,9 +234,32 @@
         }
         const rows=VERIFIED_HISTORY_BY_ID[verifiedId];
         if(rows?.length){
-          const dates=new Set(rows.map(run=>String(run.date||'').replace(/\D/g,'')));
-          h.history=(h.history||[]).filter(run=>!dates.has(String(run?.date||'').replace(/\D/g,'')));
-          applyHistory(h,rows,'JRA・netkeiba馬ID確認済み');
+          // Confirmed rows are enrichments, not replacements.  The live netkeiba
+          // history parser often has the last-3F value while the manually verified
+          // row has body weight / grade / rating.  Replacing the whole row here was
+          // discarding valid last-3F values for Diamond Knot and Red Mon Reve.
+          const current=normalizeHistory(h.history||[]);
+          const byDate=new Map(current.map(run=>[String(run.date||'').replace(/\D/g,''),run]));
+          for(const raw of rows){
+            const verified=normalizeRun(raw);
+            if(!verified)continue;
+            const key=String(verified.date||'').replace(/\D/g,'');
+            const existing=byDate.get(key);
+            if(!existing){
+              current.push(verified);
+              byDate.set(key,verified);
+              continue;
+            }
+            for(const [field,value] of Object.entries(verified)){
+              const empty=existing[field]==null||existing[field]===''||(Array.isArray(existing[field])&&!existing[field].length);
+              const usable=value!=null&&value!==''&&(!Array.isArray(value)||value.length);
+              if(empty&&usable)existing[field]=value;
+            }
+            const jraVenues=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
+            if(verified.venue&&!jraVenues.has(verified.venue)&&validLast3f(raw?.last3f)===undefined)delete existing.last3f;
+            existing.source='netkeiba取得＋確認済み補完';
+          }
+          applyHistory(h,current,'netkeiba取得＋JRA・馬ID確認済み補完');
         }
       }
       decorateKnownRaceGrades();
@@ -289,6 +312,20 @@
       const names=remaining.map(h=>h.name),horse_ids={};
       for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
       const fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),horse_ids},18000);
+      const resolved=new Set(fallbackResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
+      const retryHorses=remaining.filter(h=>!resolved.has(clean(h.name)));
+      if(retryHorses.length){
+        const retryNames=retryHorses.map(h=>h.name),retryIds={};
+        for(const h of retryHorses){const id=horseId(h);if(id)retryIds[h.name]=id}
+        try{
+          const retried=await postHistory(FALLBACK_API,{names:retryNames,race_url:raceUrl(),horse_ids:retryIds},7000);
+          const retryByName=new Map(retried.map(x=>[clean(x.name),x]));
+          for(let i=0;i<fallbackResults.length;i++){
+            if(!fallbackResults[i]?.available&&retryByName.get(clean(fallbackResults[i]?.name))?.available)fallbackResults[i]=retryByName.get(clean(fallbackResults[i].name));
+          }
+          for(const row of retried)if(!fallbackResults.some(x=>clean(x.name)===clean(row.name)))fallbackResults.push(row);
+        }catch(error){console.warn('history retry',error)}
+      }
       const byName=new Map(exactResults.map(x=>[clean(x.name),x]));
       for(const row of fallbackResults)if(!byName.get(clean(row.name))?.available)byName.set(clean(row.name),row);
       return [...byName.values()];
@@ -366,13 +403,21 @@
       const timer=setTimeout(()=>controller.abort(),15000);
       forecastPromise=(async()=>{
         try{
-          const response=await fetch(FORECAST_API,{
-            method:'POST',cache:'no-store',signal:controller.signal,
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({url,names})
-          });
-          const value=await response.json().catch(()=>({error:'応答を読み取れません'}));
-          if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
+          let value=null;
+          // netkeiba can briefly return an empty odds map while refreshing its
+          // forecast. Retry once only; never loop or wait indefinitely.
+          for(let attempt=0;attempt<2;attempt++){
+            const response=await fetch(FORECAST_API,{
+              method:'POST',cache:'no-store',signal:controller.signal,
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({url,names})
+            });
+            value=await response.json().catch(()=>({error:'応答を読み取れません'}));
+            if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
+            const valid=(Array.isArray(value.results)?value.results:[]).filter(row=>Number.isFinite(+row?.odds)&&+row.odds>1).length;
+            if(valid===names.length||attempt===1)break;
+            await new Promise(resolve=>setTimeout(resolve,700));
+          }
           const oddsType=value.odds_type==='forecast'?'forecast':(/^(middle|result)$/.test(String(value.odds_status||''))?'actual':'unavailable');
           const rows=Array.isArray(value.results)?value.results:[];
           const globalList=typeof horses!=='undefined'&&Array.isArray(horses)?horses:[];
@@ -380,11 +425,13 @@
           for(const target of targets){
             const row=rows.find(x=>clean(x.name)===clean(target.name));
             const odds=Number(row?.odds),popularity=Number(row?.popularity);
+            // Keep the last successful value if this one bounded retry still
+            // returns an empty row. A transient upstream blank must not erase odds.
+            if(!(Number.isFinite(odds)&&odds>1))continue;
             delete target.netkeiba_forecast_odds;
             delete target.netkeiba_forecast_popularity;
             delete target.netkeiba_actual_odds;
             delete target.netkeiba_actual_popularity;
-            if(!(Number.isFinite(odds)&&odds>1))continue;
             if(oddsType==='forecast'){
               target.netkeiba_forecast_odds=odds;
               target.netkeiba_forecast_popularity=Number.isFinite(popularity)&&popularity>0?popularity:null;
@@ -411,12 +458,15 @@
       return forecastPromise;
     }
     window.__loadNetkeibaForecastV59=loadNetkeibaForecast;
+    window.__getNetkeibaForecastState=()=>({...forecastMeta});
 
     function historyNeedsRefresh(h){
       const rows=h?.history||[];
       const bodies=rows.filter(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300).length;
       const grades=rows.filter(run=>normalizeGrade(run.grade||run.race_name)).length;
-      return rows.length<5||bodies===0||grades<Math.min(3,rows.length);
+      const domestic=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
+      const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f;
     }
 
     function applyCurrentRoster(list=horses||[],url=raceUrl()){
@@ -858,7 +908,10 @@
         applyCurrentRoster();
         correctCourseMetadata();
         clearPreentryOdds();
-        if(forecastMeta.status==='idle')loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
+        if(forecastMeta.status!=='loading'&&(
+          forecastMeta.status!=='ready'||
+          forecastMeta.count<(horses||[]).length
+        ))loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
         for(const h of horses||[]){
           if((h.history||[]).length)h.histScores=scoreBalancedHistory(h.history);
           else if((h.jra_history||[]).length)h.histScores=scoreBalancedHistory(h.jra_history);
