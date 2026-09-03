@@ -724,7 +724,7 @@
         const line=document.createElement('div');
         line.dataset.gradeOddsEvidence='1';
         const forecastCount=(horses||[]).filter(h=>netkeibaMarketFor(h)?.type==='forecast').length;
-        line.textContent=`追加評価：過去走のレース格 10% / 馬体重 6%。netkeiba予想オッズ・人気 ${forecastCount}/${horses.length}頭（表示のみ・AI指数と妙味判定には未使用）。`;
+        line.textContent=`追加評価：過去走のレース格 10% / 馬体重 6%。上がりが掲載されていない馬は上がり18%を減点せず、残る実データ軸へ比率再配分。netkeiba予想オッズ・人気 ${forecastCount}/${horses.length}頭（表示のみ・AI指数と妙味判定には未使用）。`;
         evidence.appendChild(line);
       }
       const profile=document.getElementById('courseProfile');
@@ -788,6 +788,39 @@
       if(detail)box.insertBefore(line,detail);else box.appendChild(line);
     }
 
+    function adjustMissingClosingScore(h,rawScore,rawBase,closingSamples){
+      if(closingSamples)return {score:rawScore,baseScore:rawBase,redistributed:false};
+      const configured=typeof weights!=='undefined'&&weights?weights:{};
+      const axisWeights={
+        speed:Number.isFinite(+configured.speed)?+configured.speed:.22,
+        last3f:Number.isFinite(+configured.last3f)?+configured.last3f:.18,
+        course:Number.isFinite(+configured.course)?+configured.course:.14,
+        distance:Number.isFinite(+configured.distance)?+configured.distance:.14,
+        jockey:Number.isFinite(+configured.jockey)?+configured.jockey:.10,
+        blood:Number.isFinite(+configured.blood)?+configured.blood:.08,
+        trainer:Number.isFinite(+configured.trainer)?+configured.trainer:.06,
+        condition:Number.isFinite(+configured.condition)?+configured.condition:.08
+      };
+      let fullN=0,fullD=0,usableN=0,usableD=0;
+      Object.entries(axisWeights).forEach(([key,weight])=>{
+        const value=Number(h?.[key]);
+        if(!(Number.isFinite(value)&&Number.isFinite(weight)&&weight>0))return;
+        fullN+=value*weight;fullD+=weight;
+        if(key!=='last3f'){usableN+=value*weight;usableD+=weight}
+      });
+      if(!(usableD>0&&fullD>0))return {score:rawScore,baseScore:rawBase,redistributed:false};
+      const fullCore=fullN/fullD;
+      const quality=Number.isFinite(+h?.quality)?+h.quality:100;
+      const qualityFactor=Math.max(.55,Math.min(1,quality/100));
+      // originalEvalAll は欠損率を全軸へ掛けるため、そこで失われた他軸の点を戻す。
+      // 学習メモリ加点は rawBase と元の構成点との差としてそのまま保持する。
+      const memoryAdjustment=rawBase-fullCore*qualityFactor;
+      const redistributedBase=usableN/usableD+memoryAdjustment;
+      const raceAdjustment=rawScore-rawBase;
+      return {score:redistributedBase+raceAdjustment,baseScore:redistributedBase,redistributed:true};
+    }
+    window.__adjustMissingClosingScoreV59=adjustMissingClosingScore;
+
     function rerenderBodyAwareRanking(){
       if(typeof evaluated==='undefined'||!Array.isArray(evaluated)||!evaluated.length)return;
       evaluated=evaluated.map(h=>{
@@ -797,16 +830,8 @@
         const closingSamples=historyRows.filter(run=>validLast3f(run.last3f)!==undefined).length;
         const rawScore=Number.isFinite(+h.__rawScore)?+h.__rawScore:(+h.score||65);
         const rawBase=Number.isFinite(+h.__rawBaseScore)?+h.__rawBaseScore:(+h.baseScore||+h.score||65);
-        let adjustedScore=rawScore,adjustedBase=rawBase;
-        if(!closingSamples){
-          const closingWeight=typeof weights!=='undefined'&&Number.isFinite(+weights?.last3f)?+weights.last3f:.18;
-          const usedClosing=Number.isFinite(+h.last3f)?+h.last3f:65;
-          if(closingWeight>0&&closingWeight<.5){
-            const withoutClosing=(rawBase-usedClosing*closingWeight)/(1-closingWeight);
-            adjustedScore=rawScore+(withoutClosing-rawBase);
-            adjustedBase=withoutClosing;
-          }
-        }
+        const missingClosing=adjustMissingClosingScore(h,rawScore,rawBase,closingSamples);
+        const adjustedScore=missingClosing.score,adjustedBase=missingClosing.baseScore;
         const score=Math.max(40,Math.min(99,adjustedScore*.84+grade.score*.10+body.score*.06));
         const baseScore=Math.max(40,Math.min(99,adjustedBase*.84+grade.score*.10+body.score*.06));
         return {...h,__rawScore:rawScore,__rawBaseScore:rawBase,score,baseScore,gradeScore:grade.score,gradeLabel:grade.label,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published,closingSamples};
@@ -835,7 +860,7 @@
           }
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
-          const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（海外戦・掲載なし）';
+          const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
           return `<div class="card"><div class="rank">${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="score">${h.score.toFixed(1)}</div><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div>`;
         }).join('');
       }
@@ -857,7 +882,7 @@
           }else if(forecastMeta.status==='loading'){
             odds='netkeiba予想オッズ取得中';
           }
-          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${h.closingSamples?(+h.last3f).toFixed(1):'—（評価除外）'}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
+          return `<tr><td>${h.no} ${h.name}</td><td>${h.score.toFixed(1)}</td><td>${(+h.speed).toFixed(1)}</td><td>${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td>${h.gradeScore.toFixed(1)}</td><td>${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td>${(+h.distance).toFixed(1)}</td><td>${(+h.course).toFixed(1)}</td><td>${odds}</td><td>${h.win.toFixed(1)}%</td><td>${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
       }
       bodyWeightEvidence();
