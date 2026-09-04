@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  if(window.__keibaBetProfitGuardV265)return;
-  window.__keibaBetProfitGuardV265=true;
+  if(window.__keibaBetProfitGuardV266)return;
+  window.__keibaBetProfitGuardV266=true;
 
   const UNIT=100;
   const num=v=>Number(v);
@@ -25,7 +25,7 @@
     return Math.max(UNIT,Math.ceil((total/o)/UNIT)*UNIT);
   }
 
-  function renderProtectedPlan(plan,total,droppedCount){
+  function renderProtectedPlan(plan,total,dropped){
     const ticket=document.getElementById('ticket');
     const root=ticket?.firstElementChild;
     if(!root)return;
@@ -34,12 +34,14 @@
     const label=children.find(el=>String(el.textContent||'').trim()==='購入内訳');
     if(!label)return;
 
-    root.querySelectorAll('.v265-profit-note').forEach(el=>el.remove());
+    const droppedList=Array.isArray(dropped)?dropped.slice().sort((a,b)=>a.order-b.order):[];
+
+    root.querySelectorAll('.v265-profit-note,.v266-dropped-note').forEach(el=>el.remove());
     const note=document.createElement('div');
     note.className='small v265-profit-note';
     note.style.margin='8px 0';
     note.style.color='var(--a)';
-    note.innerHTML=`<b>試験・収支保護</b>：総予算${money(total)}円を基準に、的中しても赤字になる配分を再調整${droppedCount?`（低優先${droppedCount}点を除外）`:''}`;
+    note.innerHTML=`<b>試験・収支保護</b>：総予算${money(total)}円を基準に、的中しても赤字になる配分を再調整${droppedList.length?`（予算内では${droppedList.length}点を除外候補）`:''}`;
     label.parentNode.insertBefore(note,label);
 
     let el=label.nextSibling;
@@ -65,9 +67,33 @@
       root.appendChild(row);
     }
 
+    if(droppedList.length){
+      const droppedNote=document.createElement('div');
+      droppedNote.className='small v266-dropped-note';
+      droppedNote.style.cssText='margin:14px 0 6px;padding:9px 10px;border:1px solid #d79a36;border-radius:10px;color:#f2bd62;background:rgba(215,154,54,.08)';
+      droppedNote.innerHTML='<b>除外候補（予算外）</b><br><span style="color:var(--w)">元のAI候補は消していません。買う・買わないは自由です。</span>';
+      root.appendChild(droppedNote);
+
+      for(const p of droppedList){
+        const key=(p.numbers||[]).map(Number).sort((a,b)=>a-b).join('-');
+        const odds=Number(p.odds||0);
+        const minStake=requiredStake(total,odds);
+        const ret=odds>0?Math.round((odds*minStake)/10)*10:null;
+        const net=ret==null?null:ret-total;
+        const row=document.createElement('div');
+        row.className='v266-dropped-note';
+        row.style.cssText='margin:6px 0;padding:8px 10px;border:1px solid rgba(215,154,54,.65);border-radius:10px;background:rgba(215,154,54,.06);color:#f2bd62';
+        const pay=ret!=null
+          ? `<span class="small" style="margin-left:8px;color:var(--w)">${odds.toFixed(1)}倍 / 収支保護の最低額 ${money(minStake)}円 / 払戻目安 ${money(ret)}円 / ${net===0?'±0円':`${net<0?'−':'＋'}${money(Math.abs(net))}円`}</span>`
+          : '<span class="small" style="margin-left:8px;color:var(--w)">オッズ未取得</span>';
+        row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>除外候補</b> ${key}${pay}</span><b style="white-space:nowrap">0円</b></div>`;
+        root.appendChild(row);
+      }
+    }
+
     const totalRow=document.createElement('div');
     totalRow.style.marginTop='10px';
-    totalRow.innerHTML=`<b>${plan.picks.length}点 / 合計 ${money(total)}円</b>`;
+    totalRow.innerHTML=`<b>${plan.picks.length}点 / 合計 ${money(total)}円</b>${droppedList.length?`<div class="small" style="margin-top:4px;color:#f2bd62">＋ 除外候補 ${droppedList.length}点を表示中</div>`:''}`;
     root.appendChild(totalRow);
   }
 
@@ -95,6 +121,7 @@
     const dropped=[];
 
     // 全点を黒字/トントンにできない時だけ、AI優先順位の末尾から最小限削る。
+    // 削った候補自体は表示から消さず、色付きの「除外候補」として残す。
     while(need>total&&kept.length>1){
       const p=kept.pop();
       dropped.push(p);
@@ -124,7 +151,7 @@
 
     plan.picks=kept.map(p=>({numbers:p.numbers,stake:p.stake,odds:p.odds}));
     plan.total=plan.picks.reduce((s,p)=>s+Number(p.stake||0),0);
-    renderProtectedPlan(plan,plan.total,dropped.length);
+    renderProtectedPlan(plan,plan.total,dropped);
     return true;
   }
 
@@ -132,7 +159,7 @@
   if(typeof original==='function'){
     window.generateTickets=function(){
       const result=original.apply(this,arguments);
-      try{protect()}catch(e){console.warn('bet-profit-guard-v265',e)}
+      try{protect()}catch(e){console.warn('bet-profit-guard-v266',e)}
       try{return (typeof currentTickets==='function')?currentTickets():result}catch(_){return result}
     };
   }else{
@@ -143,7 +170,7 @@
       let queued=false;
       new MutationObserver(()=>{
         if(queued)return;queued=true;
-        queueMicrotask(()=>{queued=false;try{protect()}catch(e){console.warn('bet-profit-guard-v265',e)}});
+        queueMicrotask(()=>{queued=false;try{protect()}catch(e){console.warn('bet-profit-guard-v266',e)}});
       }).observe(ticket,{childList:true,subtree:true});
     };
     mount();
