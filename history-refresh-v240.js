@@ -1,54 +1,58 @@
 (()=>{
-  if(window.__historyRefreshV247)return;
-  window.__historyRefreshV247=true;
+  if(window.__historyRefreshV246)return;
+  window.__historyRefreshV246=true;
 
   const HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
+  const domestic=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
   const clean=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
-
-  // 取消・除外・中止・失格の判定は、取得側（Supabase）を正とする。
-  // フロント側では明示的な非完走ステータスだけを最終ガードとして除外する。
-  // 「上がり無し＋通過順無し」だけで正常な過去走を落とさない。
-  const explicitNonFinish=run=>{
-    if(!run)return true;
-    const values=[
-      run?.status,run?.result_status,run?.finish_status,run?.rank_text,
-      run?.result,run?.remarks,run?.note
-    ].filter(v=>v!=null&&v!=='').map(v=>String(v).normalize('NFKC').trim());
-    const text=values.join(' ');
-    return /出走取消|取消|競走除外|除外|競走中止|中止|失格/.test(text)
-      || values.some(v=>/^(取|除|中|失)$/.test(v));
+  const isDomesticVenue=v=>{
+    const s=clean(v);
+    return domestic.some(name=>s.includes(name));
   };
-  const shouldDrop=run=>!run||explicitNonFinish(run);
-
+  const validLast3f=v=>{
+    if(v==null||v==='')return false;
+    const n=Number(v);
+    return Number.isFinite(n)&&n>=20&&n<=60;
+  };
+  const explicitNonFinish=run=>{
+    const values=[run?.status,run?.result_status,run?.finish_status,run?.rank_text,run?.result,run?.remarks,run?.note,run?.race_name,run?.source]
+      .filter(v=>v!=null&&v!=='').map(v=>String(v).normalize('NFKC'));
+    const text=values.join(' ');
+    return /出走取消|取消|競走除外|除外|競走中止|中止|失格/.test(text)||values.some(v=>/^\s*取\s*$/.test(v));
+  };
+  const shouldDrop=run=>{
+    if(!run)return true;
+    if(explicitNonFinish(run))return true;
+    const venue=String(run?.venue||run?.course||'');
+    const rank=Number(run?.rank??run?.pos);
+    const passage=Array.isArray(run?.passage)
+      ? run.passage.filter(x=>Number.isFinite(Number(x)))
+      : String(run?.corners||'').split(/[-‐－→]/).filter(x=>/^\d+$/.test(x));
+    if(isDomesticVenue(venue)&&Number.isFinite(rank)&&rank>0&&!validLast3f(run?.last3f??run?.last3)&&passage.length===0)return true;
+    return false;
+  };
   const currentList=()=>{
     try{if(typeof horses!=='undefined'&&Array.isArray(horses))return horses;}catch(_){}
     return Array.isArray(window.horses)?window.horses:[];
   };
   const horseId=h=>String(h?.netkeiba_horse_id||h?.horse_id||'').replace(/\D/g,'');
 
-  const recalc=h=>{
-    if(typeof scoreLocalHistory==='function'&&Array.isArray(h?.history)&&h.history.length){
-      try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
-    }
-  };
-
-  const sanitize=list=>{
+  const sanitize=(list)=>{
     for(const h of list||[]){
       if(!h||!Array.isArray(h.history))continue;
       h.history=h.history.filter(run=>!shouldDrop(run)).slice(0,5);
-      recalc(h);
+      if(typeof scoreLocalHistory==='function'&&h.history.length){
+        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+      }
     }
   };
 
   const wrapRender=()=>{
     try{
-      if(typeof renderHorses!=='function'||renderHorses.__genericHistoryGuardV247)return false;
+      if(typeof renderHorses!=='function'||renderHorses.__genericHistoryGuard)return false;
       const original=renderHorses;
-      const wrapped=function(...args){
-        sanitize(currentList());
-        return original.apply(this,args);
-      };
-      wrapped.__genericHistoryGuardV247=true;
+      const wrapped=function(...args){sanitize(currentList());return original.apply(this,args);};
+      wrapped.__genericHistoryGuard=true;
       wrapped.__original=original;
       renderHorses=wrapped;
       try{window.renderHorses=wrapped;}catch(_){}
@@ -57,44 +61,27 @@
   };
 
   async function refillFromHistoryApi(list){
-    const items=(list||[])
-      .map(h=>({name:h?.name,id:horseId(h)}))
-      .filter(x=>x.name&&/^\d{10}$/.test(x.id));
+    const items=(list||[]).map(h=>({name:h?.name,id:horseId(h)})).filter(x=>x.name&&/^\d{10}$/.test(x.id));
     if(!items.length)return 0;
-
-    const response=await fetch(HISTORY_API,{
-      method:'POST',cache:'no-store',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({items})
-    });
+    const response=await fetch(HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({items})});
     const value=await response.json().catch(()=>({results:[]}));
     if(!response.ok)throw new Error(value?.error||('HTTP '+response.status));
     const rows=Array.isArray(value.results)?value.results:[];
     let updated=0;
-
     for(const h of list||[]){
       const row=rows.find(x=>clean(x?.name)===clean(h?.name));
       if(!row||!Array.isArray(row.history))continue;
-
-      // Supabase側は取消等を除外した上で最大10走を返す。
-      // その先頭から正常な5走をそのまま採用する。
       const valid=row.history.filter(run=>!shouldDrop(run)).slice(0,5);
       if(!valid.length)continue;
-
       h.history=[];
       if(typeof window.__applyHistoryV57==='function'){
         try{window.__applyHistoryV57(h,valid,'netkeiba正常完走5走');}
-        catch(_){h.history=valid.slice();}
-      }else{
-        h.history=valid.slice();
+        catch(_){h.history=valid;}
+      }else h.history=valid;
+      h.history=(h.history||[]).filter(run=>!shouldDrop(run)).slice(0,5);
+      if(typeof scoreLocalHistory==='function'&&h.history.length){
+        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
       }
-
-      // applyHistory内の旧ルールや保存データ混入で件数が減った場合は、
-      // APIが返した正常5走を優先して復元する。
-      const after=(h.history||[]).filter(run=>!shouldDrop(run)).slice(0,5);
-      if(after.length<valid.length)h.history=valid.slice(0,5);
-      else h.history=after;
-      recalc(h);
       updated++;
     }
     return updated;
@@ -107,12 +94,12 @@
       const list=currentList();
       if(!list.length)return false;
       wrapRender();
-      await refillFromHistoryApi(list).catch(e=>console.warn('history refill v247',e));
+      await refillFromHistoryApi(list).catch(e=>console.warn('history refill',e));
       sanitize(list);
       if(typeof renderHorses==='function')renderHorses();
       return true;
     }catch(e){
-      console.warn('history refresh v247',e);
+      console.warn('history refresh v246',e);
       return false;
     }
   };
