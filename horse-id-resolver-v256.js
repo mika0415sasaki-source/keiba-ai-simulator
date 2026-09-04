@@ -62,7 +62,6 @@
   function applyExact(h,rows,id){
     const fresh=authoritativeRows(rows);
     if(!fresh.length)return false;
-    // Exact race-card ID is authoritative. Never merge it behind a cached/name-search history.
     h.history=[];
     if(typeof window.__applyHistoryV57==='function'){
       try{window.__applyHistoryV57(h,fresh,'netkeiba本人履歴・出馬表ID');}
@@ -81,7 +80,7 @@
   }
 
   function updateCounters(hs){
-    const ok=hs.filter(h=>h.netkeibaExactHistory&&(h.history||[]).length).length;
+    const ok=hs.filter(h=>(h.history||[]).length).length;
     const totalRuns=hs.reduce((sum,h)=>sum+Math.min(5,(h.history||[]).length),0);
     const jraN=hs.filter(h=>(h.jra_history||[]).length).length;
     const count=document.getElementById('histCount');
