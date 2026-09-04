@@ -1,18 +1,13 @@
 (()=>{
-  if(window.__historyRefreshV252)return;
-  window.__historyRefreshV252=true;
+  if(window.__historyRefreshV253)return;
+  window.__historyRefreshV253=true;
 
   const HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
-  const domestic=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
+  const jraVenues=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
   const clean=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
-  const isDomesticVenue=v=>{
+  const isJraVenue=v=>{
     const s=clean(v);
-    return domestic.some(name=>s.includes(name));
-  };
-  const validLast3f=v=>{
-    if(v==null||v==='')return false;
-    const n=Number(v);
-    return Number.isFinite(n)&&n>=20&&n<=60;
+    return jraVenues.some(name=>s.includes(name));
   };
   const explicitNonFinish=run=>{
     const values=[run?.status,run?.result_status,run?.finish_status,run?.rank_text,run?.result,run?.remarks,run?.note,run?.race_name,run?.source]
@@ -20,67 +15,79 @@
     const text=values.join(' ');
     return /出走取消|取消|競走除外|除外|競走中止|中止|失格/.test(text)||values.some(v=>/^\s*取\s*$/.test(v));
   };
-  const shouldDrop=run=>{
-    if(!run)return true;
-    if(explicitNonFinish(run))return true;
-    const venue=String(run?.venue||run?.course||'');
-    const rank=Number(run?.rank??run?.pos);
-    const passage=Array.isArray(run?.passage)
-      ? run.passage.filter(x=>Number.isFinite(Number(x)))
-      : String(run?.corners||'').split(/[-‐－→]/).filter(x=>/^\d+$/.test(x));
-    if(isDomesticVenue(venue)&&Number.isFinite(rank)&&rank>0&&!validLast3f(run?.last3f??run?.last3)&&passage.length===0)return true;
-    return false;
-  };
+  const shouldDrop=run=>!run||explicitNonFinish(run);
   const currentList=()=>{
     try{if(typeof horses!=='undefined'&&Array.isArray(horses))return horses;}catch(_){}
     return Array.isArray(window.horses)?window.horses:[];
   };
   const horseId=h=>String(h?.netkeiba_horse_id||h?.horse_id||'').replace(/\D/g,'');
-  const runKey=run=>{
-    const d=String(run?.date||'').replace(/\D/g,'');
-    const mmdd=d.length>=4?d.slice(-4):d;
-    const venue=clean(run?.venue||run?.course||'');
-    const surface=clean(run?.surface||'');
-    const distance=Number(run?.distance??run?.dist)||0;
-    const rank=Number(run?.rank??run?.pos)||0;
-    return `${mmdd}|${venue}|${surface}|${distance}|${rank}`;
+  const isTwoYearOld=h=>/2/.test(String(h?.sex_age||h?.age||''));
+  const verifiedJraRows=h=>(Array.isArray(h?.jra_history)?h.jra_history:[])
+    .filter(r=>!shouldDrop(r)&&isJraVenue(r?.venue||r?.course));
+  const hasNonJraRows=rows=>(rows||[]).some(r=>r&&!isJraVenue(r?.venue||r?.course));
+
+  const normalizeGrade=v=>{
+    const s=String(v||'').toUpperCase().replace(/Ｇ/g,'G').replace(/Ⅲ/g,'III').replace(/Ⅱ/g,'II').replace(/Ⅰ/g,'I').replace(/３/g,'3').replace(/２/g,'2').replace(/１/g,'1').replace(/\s+/g,'');
+    if(/JPN3|JPNIII|G3|GIII/.test(s))return 'G3';
+    if(/JPN2|JPNII(?!I)|G2|GII(?!I)/.test(s))return 'G2';
+    if(/JPN1|JPNI(?!I)|G1|GI(?!I)/.test(s))return 'G1';
+    if(/リステッド|(?:^|[^A-Z])L(?:$|[^A-Z])/.test(s))return 'L';
+    if(/オープン|OPEN|OP/.test(s))return 'OP';
+    if(/3勝|３勝/.test(s))return '3勝';
+    if(/2勝|２勝/.test(s))return '2勝';
+    if(/1勝|１勝/.test(s))return '1勝';
+    if(/未勝利/.test(s))return '未勝利';
+    if(/新馬/.test(s))return '新馬';
+    return '';
   };
-  const copyGradeMeta=(target,source)=>{
-    if(!target||!source)return target;
-    const fields=['grade','race_grade','class_name','race_class','class','race_name','raceName','title','race'];
-    for(const field of fields){
-      if((target[field]==null||target[field]==='')&&source[field]!=null&&source[field]!=='')target[field]=source[field];
+  const preserveGrade=rows=>(rows||[]).map(r=>{
+    const x={...r};
+    if(!x.grade){
+      const g=normalizeGrade(x.race_name||x.raceName||x.title||x.race||x.class_name||x.race_class||x.class||'');
+      if(g)x.grade=g;
     }
-    return target;
-  };
-  const enrichOnlySameRows=(fresh,oldRows,jraRows)=>{
-    const refs=[...(oldRows||[]),...(jraRows||[])];
-    const map=new Map();
-    for(const r of refs||[]){const k=runKey(r);if(k&&!map.has(k))map.set(k,r);}
-    return (fresh||[]).map(r=>{
-      const cloned={...r};
-      const ref=map.get(runKey(cloned));
-      if(ref)copyGradeMeta(cloned,ref);
-      return cloned;
-    });
+    return x;
+  });
+
+  const applyRows=(h,rows,via)=>{
+    const cleanRows=preserveGrade((rows||[]).filter(r=>!shouldDrop(r))).slice(0,5);
+    if(!cleanRows.length)return false;
+    h.history=[];
+    if(typeof window.__applyHistoryV57==='function'){
+      try{window.__applyHistoryV57(h,cleanRows,via);}catch(_){h.history=cleanRows;}
+    }else h.history=cleanRows;
+    h.history=preserveGrade((h.history||[]).filter(r=>!shouldDrop(r))).slice(0,5);
+    if(typeof scoreLocalHistory==='function'&&h.history.length){
+      try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+    }
+    return true;
   };
 
   const sanitize=(list)=>{
     for(const h of list||[]){
-      if(!h||!Array.isArray(h.history))continue;
-      h.history=h.history.filter(run=>!shouldDrop(run)).slice(0,5);
-      if(typeof scoreLocalHistory==='function'&&h.history.length){
-        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+      if(!h)continue;
+      const jra=verifiedJraRows(h);
+      if(isTwoYearOld(h)&&jra.length&&Array.isArray(h.history)&&hasNonJraRows(h.history)){
+        // JRA所属の2歳馬に同名の地方・旧馬履歴が混入した場合は、
+        // JRA照合済み履歴を本人データとして優先する。
+        applyRows(h,jra,'JRA照合済み本人履歴');
+        continue;
+      }
+      if(Array.isArray(h.history)){
+        h.history=preserveGrade(h.history.filter(r=>!shouldDrop(r))).slice(0,5);
+        if(typeof scoreLocalHistory==='function'&&h.history.length){
+          try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+        }
       }
     }
   };
 
   const wrapRender=()=>{
     try{
-      if(typeof renderHorses!=='function'||renderHorses.__genericHistoryGuardV252)return false;
+      if(typeof renderHorses!=='function'||renderHorses.__historyGuardV253)return false;
       const original=renderHorses;
       const wrapped=function(...args){sanitize(currentList());return original.apply(this,args);};
-      wrapped.__genericHistoryGuardV252=true;
+      wrapped.__historyGuardV253=true;
       wrapped.__original=original;
       renderHorses=wrapped;
       try{window.renderHorses=wrapped;}catch(_){}
@@ -99,23 +106,13 @@
     for(const h of list||[]){
       const row=rows.find(x=>clean(x?.name)===clean(h?.name));
       if(!row||!Array.isArray(row.history))continue;
-      const oldHistory=Array.isArray(h.history)?h.history.slice():[];
-      const jraHistory=Array.isArray(h.jra_history)?h.jra_history.slice():[];
-      let valid=row.history.filter(run=>!shouldDrop(run)).slice(0,5);
-      if(!valid.length)continue;
-      // レースの選択・順番・件数は一切変更しない。
-      // 同一レースと確認できる既存データから「格・レース名」だけ補完する。
-      valid=enrichOnlySameRows(valid,oldHistory,jraHistory);
-      h.history=[];
-      if(typeof window.__applyHistoryV57==='function'){
-        try{window.__applyHistoryV57(h,valid,'netkeiba正常完走5走');}
-        catch(_){h.history=valid;}
-      }else h.history=valid;
-      h.history=(h.history||[]).filter(run=>!shouldDrop(run)).slice(0,5);
-      if(typeof scoreLocalHistory==='function'&&h.history.length){
-        try{h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;}catch(_){}
+      const fetched=row.history.filter(r=>!shouldDrop(r));
+      const jra=verifiedJraRows(h);
+      if(isTwoYearOld(h)&&jra.length&&hasNonJraRows(fetched)){
+        if(applyRows(h,jra,'JRA照合済み本人履歴'))updated++;
+        continue;
       }
-      updated++;
+      if(fetched.length&&applyRows(h,fetched,'netkeiba本人履歴'))updated++;
     }
     return updated;
   }
@@ -131,10 +128,7 @@
       sanitize(list);
       if(typeof renderHorses==='function')renderHorses();
       return true;
-    }catch(e){
-      console.warn('history refresh v252',e);
-      return false;
-    }
+    }catch(e){console.warn('history refresh v253',e);return false;}
   };
 
   let tries=0;
@@ -145,7 +139,6 @@
     if(tries<30)setTimeout(tick,500);
   };
   setTimeout(tick,500);
-
   let checks=0;
   const guard=setInterval(()=>{
     checks++;
