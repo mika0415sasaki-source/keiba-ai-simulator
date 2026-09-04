@@ -11,15 +11,8 @@
     const legacy=num(h.weight);
     const carried=num(h.carried_weight);
     const body=num(h.body_weight);
-
-    // Historically the JRA importer put 負担重量 in `weight`, while the UI
-    // interpreted `weight` as 馬体重. Split those meanings permanently.
-    if((carried===null||carried<40||carried>70)&&legacy!==null&&legacy>=40&&legacy<=70){
-      h.carried_weight=legacy;
-    }
-    if((body===null||body<300||body>700)&&legacy!==null&&legacy>=300&&legacy<=700){
-      h.body_weight=legacy;
-    }
+    if((carried===null||carried<40||carried>70)&&legacy!==null&&legacy>=40&&legacy<=70)h.carried_weight=legacy;
+    if((body===null||body<300||body>700)&&legacy!==null&&legacy>=300&&legacy<=700)h.body_weight=legacy;
     if(legacy!==null&&legacy>=40&&legacy<=70)h.weight=null;
     if(num(h.body_weight)!==null&&num(h.body_weight)>=300&&num(h.body_weight)<=700)h.weight=num(h.body_weight);
     return h;
@@ -47,29 +40,26 @@
 
   function fixHorseCards(){
     hs().forEach(normalizeWeightFields);
-    const cards=[...document.querySelectorAll('#horses .card')];
-    for(const card of cards){
+    for(const card of document.querySelectorAll('#horses .card')){
       const h=horseForCard(card);if(!h)continue;
       const directSmalls=[...card.children].filter(el=>el.classList?.contains('small'));
       const top=directSmalls[0];if(!top)continue;
-      const current=currentBodyWeight(h),previous=previousBodyWeight(h),carried=num(h.carried_weight);
-      const change=num(h.body_weight_change);
+      const current=currentBodyWeight(h),previous=previousBodyWeight(h),carried=num(h.carried_weight),change=num(h.body_weight_change);
       const body=current!==null
         ? `馬体重 ${current}kg${change!==null?`（${change>=0?'+':''}${change}）`:''}`
-        : previous!==null
-          ? `馬体重 未発表（前走${previous}kg）`
-          : '馬体重 未発表';
+        : previous!==null?`馬体重 未発表（前走${previous}kg）`:'馬体重 未発表';
       const cw=carried!==null&&carried>=40&&carried<=70?`斤量 ${carried.toFixed(1)}kg`:'斤量 未取得';
-      top.textContent=[h.sex_age||'',body,cw,h.jockey||h.rider||'騎手未取得'].filter(Boolean).join('　');
+      const label=[h.sex_age||'',body,cw,h.jockey||h.rider||'騎手未取得'].filter(Boolean).join('　');
+      if(top.textContent!==label)top.textContent=label;
     }
   }
 
   function stripDuplicatedGradeLabels(){
     document.querySelectorAll('#horses .hist-row').forEach(row=>{
-      const spans=row.querySelectorAll('span');
-      if(spans.length<2)return;
+      const spans=row.querySelectorAll('span');if(spans.length<2)return;
       const s=String(spans[1].textContent||'');
-      spans[1].textContent=s.replace(/\((?:G(?:I{1,3}|[123])|JPN(?:I{1,3}|[123])|L|OP|[123]勝(?:クラス)?)\)\s*$/i,'').trim();
+      const next=s.replace(/\((?:G(?:I{1,3}|[123])|JPN(?:I{1,3}|[123])|L|OP|[123]勝(?:クラス)?)\)\s*$/i,'').trim();
+      if(next!==s)spans[1].textContent=next;
     });
   }
 
@@ -78,14 +68,15 @@
     const ok=list.filter(h=>(h.history||[]).length>0).length;
     const totalRuns=list.reduce((sum,h)=>sum+Math.min(5,(h.history||[]).length),0);
     const jraN=list.filter(h=>(h.jra_history||[]).length>0).length;
-    const el=document.getElementById('histCount');
-    if(el)el.textContent=`netkeiba ${ok}/${list.length}頭・合計${totalRuns}走 / JRA照合 ${jraN}頭`;
+    const label=`netkeiba ${ok}/${list.length}頭・合計${totalRuns}走 / JRA照合 ${jraN}頭`;
+    const el=document.getElementById('histCount');if(el&&el.textContent!==label)el.textContent=label;
     if(ok>0){
       const rs=document.getElementById('raceStatus');
       if(rs&&rs.innerHTML){
-        rs.innerHTML=rs.innerHTML
+        const next=rs.innerHTML
           .replace(/netkeiba5走\s*\d+\/\d+頭/g,`netkeiba5走 ${ok}/${list.length}頭`)
           .replace(/JRA前4走\s*\d+頭/g,`JRA前4走 ${jraN}頭`);
+        if(next!==rs.innerHTML)rs.innerHTML=next;
       }
     }
   }
@@ -107,54 +98,24 @@
     const venue=document.getElementById('venue')?.value||'';
     const surface=document.getElementById('surface')?.value||'';
     const distance=+(document.getElementById('distance')?.value||0);
-    const p=profiles[`${venue}|${surface}|${distance}`];
-    if(!p)return;
+    const p=profiles[`${venue}|${surface}|${distance}`];if(!p)return;
     try{if(typeof raceMeta==='object'&&raceMeta){raceMeta.turn=p.turn;raceMeta.course_layout=p.layout}}catch(_){}
     const box=document.getElementById('courseProfile');if(!box)return;
     const old=box.innerHTML||'';
     const weightLine=(old.match(/有効ウェイト上位[^<]*/)||[])[0]||'有効ウェイト上位：近走 22.0% / 上がり 18.0% / コース 14.0%';
     const layout=[p.turn,p.layout].filter(Boolean).join('・');
-    box.innerHTML=`<b>コース・馬場補正：</b> ${venue} ${surface}${distance}m・${layout}<br>JRA実データ：${p.facts}<br>${weightLine}<br><br><span class="small">コース指数の根拠：${p.basis}着順は頭数で正規化し、直近ほど重く評価。</span>`;
+    const next=`<b>コース・馬場補正：</b> ${venue} ${surface}${distance}m・${layout}<br>JRA実データ：${p.facts}<br>${weightLine}<br><br><span class="small">コース指数の根拠：${p.basis}着順は頭数で正規化し、直近ほど重く評価。</span>`;
+    if(next!==old)box.innerHTML=next;
   }
 
-  function refreshDisplays(){
-    fixHorseCards();
-    stripDuplicatedGradeLabels();
-    syncHistoryCount();
-    patchCourseProfile();
-  }
-
-  function wrap(name,after){
-    try{
-      const fn=globalThis[name];
-      if(typeof fn!=='function'||fn.__displayIntegrityV269)return false;
-      const wrapped=function(...args){
-        const value=fn.apply(this,args);
-        if(value&&typeof value.then==='function')return value.then(v=>{after();return v});
-        after();return value;
-      };
-      wrapped.__displayIntegrityV269=true;
-      wrapped.__original=fn;
-      globalThis[name]=wrapped;
-      try{eval(`${name}=globalThis[name]`)}catch(_){}
-      return true;
-    }catch(_){return false}
-  }
+  function refreshDisplays(){fixHorseCards();stripDuplicatedGradeLabels();syncHistoryCount();patchCourseProfile()}
 
   function wrapJraImport(){
     try{
       if(typeof jraImport!=='function'||jraImport.__weightSplitV269)return false;
       const original=jraImport;
-      const wrapped=async function(...args){
-        const value=await original.apply(this,args);
-        if(Array.isArray(value?.horses))value.horses.forEach(normalizeWeightFields);
-        return value;
-      };
-      wrapped.__weightSplitV269=true;
-      wrapped.__original=original;
-      jraImport=wrapped;
-      try{window.jraImport=wrapped}catch(_){}
-      return true;
+      const wrapped=async function(...args){const value=await original.apply(this,args);if(Array.isArray(value?.horses))value.horses.forEach(normalizeWeightFields);return value};
+      wrapped.__weightSplitV269=true;wrapped.__original=original;jraImport=wrapped;try{window.jraImport=wrapped}catch(_){}return true;
     }catch(_){return false}
   }
 
@@ -185,10 +146,6 @@
   },true);
 
   let tries=0;
-  const tick=()=>{
-    tries++;install();refreshDisplays();
-    if(tries<30)setTimeout(tick,500);
-  };
+  const tick=()=>{tries++;install();refreshDisplays();if(tries<30)setTimeout(tick,500)};
   setTimeout(tick,100);
-  new MutationObserver(()=>{clearTimeout(window.__displayIntegrityTimerV269);window.__displayIntegrityTimerV269=setTimeout(refreshDisplays,60)}).observe(document.body,{subtree:true,childList:true});
 })();
