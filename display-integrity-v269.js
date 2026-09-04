@@ -83,16 +83,64 @@
 
   const profiles={
     '中山|芝|1600':{
-      turn:'右',layout:'外',
+      turn:'右',layout:'外',straight:'短',hill:'強',circuit:'小回り',
       facts:'外回り。最初のコーナーまで約240mと短く、2コーナーから4コーナー途中まで下り基調。直線は310mで、残り200m付近から高低差2.2mの急坂。外を回す距離ロス、位置取り、短い直線での加速力を重視',
-      basis:'中山芝1600mの同競馬場・同距離実績を最優先。別場実績は回り方向とコース形状を補助情報として低めに扱い、距離差と直近度を段階補正。'
+      basis:'中山芝1600mの同競馬場・同距離実績を最優先。別場実績は回り方向・直線長・坂・小回り適性の類似度を補助評価し、そこでの着順を頭数補正してコース指数へ反映。'
     },
     '中京|芝|1600':{
-      turn:'左',layout:'',
+      turn:'左',layout:'',straight:'長',hill:'強',circuit:'大回り',
       facts:'1～2コーナー間の引き込み線からスタートし、約200mで本線へ合流。バックストレッチ半ばから下り基調で、直線は412.5m。直線序盤に高低差約2mの急坂があり、坂を越えてからも200m余り続くため持続力と地力を重視',
-      basis:'中京芝1600mの同競馬場・同距離実績を最優先。左回り適性、長めの直線、直線の急坂、距離差を補助要素として段階補正し、直近ほど重く評価。'
+      basis:'中京芝1600mの同競馬場・同距離実績を最優先。別場実績は左回り・長い直線・急坂・大回りの類似度を補助評価し、そこでの着順を頭数補正してコース指数へ反映。'
     }
   };
+
+  const venueShape={
+    '札幌':{turn:'右',straight:'短',hill:'弱',circuit:'小回り'},
+    '函館':{turn:'右',straight:'短',hill:'中',circuit:'小回り'},
+    '福島':{turn:'右',straight:'短',hill:'中',circuit:'小回り'},
+    '新潟':{turn:'左',straight:'長',hill:'弱',circuit:'大回り'},
+    '東京':{turn:'左',straight:'長',hill:'中',circuit:'大回り'},
+    '中山':{turn:'右',straight:'短',hill:'強',circuit:'小回り'},
+    '中京':{turn:'左',straight:'長',hill:'強',circuit:'大回り'},
+    '京都':{turn:'右',straight:'長',hill:'弱',circuit:'大回り'},
+    '阪神':{turn:'右',straight:'長',hill:'強',circuit:'大回り'},
+    '小倉':{turn:'右',straight:'短',hill:'弱',circuit:'小回り'}
+  };
+
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function profileCourseScore(rows,target){
+    const venue=document.getElementById('venue')?.value||'';
+    const surface=document.getElementById('surface')?.value||'';
+    const distance=+(document.getElementById('distance')?.value||0);
+    const rr=(rows||[]).filter(r=>!r?.status&&Number.isFinite(+r?.rank)&&+r.rank>0).slice(0,5);
+    if(!rr.length)return null;
+    let weighted=0,totalW=0;
+    rr.forEach((r,index)=>{
+      const rv=String(r.venue||'').replace(/競馬場/g,'');
+      const shape=venueShape[rv]||{};
+      let sim=.18;
+      if(String(r.surface||'')===surface)sim+=.12;
+      if(rv===venue)sim+=.38;
+      if(shape.turn&&shape.turn===target.turn)sim+=.10;
+      if(shape.straight&&shape.straight===target.straight)sim+=.07;
+      if(shape.hill&&shape.hill===target.hill)sim+=.06;
+      if(shape.circuit&&shape.circuit===target.circuit)sim+=.04;
+      const rd=+r.distance;
+      if(Number.isFinite(rd)){
+        const diff=Math.abs(rd-distance);
+        if(diff===0)sim+=.05;else if(diff<=200)sim+=.025;
+      }
+      sim=clamp(sim,.12,1);
+      const rank=+r.rank;
+      const field=Math.max(rank,+r.field_size||18,2);
+      const performance=clamp(100-((rank-1)/Math.max(1,field-1))*65,35,100);
+      const runScore=performance*.68+(sim*100)*.32;
+      const recency=[1,.90,.82,.74,.68][index]||.65;
+      const w=recency*(.55+.45*sim);
+      weighted+=runScore*w;totalW+=w;
+    });
+    return totalW?clamp(weighted/totalW,20,100):null;
+  }
 
   function patchCourseProfile(){
     const venue=document.getElementById('venue')?.value||'';
@@ -119,8 +167,29 @@
     }catch(_){return false}
   }
 
+  function installCourseScoring(){
+    try{
+      if(typeof scoreLocalHistory!=='function'||scoreLocalHistory.__profileAwareV269)return false;
+      const original=scoreLocalHistory;
+      const wrapped=function(rows){
+        const out=original.apply(this,arguments);
+        const venue=document.getElementById('venue')?.value||'';
+        const surface=document.getElementById('surface')?.value||'';
+        const distance=+(document.getElementById('distance')?.value||0);
+        const target=profiles[`${venue}|${surface}|${distance}`];
+        if(!target||!out?.available)return out;
+        const course=profileCourseScore(rows,target);
+        return course===null?out:{...out,course};
+      };
+      wrapped.__profileAwareV269=true;wrapped.__original=original;
+      scoreLocalHistory=wrapped;try{window.scoreLocalHistory=wrapped}catch(_){}
+      return true;
+    }catch(_){return false}
+  }
+
   function install(){
     wrapJraImport();
+    installCourseScoring();
     try{
       if(typeof renderHorses==='function'&&!renderHorses.__displayIntegrityV269){
         const original=renderHorses;
