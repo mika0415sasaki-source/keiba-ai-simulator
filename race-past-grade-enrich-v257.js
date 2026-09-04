@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__racePastGradeEnrichV264)return;
-  window.__racePastGradeEnrichV264=true;
+  if(window.__racePastGradeEnrichV268)return;
+  window.__racePastGradeEnrichV268=true;
 
   const API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-past-grades-v1';
   const clean=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
@@ -40,12 +40,10 @@
       const hist=sortHist(h.history);
       const past=[...src.runs];
       let horseChanged=false;
-      for(let i=0;i<hist.length;i++){
-        const run=hist[i];
-        let m=past.find(x=>sameRun(run,x));
-        // shutuba_past は最新走順。日付等が取れないセルだけ同じ順番で補完する。
-        // 過去走そのものは置換せず、レース名と格だけを足す。
-        if(!m&&past[i])m=past[i];
+      for(const run of hist){
+        // Never supplement by list position. A race name/grade is added only when
+        // date + available venue/distance identify the same actual race.
+        const m=past.find(x=>sameRun(run,x));
         if(!m)continue;
         if((!run.race_name||/未取得|不明/.test(String(run.race_name)))&&m.race_name){run.race_name=m.race_name;horseChanged=true}
         if(missing(run.grade)&&m.grade){run.grade=m.grade;horseChanged=true}
@@ -75,8 +73,6 @@
     }
     busy=true;
     try{
-      // APIにはURLではなく12桁race_idを渡す。
-      // これでnetkeiba URLでもJRA URLでも同じ shutuba_past を参照する。
       const r=await fetch(API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({race_id:rid})});
       const j=await r.json().catch(()=>({rows:[]}));
       if(!r.ok||!Array.isArray(j.rows))return false;
@@ -91,7 +87,6 @@
     }finally{busy=false}
   }
 
-  // 出馬表取込後・過去5走再取得後のどちらでも格補完を走らせる。
   setInterval(()=>{fetchAndApply(false)},3000);
   document.addEventListener('click',e=>{
     const t=e.target;
