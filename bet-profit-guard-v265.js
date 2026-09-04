@@ -1,10 +1,9 @@
 (function(){
   'use strict';
-  if(window.__keibaBetProfitGuardV266)return;
-  window.__keibaBetProfitGuardV266=true;
+  if(window.__keibaBetProfitGuardV267)return;
+  window.__keibaBetProfitGuardV267=true;
 
   const UNIT=100;
-  const num=v=>Number(v);
   const money=v=>Math.round(Number(v)||0).toLocaleString('ja-JP');
 
   function getPlan(){
@@ -36,7 +35,7 @@
 
     const droppedList=Array.isArray(dropped)?dropped.slice().sort((a,b)=>a.order-b.order):[];
 
-    root.querySelectorAll('.v265-profit-note,.v266-dropped-note').forEach(el=>el.remove());
+    root.querySelectorAll('.v265-profit-note,.v266-dropped-note,.v267-dropped-note').forEach(el=>el.remove());
     const note=document.createElement('div');
     note.className='small v265-profit-note';
     note.style.margin='8px 0';
@@ -69,9 +68,9 @@
 
     if(droppedList.length){
       const droppedNote=document.createElement('div');
-      droppedNote.className='small v266-dropped-note';
+      droppedNote.className='small v267-dropped-note';
       droppedNote.style.cssText='margin:14px 0 6px;padding:9px 10px;border:1px solid #d79a36;border-radius:10px;color:#f2bd62;background:rgba(215,154,54,.08)';
-      droppedNote.innerHTML='<b>除外候補（予算外）</b><br><span style="color:var(--w)">元のAI候補は消していません。買う・買わないは自由です。</span>';
+      droppedNote.innerHTML='<b>除外候補（予算外）</b><br><span style="color:var(--w)">元のAI候補は消していません。必要なら追加購入できます。</span>';
       root.appendChild(droppedNote);
 
       for(const p of droppedList){
@@ -81,12 +80,10 @@
         const ret=odds>0?Math.round((odds*minStake)/10)*10:null;
         const net=ret==null?null:ret-total;
         const row=document.createElement('div');
-        row.className='v266-dropped-note';
-        row.style.cssText='margin:6px 0;padding:8px 10px;border:1px solid rgba(215,154,54,.65);border-radius:10px;background:rgba(215,154,54,.06);color:#f2bd62';
-        const pay=ret!=null
-          ? `<span class="small" style="margin-left:8px;color:var(--w)">${odds.toFixed(1)}倍 / 収支保護の最低額 ${money(minStake)}円 / 払戻目安 ${money(ret)}円 / ${net===0?'±0円':`${net<0?'−':'＋'}${money(Math.abs(net))}円`}</span>`
-          : '<span class="small" style="margin-left:8px;color:var(--w)">オッズ未取得</span>';
-        row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>除外候補</b> ${key}${pay}</span><b style="white-space:nowrap">0円</b></div>`;
+        row.className='v267-dropped-note';
+        row.style.cssText='margin:6px 0;padding:9px 10px;border:1px solid rgba(215,154,54,.65);border-radius:10px;background:rgba(215,154,54,.06);color:#f2bd62';
+        const netText=net==null?'':(net===0?'±0円':`${net<0?'−':'＋'}${money(Math.abs(net))}円`);
+        row.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div><b>除外候補 ${key}</b> <span class="small" style="color:var(--w)">${odds>0?odds.toFixed(1)+'倍':'オッズ未取得'}</span></div><div class="small" style="margin-top:4px;color:var(--w)">追加するなら最低 <b style="color:#f2bd62">${money(minStake)}円</b>${ret!=null?` / 払戻目安 ${money(ret)}円 / <b style="color:var(--a)">${netText}</b>`:''}</div></div><b style="white-space:nowrap;color:#f2bd62">予算内 0円</b></div>`;
         root.appendChild(row);
       }
     }
@@ -112,16 +109,12 @@
       order:i
     }));
 
-    // オッズが揃っていない時は推測で削らない。従来配分をそのまま残す。
     if(src.some(p=>!(p.odds>0)))return false;
 
-    // 元のAI優先順を崩さず、各買い目が「総予算以上の払戻」になる最低額を算出。
     let kept=src.map(p=>({...p,stake:requiredStake(total,p.odds)}));
     let need=kept.reduce((s,p)=>s+p.stake,0);
     const dropped=[];
 
-    // 全点を黒字/トントンにできない時だけ、AI優先順位の末尾から最小限削る。
-    // 削った候補自体は表示から消さず、色付きの「除外候補」として残す。
     while(need>total&&kept.length>1){
       const p=kept.pop();
       dropped.push(p);
@@ -129,7 +122,6 @@
     }
     if(need>total)return false;
 
-    // 余った予算は、まず従来配分に近づける。元ロジックの強弱をできるだけ残す。
     let remaining=total-need;
     for(const p of kept){
       if(remaining<UNIT)break;
@@ -140,7 +132,6 @@
       remaining-=rounded;
     }
 
-    // それでも余れば上位3点へ順番に追加し、総予算をきっちり使う。
     let i=0;
     const topN=Math.max(1,Math.min(3,kept.length));
     while(remaining>=UNIT&&i<1000){
@@ -159,18 +150,17 @@
   if(typeof original==='function'){
     window.generateTickets=function(){
       const result=original.apply(this,arguments);
-      try{protect()}catch(e){console.warn('bet-profit-guard-v266',e)}
+      try{protect()}catch(e){console.warn('bet-profit-guard-v267',e)}
       try{return (typeof currentTickets==='function')?currentTickets():result}catch(_){return result}
     };
   }else{
-    // 念のため、将来本体側で関数公開方法が変わった場合の表示用フォールバック。
     const mount=()=>{
       const ticket=document.getElementById('ticket');
       if(!ticket)return setTimeout(mount,200);
       let queued=false;
       new MutationObserver(()=>{
         if(queued)return;queued=true;
-        queueMicrotask(()=>{queued=false;try{protect()}catch(e){console.warn('bet-profit-guard-v266',e)}});
+        queueMicrotask(()=>{queued=false;try{protect()}catch(e){console.warn('bet-profit-guard-v267',e)}});
       }).observe(ticket,{childList:true,subtree:true});
     };
     mount();
