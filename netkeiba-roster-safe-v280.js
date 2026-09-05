@@ -3,6 +3,7 @@
   window.__netkeibaRosterSafeV280=true;
 
   const ROSTER_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-horse-ids-v1';
+  const BASE_IMPORT='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-import';
   const clean=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
   const isNk=u=>/netkeiba\.com/i.test(String(u||''));
   const validNo=v=>Number.isInteger(+v)&&+v>=1&&+v<=18?+v:null;
@@ -21,17 +22,17 @@
     const out=[];
 
     for(const row of rows||[]){
-      const id=String(row?.id||'').toLowerCase();
+      const id=String(row?.id||row?.netkeiba_horse_id||row?.horse_id||'').toLowerCase();
       const name=clean(row?.name);
       if(!name)continue;
       const base=(id&&byId.get(id))||byName.get(name)||{};
-      const h={...base,name:row.name||base.name||name};
-      const no=validNo(row?.no??row?.horse_no);
+      const h={...base,...row,name:row.name||base.name||name};
+      const no=validNo(row?.no??row?.horse_no??base?.no??base?.horse_no);
       if(no){h.no=no;h.horse_no=no;h.provisional_no=false}
       if(id){h.horse_id=id;h.netkeiba_horse_id=id;h.netkeibaExactHorseId=true}
       h.provisional=true;
       out.push(h);
-      used.add(base);
+      if(base&&Object.keys(base).length)used.add(base);
     }
 
     // A temporarily partial roster must never delete a horse that was already
@@ -49,22 +50,39 @@
     return out;
   }
 
+  async function post(url,body){
+    const r=await fetch(url,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j?.error||('HTTP '+r.status));
+    return j;
+  }
+
   async function reconcile(value,url){
     if(!isNk(url)||!Array.isArray(value?.horses))return value;
     const rid=raceId(url);if(!rid)return value;
     try{
-      const r=await fetch(ROSTER_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({race_id:rid})});
-      const j=await r.json().catch(()=>({rows:[]}));
-      if(!r.ok||!Array.isArray(j.rows)||!j.rows.length)return value;
+      const j=await post(ROSTER_API,{race_id:rid});
+      if(!Array.isArray(j.rows)||!j.rows.length)return value;
       const before=value.horses.length;
-      const merged=mergeRoster(value.horses,j.rows);
-      // Do not accept a regression to fewer horses. If the authoritative endpoint
-      // advertises an expected field size, prefer the merged result only when it
-      // reaches that size or at least preserves the prior source count.
       const expected=Number(j.expected_count)||0;
-      if(merged.length>=before&&(expected===0||merged.length>=Math.min(expected,before)||j.complete)){
+      let merged=mergeRoster(value.horses,j.rows);
+
+      // If the roster endpoint itself is temporarily partial, recover the race
+      // card from the independent importer and merge it instead of accepting a
+      // reduced field. This prevents 16 -> 15 and horse-number compression.
+      if(expected>0&&merged.length<expected){
+        try{
+          const base=await post(BASE_IMPORT,{url:`https://race.sp.netkeiba.com/race/shutuba.html?race_id=${rid}&rf=rs`});
+          if(Array.isArray(base?.horses)&&base.horses.length){
+            merged=mergeRoster(merged,base.horses);
+            merged=mergeRoster(merged,j.rows);
+          }
+        }catch(e){console.warn('netkeiba roster fallback import',e)}
+      }
+
+      if(merged.length>=before){
         value.horses=merged;
-        value.meta={...(value.meta||{}),entry_count:merged.length,roster_count:merged.length,roster_expected:expected||null,roster_complete:!!j.complete,roster_source:'netkeiba-roster-safe-v280'};
+        value.meta={...(value.meta||{}),entry_count:merged.length,roster_count:merged.length,roster_expected:expected||null,roster_complete:!!j.complete&&(!expected||merged.length>=expected),roster_source:'netkeiba-roster-safe-v280'};
       }
     }catch(e){console.warn('netkeiba roster safe v280',e)}
     return value;
