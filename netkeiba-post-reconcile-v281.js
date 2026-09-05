@@ -36,9 +36,9 @@
     if(ev){
       const line=ev.querySelector?.('[data-grade-odds-evidence]');
       if(line){
-        let s=String(line.textContent||'');
-        s=s.replace(/netkeiba(?:予想|単勝)?オッズ・人気\s*\d+\/\d+頭/g,`${m.label} ${m.count}/${n}頭`);
-        line.textContent=s;
+        const before=String(line.textContent||'');
+        const after=before.replace(/netkeiba(?:予想|単勝)?オッズ・人気\s*\d+\/\d+頭/g,`${m.label} ${m.count}/${n}頭`);
+        if(after!==before)line.textContent=after;
       }
       let html=ev.innerHTML;
       if(m.count>0){
