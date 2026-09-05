@@ -6,7 +6,9 @@
   const isNk=()=>/netkeiba\.com/i.test(String(document.getElementById('raceUrl')?.value||''));
   const list=()=>{try{if(typeof horses!=='undefined'&&Array.isArray(horses))return horses}catch(_){}return Array.isArray(window.horses)?window.horses:[]};
   const valid=v=>Number.isFinite(+v)&&+v>1;
+  const validPop=v=>Number.isInteger(+v)&&+v>=1&&+v<=18;
   const active=()=>list().filter(h=>!/取消|除外|中止|失格/.test(String(h?.status||h?.result_status||'')));
+  let inSanitize=false;
 
   function marketState(){
     try{return typeof window.__getNetkeibaForecastState==='function'?window.__getNetkeibaForecastState():null}catch(_){return null}
@@ -32,47 +34,44 @@
   }
 
   function sanitize({rerender=false}={}){
-    if(!isNk())return false;
+    if(inSanitize||!isNk())return false;
     const hs=active();if(!hs.length)return false;
-    const m=completeMarket();
-    if(m.ok)return false;
-
+    const m=completeMarket();if(m.ok)return false;
+    inSanitize=true;
     let changed=false;
-    for(const h of hs){
-      if(valid(h?.odds)||valid(h?.forecast_odds)||valid(h?.netkeiba_actual_odds)||valid(h?.netkeiba_forecast_odds)||Number.isFinite(+h?.popularity)||Number.isFinite(+h?.forecast_popularity)||Number.isFinite(+h?.netkeiba_actual_popularity)||Number.isFinite(+h?.netkeiba_forecast_popularity))changed=true;
-      clearHorseMarket(h);
-    }
     try{
-      if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)){
-        evaluated=evaluated.map(h=>{
-          if(!hs.some(x=>clean(x.name)===clean(h?.name)))return h;
-          return {...h,odds:null,popularity:null,forecast_odds:null,forecast_popularity:null,netkeiba_actual_odds:null,netkeiba_actual_popularity:null,netkeiba_forecast_odds:null,netkeiba_forecast_popularity:null,netkeiba_forecast_snapshot:false,winOdds:null,valueIndex:1};
-        });
+      for(const h of hs){
+        if(valid(h?.odds)||valid(h?.forecast_odds)||valid(h?.netkeiba_actual_odds)||valid(h?.netkeiba_forecast_odds)||validPop(h?.popularity)||validPop(h?.forecast_popularity)||validPop(h?.netkeiba_actual_popularity)||validPop(h?.netkeiba_forecast_popularity))changed=true;
+        clearHorseMarket(h);
       }
-    }catch(_){}
-    try{
-      if(typeof oddsCache==='object'&&oddsCache){
-        const src=[oddsCache.source,oddsCache.odds_type,...Object.values(oddsCache.win||{}).slice(0,4).map(v=>v&&typeof v==='object'?v.source:'')].filter(Boolean).join(' ');
-        const official=/(?:JRA|公式|実オッズ|ACTUAL|OFFICIAL)/i.test(src)&&!/(?:予想|FORECAST)/i.test(src);
-        const n=hs.length,have=Object.keys(oddsCache.win||{}).length;
-        if(!official||have!==n)oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null,partial_rejected:{have,total:n}};
+      try{
+        if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)){
+          evaluated=evaluated.map(h=>{
+            if(!hs.some(x=>clean(x.name)===clean(h?.name)))return h;
+            return {...h,odds:null,popularity:null,forecast_odds:null,forecast_popularity:null,netkeiba_actual_odds:null,netkeiba_actual_popularity:null,netkeiba_forecast_odds:null,netkeiba_forecast_popularity:null,netkeiba_forecast_snapshot:false,winOdds:null,valueIndex:1};
+          });
+        }
+      }catch(_){}
+      try{
+        if(typeof oddsCache==='object'&&oddsCache){
+          const src=[oddsCache.source,oddsCache.odds_type,...Object.values(oddsCache.win||{}).slice(0,4).map(v=>v&&typeof v==='object'?v.source:'')].filter(Boolean).join(' ');
+          const official=/(?:JRA|公式|実オッズ|ACTUAL|OFFICIAL)/i.test(src)&&!/(?:予想|FORECAST)/i.test(src);
+          const n=hs.length,have=Object.keys(oddsCache.win||{}).length;
+          if(!official||have!==n)oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null,partial_rejected:{have,total:n}};
+        }
+      }catch(_){}
+      if(rerender&&typeof renderAnalysis==='function'){
+        try{renderAnalysis()}catch(_){}
       }
-    }catch(_){}
-
-    if((changed||rerender)&&typeof renderAnalysis==='function'){
-      try{renderAnalysis()}catch(_){}
-    }
-    return changed;
+      return changed;
+    }finally{inSanitize=false}
   }
 
   function wrapForecast(){
     const fn=window.__loadNetkeibaForecastV59;
     if(typeof fn!=='function'||fn.__marketIntegrityV278)return false;
     const wrapped=async function(...args){
-      if(isNk()){
-        // A new request must never inherit values from a previous/partial response.
-        for(const h of active())clearHorseMarket(h);
-      }
+      if(isNk())for(const h of active())clearHorseMarket(h);
       const out=await fn.apply(this,args);
       sanitize({rerender:true});
       return out;
