@@ -10,6 +10,7 @@
   const isNk=u=>/netkeiba\.com/i.test(String(u||''));
   const validNo=v=>Number.isInteger(+v)&&+v>=1&&+v<=18?+v:null;
   const list=()=>{try{if(typeof horses!=='undefined'&&Array.isArray(horses))return horses}catch(_){}return Array.isArray(window.horses)?window.horses:[]};
+  let lastForecastKickAt=0;
 
   function raceId(url){
     let s=String(url||'');for(let i=0;i<3;i++){try{s=decodeURIComponent(s)}catch(_){break}}
@@ -76,7 +77,7 @@
       if(typeof jraImport!=='function'||jraImport.__netkeibaAuthoritativeV272)return;
       const previous=jraImport;
       const wrapped=async function(url){
-        if(isNk(url))return authoritativeImport(String(url));
+        if(isNk(url)){lastForecastKickAt=0;return authoritativeImport(String(url));}
         return previous.apply(this,arguments);
       };
       wrapped.__netkeibaAuthoritativeV272=true;wrapped.__previous=previous;jraImport=wrapped;try{window.jraImport=wrapped}catch(_){}
@@ -87,7 +88,22 @@
       if(typeof renderHorses==='function'&&!renderHorses.__netkeibaAuthoritativeV272){const previous=renderHorses;const wrapped=function(){return bypassLegacyUrl(previous,this,arguments)};wrapped.__netkeibaAuthoritativeV272=true;wrapped.__previous=previous;renderHorses=wrapped;try{window.renderHorses=wrapped}catch(_){}}
     }catch(_){}
     try{
-      if(typeof evalAll==='function'&&!evalAll.__netkeibaAuthoritativeV272){const previous=evalAll;const wrapped=function(){const value=bypassLegacyUrl(previous,this,arguments);const el=document.getElementById('raceUrl');const u=String(el?.value||'');if(isNk(u)&&u.includes(LEGACY_RACE_ID)&&typeof window.__loadNetkeibaForecastV59==='function')setTimeout(()=>window.__loadNetkeibaForecastV59(list(),u).catch(()=>{}),0);return value};wrapped.__netkeibaAuthoritativeV272=true;wrapped.__previous=previous;evalAll=wrapped;try{window.evalAll=wrapped}catch(_){}}
+      if(typeof evalAll==='function'&&!evalAll.__netkeibaAuthoritativeV272){
+        const previous=evalAll;
+        const wrapped=function(){
+          const value=bypassLegacyUrl(previous,this,arguments);
+          const el=document.getElementById('raceUrl');const u=String(el?.value||'');
+          if(isNk(u)&&u.includes(LEGACY_RACE_ID)&&typeof window.__loadNetkeibaForecastV59==='function'){
+            let st=null;try{st=typeof window.__getNetkeibaForecastState==='function'?window.__getNetkeibaForecastState():null}catch(_){}
+            const now=Date.now();
+            const settledUnavailable=st?.status==='ready'&&String(st?.oddsType||'').toLowerCase()==='unavailable';
+            const shouldKick=!st||st.status==='idle'||st.status==='error'||(settledUnavailable&&now-lastForecastKickAt>=60000);
+            if(shouldKick){lastForecastKickAt=now;setTimeout(()=>window.__loadNetkeibaForecastV59(list(),u).catch(()=>{}),0)}
+          }
+          return value;
+        };
+        wrapped.__netkeibaAuthoritativeV272=true;wrapped.__previous=previous;evalAll=wrapped;try{window.evalAll=wrapped}catch(_){}
+      }
     }catch(_){}
   }
   function install(){installImport();installRender()}
