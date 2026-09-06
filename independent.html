@@ -8,54 +8,80 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>KEIBA AI 独自分析</title>
-<style>html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}#boot{padding:120px 24px;text-align:center;line-height:1.7}</style>
+<style>
+html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+#boot{padding:120px 24px;text-align:center;line-height:1.7;color:#eef3ff}
+#boot small{color:#9fb0cf}
+</style>
 </head>
 <body>
-<div id="boot">KEIBA AI 独自分析を読み込み中…</div>
+<div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>画面本体を準備しています</small></div>
 <script>
 (async()=>{
+ const PATCHES=[
+  './independent-patch.js?v=20260901-base7',
+  './core-fix.js?v=20260902-core6',
+  './independent-history-fix-v57.js?v=20260903-complete22',
+  './history-refresh-v240.js?v=20260904-v254',
+  './horse-id-resolver-v256.js?v=20260905-v270',
+  './alnum-horse-history-v255.js?v=20260904-v255',
+  './race-past-grade-enrich-v257.js?v=20260904-v268',
+  './grade-pipeline-fix-v260.js?v=20260904-v260',
+  './sapporo-1800-eval-v249.js?v=20260904-v250',
+  './sapporo-1800-profile-v248.js?v=20260904-v250',
+  './bet-profit-guard-v265.js?v=20260904-v267',
+  './display-integrity-v269.js?v=20260905-v269b',
+  './roster-integrity-v270.js?v=20260905-v270',
+  './data-integrity-v271.js?v=20260905-v271',
+  './netkeiba-authoritative-v272.js?v=20260905-v272b',
+  './netkeiba-pace-blood-fix-v273.js?v=20260905-v273',
+  './netkeiba-detail-fix-v274.js?v=20260905-v274',
+  './odds-integrity-v275.js?v=20260905-v275',
+  './hanshin-1200-profile-v276.js?v=20260905-v276',
+  './nakayama-2000-profile-v282.js?v=20260905-v282',
+  './netkeiba-market-integrity-v278.js?v=20260905-v278b',
+  './netkeiba-market-status-v279.js?v=20260905-v279',
+  './netkeiba-roster-safe-v280.js?v=20260905-v280b',
+  './netkeiba-post-reconcile-v281.js?v=20260905-v281b',
+  './history-nonfinish-guard-v283.js?v=20260905-v283',
+  './history-nonfinish-authoritative-v284.js?v=20260905-v284',
+  './history-count-quality-v285.js?v=20260905-v285',
+  './history-display-consistency-v286.js?v=20260905-v286',
+  './bet-safety-net-v287.js?v=20260906-v287',
+  './mobile-history-ui-fix-v288.js?v=20260906-v288'
+ ];
+ const loadExternal=(src)=>new Promise(resolve=>{
+   const s=document.createElement('script');
+   s.src=src;s.async=false;
+   let done=false;
+   const finish=()=>{if(done)return;done=true;clearTimeout(t);resolve()};
+   s.onload=finish;s.onerror=finish;
+   const t=setTimeout(finish,6000);
+   document.body.appendChild(s);
+ });
  try{
-  const r=await fetch('./v55-parts/part0.txt?v=20260901-stable1',{cache:'no-store'});
+  const r=await fetch('./v55-parts/part0.txt?v=20260906-loader289',{cache:'no-store'});
   if(!r.ok)throw new Error('本体 '+r.status);
   let html=await r.text();
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
            .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
-  const tag='<scr'+'ipt src="./independent-patch.js?v=20260901-base7"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./core-fix.js?v=20260902-core6"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./independent-history-fix-v57.js?v=20260903-complete22"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./history-refresh-v240.js?v=20260904-v254"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./horse-id-resolver-v256.js?v=20260905-v270"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./alnum-horse-history-v255.js?v=20260904-v255"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./race-past-grade-enrich-v257.js?v=20260904-v268"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./grade-pipeline-fix-v260.js?v=20260904-v260"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./sapporo-1800-eval-v249.js?v=20260904-v250"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./sapporo-1800-profile-v248.js?v=20260904-v250"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./bet-profit-guard-v265.js?v=20260904-v267"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./display-integrity-v269.js?v=20260905-v269b"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./roster-integrity-v270.js?v=20260905-v270"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./data-integrity-v271.js?v=20260905-v271"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-authoritative-v272.js?v=20260905-v272b"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-pace-blood-fix-v273.js?v=20260905-v273"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-detail-fix-v274.js?v=20260905-v274"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./odds-integrity-v275.js?v=20260905-v275"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./hanshin-1200-profile-v276.js?v=20260905-v276"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./nakayama-2000-profile-v282.js?v=20260905-v282"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-market-integrity-v278.js?v=20260905-v278b"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-market-status-v279.js?v=20260905-v279"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-roster-safe-v280.js?v=20260905-v280b"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./netkeiba-post-reconcile-v281.js?v=20260905-v281b"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./history-nonfinish-guard-v283.js?v=20260905-v283"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./history-nonfinish-authoritative-v284.js?v=20260905-v284"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./history-count-quality-v285.js?v=20260905-v285"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./history-display-consistency-v286.js?v=20260905-v286"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./bet-safety-net-v287.js?v=20260906-v287"></scr'+'ipt>'+ 
-            '<scr'+'ipt src="./mobile-history-ui-fix-v288.js?v=20260906-v288"></scr'+'ipt>';
-  html=html.replace('</body>',tag+'</body>');
-  document.open();
-  document.write(html);
-  document.close();
+  const parsed=new DOMParser().parseFromString(html,'text/html');
+  const baseScripts=[...parsed.querySelectorAll('script')].map(s=>({src:s.getAttribute('src')||'',text:s.textContent||''}));
+  parsed.querySelectorAll('script').forEach(s=>s.remove());
+  document.head.innerHTML=parsed.head.innerHTML;
+  document.body.innerHTML=parsed.body.innerHTML;
+  document.documentElement.style.backgroundColor='#09101d';
+  document.body.style.backgroundColor='#09101d';
+  for(const spec of baseScripts){
+    if(spec.src){await loadExternal(spec.src)}else if(spec.text.trim()){
+      const s=document.createElement('script');s.textContent=spec.text;document.body.appendChild(s);
+    }
+  }
+  for(const src of PATCHES)await loadExternal(src);
  }catch(e){
-  document.getElementById('boot').innerHTML='読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+String(e)+'</small>';
+  document.documentElement.style.backgroundColor='#09101d';
+  document.body.style.backgroundColor='#09101d';
+  document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>';
  }
 })();
 </script>
