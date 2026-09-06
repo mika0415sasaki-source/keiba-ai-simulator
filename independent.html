@@ -48,7 +48,8 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
   './history-count-quality-v285.js?v=20260905-v285',
   './history-display-consistency-v286.js?v=20260905-v286',
   './bet-safety-net-v287.js?v=20260906-v287',
-  './mobile-history-ui-fix-v288.js?v=20260906-v288'
+  './mobile-history-ui-fix-v288.js?v=20260906-v288',
+  './authoritative-import-v292.js?v=20260906-v292'
  ];
  const addInline=code=>{
    if(!code||!code.trim())return;
@@ -63,17 +64,25 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
    }catch(e){console.warn('patch skip',src,e);return ''}
    finally{clearTimeout(t)}
  };
- const backgroundPatches=()=>{
-   setTimeout(async()=>{
-     try{
-       const codes=await Promise.all(PATCHES.map(fetchCode));
-       codes.forEach(addInline);
-       document.documentElement.dataset.patches='ready';
-       window.dispatchEvent(new Event('keiba-patches-ready'));
-     }catch(e){console.warn('background patches',e)}
-   },0);
+ const lockImportControls=()=>{
+   const a=document.getElementById('importRace'),h=document.getElementById('importHist');
+   if(a){a.disabled=true;a.textContent='準備中…'}
+   if(h){h.disabled=true}
  };
- fetch('./v55-parts/part0.txt?v=20260906-loader291',{cache:'no-store'})
+ const loadPatches=async()=>{
+   try{
+     const codes=await Promise.all(PATCHES.map(fetchCode));
+     codes.forEach(addInline);
+     document.documentElement.dataset.patches='ready';
+     window.dispatchEvent(new Event('keiba-patches-ready'));
+   }catch(e){
+     console.warn('patch load',e);
+     const a=document.getElementById('importRace'),h=document.getElementById('importHist');
+     if(a){a.disabled=false;a.textContent='出馬表取込'}
+     if(h)h.disabled=false;
+   }
+ };
+ fetch('./v55-parts/part0.txt?v=20260906-loader292',{cache:'no-store'})
   .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
   .then(async html=>{
     html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
@@ -88,21 +97,11 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     try{scrollTo(0,0)}catch(_){}
     for(const spec of baseScripts){
       if(spec.text.trim())addInline(spec.text);
-      else if(spec.src){fetchCode(spec.src).then(addInline)}
+      else if(spec.src){const code=await fetchCode(spec.src);addInline(code)}
     }
-
-    // 出馬表取込はここだけ先に修正してから操作可能にする。
-    const importBtn=document.getElementById('importRace');
-    const histBtn=document.getElementById('importHist');
-    if(importBtn){importBtn.disabled=true;importBtn.textContent='準備中…'}
-    if(histBtn)histBtn.disabled=true;
-    const fastCode=await fetchCode('./fast-import-v291.js?v=20260906-v291b');
-    if(fastCode)addInline(fastCode);
-    if(importBtn){importBtn.disabled=false;importBtn.textContent='出馬表取込'}
-    if(histBtn)histBtn.disabled=false;
-
+    lockImportControls();
     document.documentElement.dataset.app='ready';
-    backgroundPatches();
+    await loadPatches();
   })
   .catch(e=>{
     document.documentElement.style.backgroundColor='#09101d';
