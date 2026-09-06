@@ -49,7 +49,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
   './history-display-consistency-v286.js?v=20260905-v286',
   './bet-safety-net-v287.js?v=20260906-v287',
   './mobile-history-ui-fix-v288.js?v=20260906-v288',
-  './authoritative-import-v292.js?v=20260906-v292'
+  './authoritative-import-v293.js?v=20260906-v293'
  ];
  const addInline=code=>{
    if(!code||!code.trim())return;
@@ -82,7 +82,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
      if(h)h.disabled=false;
    }
  };
- fetch('./v55-parts/part0.txt?v=20260906-loader292',{cache:'no-store'})
+ fetch('./v55-parts/part0.txt?v=20260906-loader293',{cache:'no-store'})
   .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
   .then(async html=>{
     html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
