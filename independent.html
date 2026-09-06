@@ -15,22 +15,20 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>安定版 v294 を準備しています</small></div>
+<div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>安定版 v295 を準備しています</small></div>
 <script>
 (()=>{
-  // 旧版は約30本の重複パッチを同時実行していた。
-  // v294では取込/履歴に干渉する旧パッチを読み込まず、必要な軽量補正だけに限定する。
+  // v295: 取込・過去走・脚質・血統は1本のコントローラーに統一。
+  // CPUを使い続ける監視/再試行パッチは読み込まない。
   const PATCHES=[
-    './sapporo-1800-eval-v249.js?v=20260906-safe294',
-    './sapporo-1800-profile-v248.js?v=20260906-safe294',
-    './hanshin-1200-profile-v276.js?v=20260906-safe294',
-    './nakayama-2000-profile-v282.js?v=20260906-safe294',
-    './bet-profit-guard-v265.js?v=20260906-safe294',
-    './bet-safety-net-v287.js?v=20260906-safe294',
-    './history-count-quality-v285.js?v=20260906-safe294',
-    './history-display-consistency-v286.js?v=20260906-safe294',
-    './mobile-history-ui-fix-v288.js?v=20260906-safe294',
-    './authoritative-import-v294.js?v=20260906-safe294'
+    './sapporo-1800-eval-v249.js?v=20260906-safe295',
+    './sapporo-1800-profile-v248.js?v=20260906-safe295',
+    './hanshin-1200-profile-v276.js?v=20260906-safe295',
+    './nakayama-2000-profile-v282.js?v=20260906-safe295',
+    './bet-profit-guard-v265.js?v=20260906-safe295',
+    './bet-safety-net-v287.js?v=20260906-safe295',
+    './mobile-history-ui-fix-v288.js?v=20260906-safe295',
+    './authoritative-import-v295.js?v=20260906-safe295'
   ];
   const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
   const fetchCode=async(src,ms=3500)=>{
@@ -46,10 +44,10 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
   };
   const unlockFallback=()=>{
     const a=document.getElementById('importRace'),h=document.getElementById('importHist');
-    if(a&&document.documentElement.dataset.importController!=='v294'){a.disabled=false;a.textContent='出馬表取込'}
-    if(h&&document.documentElement.dataset.importController!=='v294'){h.disabled=false;h.textContent='過去5走を再取得'}
+    if(a&&document.documentElement.dataset.importController!=='v295'){a.disabled=false;a.textContent='出馬表取込'}
+    if(h&&document.documentElement.dataset.importController!=='v295'){h.disabled=false;h.textContent='過去5走を再取得'}
   };
-  fetch('./v55-parts/part0.txt?v=20260906-stable294',{cache:'no-store'})
+  fetch('./v55-parts/part0.txt?v=20260906-stable295',{cache:'no-store'})
     .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
     .then(async html=>{
       html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析').replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
@@ -65,7 +63,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
       const codes=await Promise.all(PATCHES.map(x=>fetchCode(x)));
       codes.forEach(addInline);
       document.documentElement.dataset.app='ready';
-      document.documentElement.dataset.build='stable294';
+      document.documentElement.dataset.build='stable295';
       dispatchEvent(new Event('keiba-patches-ready'));
       setTimeout(unlockFallback,0);
     })
