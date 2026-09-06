@@ -73,9 +73,9 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
      }catch(e){console.warn('background patches',e)}
    },0);
  };
- fetch('./v55-parts/part0.txt?v=20260906-loader290',{cache:'no-store'})
+ fetch('./v55-parts/part0.txt?v=20260906-loader291',{cache:'no-store'})
   .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
-  .then(html=>{
+  .then(async html=>{
     html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
              .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
     const parsed=new DOMParser().parseFromString(html,'text/html');
@@ -88,10 +88,19 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     try{scrollTo(0,0)}catch(_){}
     for(const spec of baseScripts){
       if(spec.text.trim())addInline(spec.text);
-      else if(spec.src){
-        fetchCode(spec.src).then(addInline);
-      }
+      else if(spec.src){fetchCode(spec.src).then(addInline)}
     }
+
+    // 出馬表取込はここだけ先に修正してから操作可能にする。
+    const importBtn=document.getElementById('importRace');
+    const histBtn=document.getElementById('importHist');
+    if(importBtn){importBtn.disabled=true;importBtn.textContent='準備中…'}
+    if(histBtn)histBtn.disabled=true;
+    const fastCode=await fetchCode('./fast-import-v291.js?v=20260906-v291b');
+    if(fastCode)addInline(fastCode);
+    if(importBtn){importBtn.disabled=false;importBtn.textContent='出馬表取込'}
+    if(histBtn)histBtn.disabled=false;
+
     document.documentElement.dataset.app='ready';
     backgroundPatches();
   })
