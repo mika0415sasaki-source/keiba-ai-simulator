@@ -196,4 +196,13 @@
   migrateSafariNow();
   window.__keibaStorageMode={browser:'memory-only',persistent:'loading',ready:false};
   hydrate();
+
+  // iOS Safari may suspend a tab quickly. Flush the small persistent state when
+  // the page is backgrounded; fetch keepalive lets the request finish after suspension.
+  window.addEventListener('pagehide',function(){
+    if(hydrated)remoteSaveNow();
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'&&hydrated)remoteSaveNow();
+  });
 })();
