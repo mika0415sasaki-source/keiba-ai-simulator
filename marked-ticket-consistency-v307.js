@@ -1,10 +1,11 @@
 (()=>{
-  if(window.__markedTicketConsistencyV310)return;
-  window.__markedTicketConsistencyV310=true;
+  if(window.__markedTicketConsistencyV311)return;
+  window.__markedTicketConsistencyV311=true;
 
   const el=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const num=v=>Number.isFinite(+v)?+v:null;
+  const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
   const key=ns=>(ns||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const money=v=>Math.round(Number(v)||0).toLocaleString('ja-JP');
 
@@ -31,6 +32,28 @@
   function requiredStake(total,odds){
     if(!(odds>0))return null;
     return Math.max(100,Math.ceil((total/odds)/100)*100);
+  }
+
+  // 予算入力は「総額の上限/配分」だけに使い、AIが本来選ぶ券種を変えない。
+  // 本体の無予算判定と同じ条件で、ワイドを選ぶレースかを再現する。
+  function naturalPrefersWide(){
+    try{
+      if(!Array.isArray(evaluated)||evaluated.length<3)return false;
+      const top=evaluated[0],second=evaluated[1],third=evaluated[2],sixth=evaluated[Math.min(5,evaluated.length-1)];
+      const gap12=(+top.score||0)-(+second.score||0);
+      const gap13=(+top.score||0)-(+third.score||0);
+      const gap36=(+third.score||0)-(+sixth.score||0);
+      const p1=+top.place||0,p3=+third.place||0;
+      let confidence=0;
+      confidence+=cl(gap12/8,0,1)*.25;
+      confidence+=cl(gap13/12,0,1)*.20;
+      confidence+=cl((p1-45)/35,0,1)*.25;
+      confidence+=cl((p3-30)/35,0,1)*.15;
+      confidence+=cl(gap36/10,0,1)*.15;
+      let wideCount=0;
+      try{wideCount=Object.keys(oddsCache?.wide||{}).length}catch(_){}
+      return confidence<.38&&wideCount>0;
+    }catch(_){return false}
   }
 
   function chooseWideStructure(marked,maxPoints=999){
@@ -120,9 +143,9 @@
     box.innerHTML=`<div class="card" style="margin-top:10px"><b class="good">ワイド・AI自動選定</b><div class="small" style="margin:8px 0 10px;line-height:1.55"><b>${summary}</b><br><span style="color:var(--s)">${candidateNos.join('・')}</span></div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${selected.length}点 / ${fixedBudget?'合計':'AI推奨総額'} ${money(total)}円</b></div></div>`;
   }
 
-  function repairWidePlan(){
+  function repairWidePlan(forceWide=false){
     try{
-      if(!lastBetPlan?.picks?.length||!String(lastBetPlan.type||'').includes('ワイド'))return false;
+      if(!forceWide&&(!lastBetPlan?.picks?.length||!String(lastBetPlan.type||'').includes('ワイド')))return false;
       const marked=markedHorses();if(marked.length<2)return false;
       const raw=String(el('budget')?.value||'').trim();
       const fixedBudget=raw!==''&&Number(raw)>0;
@@ -132,7 +155,7 @@
       const {selected,strategy}=chooseWideStructure(marked,maxPoints);
       if(!selected.length)return false;
       const stakes=fixedBudget?fixedBudgetStakes(marked,selected,budget):autoStakes(marked,selected);
-      lastBetPlan.picks=selected.map((x,i)=>({numbers:x.pair.map(h=>+h.no).sort((a,b)=>a-b),stake:stakes[i]||100,odds:x.odds||null}));
+      lastBetPlan={...(lastBetPlan||{}),type:'ワイド',picks:selected.map((x,i)=>({numbers:x.pair.map(h=>+h.no).sort((a,b)=>a-b),stake:stakes[i]||100,odds:x.odds||null}))};
       lastBetPlan.total=lastBetPlan.picks.reduce((s,p)=>s+(+p.stake||0),0);
       renderWidePlan(marked,selected,stakes,lastBetPlan.total,{fixedBudget,strategy});
       return true;
@@ -158,10 +181,17 @@
 
   function installTicketWrap(){
     try{
-      if(typeof generateTickets!=='function'||generateTickets.__markedTicketConsistencyV310)return false;
+      if(typeof generateTickets!=='function'||generateTickets.__markedTicketConsistencyV311)return false;
       const previous=generateTickets;
-      const wrapped=function(){const v=previous.apply(this,arguments);try{repairWidePlan()}catch(_){};return typeof currentTickets==='function'?currentTickets():v};
-      wrapped.__markedTicketConsistencyV310=true;wrapped.__previous=previous;
+      const wrapped=function(){
+        const raw=String(el('budget')?.value||'').trim();
+        const fixedBudget=raw!==''&&Number(raw)>0;
+        const forceWide=fixedBudget&&naturalPrefersWide();
+        const v=previous.apply(this,arguments);
+        try{repairWidePlan(forceWide)}catch(_){}
+        return typeof currentTickets==='function'?currentTickets():v;
+      };
+      wrapped.__markedTicketConsistencyV311=true;wrapped.__previous=previous;
       try{generateTickets=wrapped}catch(_){};try{window.generateTickets=wrapped}catch(_){}
       return true;
     }catch(e){console.warn('install marked ticket consistency',e);return false}
@@ -169,9 +199,9 @@
 
   function installRenderWrap(name){
     try{
-      const old=window[name];if(typeof old!=='function'||old.__sectionalDisplayV310)return;
+      const old=window[name];if(typeof old!=='function'||old.__sectionalDisplayV311)return;
       const fn=function(...args){const v=old.apply(this,args);queueMicrotask(repairSectionalDisplay);return v};
-      fn.__sectionalDisplayV310=true;fn.__original=old;window[name]=fn;
+      fn.__sectionalDisplayV311=true;fn.__original=old;window[name]=fn;
       try{if(name==='renderAnalysis')renderAnalysis=fn;else if(name==='evalAll')evalAll=fn}catch(_){}
     }catch(_){}
   }
