@@ -1,20 +1,22 @@
 (()=>{
-  if(window.__analysisCompactV306)return;
-  window.__analysisCompactV306=true;
+  if(window.__analysisCompactV309)return;
+  window.__analysisCompactV309=true;
 
   const el=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
   function injectStyle(){
-    if(el('analysisCompactV306Style'))return;
-    const s=document.createElement('style');s.id='analysisCompactV306Style';s.textContent=`
+    if(el('analysisCompactV309Style'))return;
+    const s=document.createElement('style');s.id='analysisCompactV309Style';s.textContent=`
       #evidence.analysis-evidence-compact{padding:12px 14px!important}
       #evidence .evidence-title{font-size:15px;font-weight:900;margin-bottom:8px}
       #evidence .evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 14px}
       #evidence .evidence-item{min-width:0;font-size:12px;line-height:1.45;color:#cbd7ee}
       #evidence .evidence-item b{color:#eef3ff}
-      #evidence .evidence-wide{grid-column:1/-1;padding-top:7px;margin-top:1px;border-top:1px solid rgba(72,96,139,.35)}
-      #evidence .evidence-note{font-size:11px;line-height:1.5;color:#9fb0cf}
+      #evidence .evidence-wide{grid-column:1/-1}
+      #evidence .evidence-note{font-size:11px;line-height:1.55;color:#9fb0cf}
+      #evidence .evidence-note-first{padding-top:7px;margin-top:1px;border-top:1px solid rgba(72,96,139,.35)}
+      #evidence .evidence-note-next{padding-top:0;margin-top:-2px}
       #ranking .ranking-card:nth-child(n+7){display:none!important}
       #rankingMarkedNote{font-size:11px;color:#9fb0cf;margin:-2px 0 8px}
       @media(max-width:520px){
@@ -52,7 +54,8 @@
         <div class="evidence-item"><b>騎手</b>　netkeiba過去走を参照</div>
         <div class="evidence-item"><b>オッズ</b>　単勝 ${win}頭 / ワイド ${wide}点 / 3連複 ${trio}点</div>
         <div class="evidence-item"><b>コース</b>　JRA基礎データ${jra?` / JRA履歴 ${jra}頭`:''}</div>
-        <div class="evidence-item evidence-wide evidence-note"><b>近走</b>：頭数・着順・レース格・今回条件・直近度を反映　／　<b>上がり</b>：芝ダ・距離・競馬場・馬場を補正して比較</div>
+        <div class="evidence-item evidence-wide evidence-note evidence-note-first"><b>近走</b>：頭数・着順・レース格・今回条件・直近度を反映</div>
+        <div class="evidence-item evidence-wide evidence-note evidence-note-next"><b>上がり</b>：芝ダ・距離・競馬場・馬場を補正して比較</div>
       </div>`;
   }
 
@@ -69,9 +72,9 @@
   function settle(){injectStyle();compactEvidence();markedRankingOnly()}
   function wrap(name){
     try{
-      const old=window[name];if(typeof old!=='function'||old.__v306)return;
+      const old=window[name];if(typeof old!=='function'||old.__v309)return;
       const fn=function(...args){const v=old.apply(this,args);queueMicrotask(settle);return v};
-      fn.__v306=true;fn.__original=old;window[name]=fn;
+      fn.__v309=true;fn.__original=old;window[name]=fn;
       try{if(name==='renderAnalysis')renderAnalysis=fn;else if(name==='evalAll')evalAll=fn}catch(_){}
     }catch(e){console.warn('analysis compact',e)}
   }
