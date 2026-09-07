@@ -53,8 +53,8 @@
     const markedNos=new Set(marked.map(h=>+h.no));
     let best=null;
 
-    // 6頭・4点なら1365通り程度。全組合せを確認し、
-    // 「印6頭を覆う」「的中時に総額割れしにくい」「指数と妙味が高い」の順で選ぶ。
+    // 印の整合性だけを優先して収支を壊さない。
+    // まず「的中時に総額割れしにくい予算内配分」を守り、その中で6頭カバーを最大化する。
     if(pairs.length<=20&&target<=6){
       for(const set of subsets(pairs,target)){
         const covered=new Set(set.flatMap(x=>x.pair.map(h=>+h.no)));
@@ -63,14 +63,13 @@
         const allCovered=[...markedNos].every(n=>covered.has(n));
         const budgetFit=req<=total;
         const util=set.reduce((s,x)=>s+x.utility,0);
-        const score=(allCovered?1e8:0)+(budgetFit?1e7:0)+covered.size*1e5+known*1e4+util-req*.05;
+        const score=(budgetFit?1e9:0)+(allCovered?1e8:0)+covered.size*1e5+known*1e4+util-req*.05;
         if(!best||score>best.score)best={set,score,req,covered,budgetFit,allCovered};
       }
     }
 
     if(best?.set?.length)return best.set.slice().sort((a,b)=>b.utility-a.utility);
 
-    // 念のための軽量フォールバック。
     const selected=[],uncovered=new Set(markedNos),pool=pairs.slice();
     while(selected.length<target&&pool.length){
       pool.sort((a,b)=>{
@@ -88,13 +87,8 @@
     if(!selected.length)return[];
     const stakes=selected.map(x=>x.required||100);
     let used=stakes.reduce((s,x)=>s+x,0);
-
-    // 必要額だけで総予算を超える場合は100円均等から始める。
-    if(used>total){
-      stakes.fill(100);used=stakes.length*100;
-    }
-    let remaining=Math.max(0,total-used);
-    let i=0;
+    if(used>total){stakes.fill(100);used=stakes.length*100}
+    let remaining=Math.max(0,total-used),i=0;
     const order=selected.map((x,idx)=>({idx,u:x.utility})).sort((a,b)=>b.u-a.u);
     while(remaining>=100&&order.length&&i<1000){
       stakes[order[i%Math.min(3,order.length)].idx]+=100;
@@ -117,7 +111,7 @@
       return `<div style="padding:6px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span>${esc(x.k)}${pay}</span><b>${money(stake)}円</b></div></div>`;
     }).join('');
     const allCovered=candidateNos.every(n=>covered.has(n));
-    box.innerHTML=`<div class="card" style="margin-top:10px"><b class="good">ワイド・AI自動選定</b><div class="card" style="margin:10px 0;background:#0c172a"><div><b>ワイド候補</b>：${candidateNos.join('・')} <span class="small">（印6頭）</span></div></div><div class="small" style="margin:8px 0 10px"><b>AI判断：混戦</b><br>印付き6頭を候補母集団に統一。${allCovered?'6頭すべてを実際の買い目でカバー':'予算・点数内で可能な範囲をカバー'} / 回収と的中のバランス重視</div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${selected.length}点 / 合計 ${money(total)}円</b></div></div>`;
+    box.innerHTML=`<div class="card" style="margin-top:10px"><b class="good">ワイド・AI自動選定</b><div class="card" style="margin:10px 0;background:#0c172a"><div><b>ワイド候補</b>：${candidateNos.join('・')} <span class="small">（印6頭）</span></div></div><div class="small" style="margin:8px 0 10px"><b>AI判断：混戦</b><br>印付き6頭を候補母集団に統一。${allCovered?'6頭すべてを実際の買い目でカバー':'収支保護を優先し、予算内で可能な範囲をカバー'} / 回収と的中のバランス重視</div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${selected.length}点 / 合計 ${money(total)}円</b></div></div>`;
   }
 
   function repairWidePlan(){
