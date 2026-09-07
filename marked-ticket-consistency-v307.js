@@ -186,8 +186,8 @@
       const wrapped=function(){
         const raw=String(el('budget')?.value||'').trim();
         const fixedBudget=raw!==''&&Number(raw)>0;
-        const forceWide=fixedBudget&&naturalPrefersWide();
         const v=previous.apply(this,arguments);
+        const forceWide=fixedBudget&&naturalPrefersWide();
         try{repairWidePlan(forceWide)}catch(_){}
         return typeof currentTickets==='function'?currentTickets():v;
       };
