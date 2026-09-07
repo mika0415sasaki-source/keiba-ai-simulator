@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__markedTicketConsistencyV308)return;
-  window.__markedTicketConsistencyV308=true;
+  if(window.__markedTicketConsistencyV309)return;
+  window.__markedTicketConsistencyV309=true;
 
   const el=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -23,78 +23,86 @@
     return strength*(odds?(1+Math.max(-.2,Math.min(.4,value-1))*.25):1);
   }
 
+  function pairInfo(a,b){
+    const pair=[a,b],odds=wideOdds(pair);
+    return {pair,odds,utility:pairUtility(pair,odds),k:key(pair.map(h=>h.no))};
+  }
+
   function requiredStake(total,odds){
     if(!(odds>0))return null;
     return Math.max(100,Math.ceil((total/odds)/100)*100);
   }
 
-  function allPairCandidates(marked){
-    const out=[];
-    for(let i=0;i<marked.length-1;i++)for(let j=i+1;j<marked.length;j++){
-      const pair=[marked[i],marked[j]],odds=wideOdds(pair);
-      out.push({pair,odds,utility:pairUtility(pair,odds),k:key(pair.map(h=>h.no))});
-    }
-    return out;
-  }
+  function chooseWideStructure(marked,maxPoints=999){
+    if(marked.length<2)return {selected:[],strategy:'—'};
+    const top=marked[0],second=marked[1];
+    const gap=(+top.score||0)-(+second.score||0);
+    const placeGap=(+top.place||0)-(+second.place||0);
+    const topDominant=gap>=5&&placeGap>=5;
+    const desired=[];
+    let strategy='';
 
-  function subsets(arr,k){
-    const out=[];
-    const rec=(start,p)=>{
-      if(p.length===k){out.push(p.slice());return}
-      for(let i=start;i<arr.length;i++)rec(i+1,[...p,arr[i]]);
-    };
-    rec(0,[]);return out;
-  }
-
-  function chooseWidePairs(marked,count){
-    const pairs=allPairCandidates(marked);
-    if(!pairs.length||count<1)return[];
-    const target=Math.min(count,pairs.length);
-    const markedNos=new Set(marked.map(h=>+h.no));
-    let best=null;
-
-    // 印馬のカバーを最優先。収支見込みは候補削除条件に使わない。
-    if(pairs.length<=20&&target<=6){
-      for(const set of subsets(pairs,target)){
-        const covered=new Set(set.flatMap(x=>x.pair.map(h=>+h.no)));
-        const allCovered=[...markedNos].every(n=>covered.has(n));
-        const known=set.filter(x=>x.odds>0).length;
-        const util=set.reduce((s,x)=>s+x.utility,0);
-        const score=(allCovered?1e9:0)+covered.size*1e6+known*1e3+util;
-        if(!best||score>best.score)best={set,score,covered,allCovered};
+    if(marked.length===2){
+      desired.push(pairInfo(top,second));
+      strategy='◎○ 本線';
+    }else if(topDominant){
+      for(const h of marked.slice(1))desired.push(pairInfo(top,h));
+      strategy='◎1頭軸で印馬へ流す';
+    }else{
+      desired.push(pairInfo(top,second));
+      for(const h of marked.slice(2)){
+        const a=pairInfo(top,h),b=pairInfo(second,h);
+        desired.push(a.utility>=b.utility?a:b);
       }
+      strategy='◎○を中心に、▲以下を相性の良い方へ接続';
     }
-    if(best?.set?.length)return best.set.slice().sort((a,b)=>b.utility-a.utility);
 
-    const selected=[],uncovered=new Set(markedNos),pool=pairs.slice();
-    while(selected.length<target&&pool.length){
-      pool.sort((a,b)=>{
-        const ca=a.pair.filter(h=>uncovered.has(+h.no)).length;
-        const cb=b.pair.filter(h=>uncovered.has(+h.no)).length;
-        if(cb!==ca)return cb-ca;
-        return b.utility-a.utility;
-      });
-      const p=pool.shift();selected.push(p);p.pair.forEach(h=>uncovered.delete(+h.no));
-    }
-    return selected;
+    const dedup=[];const seen=new Set();
+    for(const p of desired){if(!seen.has(p.k)){seen.add(p.k);dedup.push(p)}}
+    const limit=Math.max(1,Math.min(maxPoints,dedup.length));
+    return {selected:dedup.slice(0,limit),strategy};
   }
 
-  function allocateStakes(selected,total){
+  function rankOf(marked,h){
+    const n=+h?.no;const i=marked.findIndex(x=>+x.no===n);return i<0?99:i;
+  }
+
+  function stakePriority(marked,x){
+    const ranks=x.pair.map(h=>rankOf(marked,h)).sort((a,b)=>a-b);
+    const core=ranks[0]===0&&ranks[1]===1;
+    const topLinked=ranks[0]===0;
+    const secondLinked=ranks[0]===1||ranks[1]===1;
+    return (core?1e6:0)+(topLinked?1e5:0)+(secondLinked?5e4:0)+(100-ranks[1])*100+(x.utility||0);
+  }
+
+  function autoStakes(marked,selected){
     if(!selected.length)return[];
     const stakes=new Array(selected.length).fill(100);
-    let remaining=Math.max(0,total-selected.length*100),i=0;
-    const order=selected.map((x,idx)=>({idx,u:x.utility})).sort((a,b)=>b.u-a.u);
-    while(remaining>=100&&order.length&&i<1000){
+    const order=selected.map((x,idx)=>({idx,p:stakePriority(marked,x)})).sort((a,b)=>b.p-a.p);
+    if(order[0])stakes[order[0].idx]=300;
+    if(order[1])stakes[order[1].idx]=200;
+    if(order[2])stakes[order[2].idx]=200;
+    return stakes;
+  }
+
+  function fixedBudgetStakes(marked,selected,budget){
+    if(!selected.length)return[];
+    const stakes=new Array(selected.length).fill(100);
+    let remaining=Math.max(0,budget-selected.length*100);
+    const order=selected.map((x,idx)=>({idx,p:stakePriority(marked,x)})).sort((a,b)=>b.p-a.p);
+    let i=0;
+    while(remaining>=100&&order.length&&i<2000){
       stakes[order[i%Math.min(3,order.length)].idx]+=100;
       remaining-=100;i++;
     }
     return stakes;
   }
 
-  function renderWidePlan(marked,selected,stakes,total){
+  function renderWidePlan(marked,selected,stakes,total,{fixedBudget,strategy}){
     const box=el('ticket');if(!box)return;
     const candidateNos=marked.map(h=>+h.no);
     const covered=new Set(selected.flatMap(x=>x.pair.map(h=>+h.no)));
+    const allCovered=candidateNos.every(n=>covered.has(n));
     const rows=selected.map((x,i)=>{
       const stake=stakes[i]||100,odds=x.odds;
       const ret=odds?Math.round(odds*stake/10)*10:null;
@@ -106,23 +114,32 @@
         const min=requiredStake(total,odds);
         pay=`<span class="small" style="margin-left:8px">${odds.toFixed(1)}倍 / 払戻目安 ${money(ret)}円 / <b style="color:${net<0?'var(--d)':'var(--a)'}">${net<0?'−':'＋'}${money(Math.abs(net))}円</b>${net<0&&min?` / 黒字化目安 ${money(min)}円以上`:''}</span>`;
       }
-      return `<div style="padding:6px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span>${esc(x.k)}${pay}</span><b>${money(stake)}円</b></div></div>`;
+      return `<div style="padding:7px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>${esc(x.k)}</b>${pay}</span><b>${money(stake)}円</b></div></div>`;
     }).join('');
-    const allCovered=candidateNos.every(n=>covered.has(n));
-    box.innerHTML=`<div class="card" style="margin-top:10px"><b class="good">ワイド・AI自動選定</b><div class="card" style="margin:10px 0;background:#0c172a"><div><b>ワイド候補</b>：${candidateNos.join('・')} <span class="small">（印6頭）</span></div></div><div class="small" style="margin:8px 0 10px"><b>AI判断：混戦</b><br>${allCovered?'印6頭すべてを実際の買い目でカバー':'点数内で印馬を最大限カバー'}。赤字見込みでも自動削除せず、払戻目安と黒字化目安だけ表示します。</div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${selected.length}点 / 合計 ${money(total)}円</b></div></div>`;
+    const budgetLine=fixedBudget
+      ? `指定予算 ${money(total)}円で配分`
+      : `予算未設定：印の強弱から購入額を自動配分（固定総額ではありません）`;
+    const coverageLine=allCovered
+      ? `印${candidateNos.length}頭を、上位印を軸にした${selected.length}点で全頭カバー`
+      : `予算内の点数で上位印から優先してカバー`;
+    box.innerHTML=`<div class="card" style="margin-top:10px"><b class="good">ワイド・AI自動選定</b><div class="card" style="margin:10px 0;background:#0c172a"><div><b>ワイド候補</b>：${candidateNos.join('・')} <span class="small">（印${candidateNos.length}頭）</span></div></div><div class="small" style="margin:8px 0 10px;line-height:1.6"><b>構成</b>：${esc(strategy)}<br>${coverageLine}<br>${budgetLine}<br>赤字見込みでも自動削除せず、払戻目安と黒字化目安だけ表示します。</div><div class="small" style="margin:8px 0"><b>購入内訳</b></div>${rows}<div style="margin-top:10px"><b>${selected.length}点 / ${fixedBudget?'合計':'AI推奨総額'} ${money(total)}円</b></div></div>`;
   }
 
   function repairWidePlan(){
     try{
       if(!lastBetPlan?.picks?.length||!String(lastBetPlan.type||'').includes('ワイド'))return false;
       const marked=markedHorses();if(marked.length<2)return false;
-      const old=lastBetPlan.picks.slice();
-      const total=Math.max(old.length*100,+lastBetPlan.total||old.reduce((s,p)=>s+(+p.stake||100),0));
-      const selected=chooseWidePairs(marked,old.length);if(!selected.length)return false;
-      const stakes=allocateStakes(selected,total);
+      const raw=String(el('budget')?.value||'').trim();
+      const fixedBudget=raw!==''&&Number(raw)>0;
+      const budget=fixedBudget?Math.max(100,Math.floor(Number(raw)/100)*100):null;
+      const minFullPoints=Math.max(1,marked.length-1);
+      const maxPoints=fixedBudget?Math.max(1,Math.floor(budget/100)):minFullPoints;
+      const {selected,strategy}=chooseWideStructure(marked,maxPoints);
+      if(!selected.length)return false;
+      const stakes=fixedBudget?fixedBudgetStakes(marked,selected,budget):autoStakes(marked,selected);
       lastBetPlan.picks=selected.map((x,i)=>({numbers:x.pair.map(h=>+h.no).sort((a,b)=>a-b),stake:stakes[i]||100,odds:x.odds||null}));
       lastBetPlan.total=lastBetPlan.picks.reduce((s,p)=>s+(+p.stake||0),0);
-      renderWidePlan(marked,selected,stakes,lastBetPlan.total);
+      renderWidePlan(marked,selected,stakes,lastBetPlan.total,{fixedBudget,strategy});
       return true;
     }catch(e){console.warn('marked ticket consistency',e);return false}
   }
@@ -146,10 +163,10 @@
 
   function installTicketWrap(){
     try{
-      if(typeof generateTickets!=='function'||generateTickets.__markedTicketConsistencyV308)return false;
+      if(typeof generateTickets!=='function'||generateTickets.__markedTicketConsistencyV309)return false;
       const previous=generateTickets;
       const wrapped=function(){const v=previous.apply(this,arguments);try{repairWidePlan()}catch(_){};return typeof currentTickets==='function'?currentTickets():v};
-      wrapped.__markedTicketConsistencyV308=true;wrapped.__previous=previous;
+      wrapped.__markedTicketConsistencyV309=true;wrapped.__previous=previous;
       try{generateTickets=wrapped}catch(_){};try{window.generateTickets=wrapped}catch(_){}
       return true;
     }catch(e){console.warn('install marked ticket consistency',e);return false}
@@ -157,9 +174,9 @@
 
   function installRenderWrap(name){
     try{
-      const old=window[name];if(typeof old!=='function'||old.__sectionalDisplayV308)return;
+      const old=window[name];if(typeof old!=='function'||old.__sectionalDisplayV309)return;
       const fn=function(...args){const v=old.apply(this,args);queueMicrotask(repairSectionalDisplay);return v};
-      fn.__sectionalDisplayV308=true;fn.__original=old;window[name]=fn;
+      fn.__sectionalDisplayV309=true;fn.__original=old;window[name]=fn;
       try{if(name==='renderAnalysis')renderAnalysis=fn;else if(name==='evalAll')evalAll=fn}catch(_){}
     }catch(_){}
   }
