@@ -8,6 +8,7 @@
   const comboKey=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const getEval=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,6):[]}catch(_){return[]}};
   const getPlan=()=>{try{return lastBetPlan||window.lastBetPlan||null}catch(_){return window.lastBetPlan||null}};
+  const nC3=n=>n>=3?n*(n-1)*(n-2)/6:0;
 
   function summary(type,a,candidates,picks){
     const nos=a.map(h=>+h.no).filter(Number.isFinite);
@@ -15,7 +16,7 @@
       const centers=nos.slice(0,2),others=nos.slice(2);
       return {
         line:`中心：${centers.join('・')}　相手：${others.join('・')}`,
-        form:`候補 ${candidates.length}点`,
+        form:`買い方：ワイド　${centers.join('・')}－${others.join('・')}`,
         total:candidates.length||picks.length
       };
     }
@@ -23,14 +24,21 @@
       const axis=nos[0],others=nos.slice(1);
       return {
         line:`軸：${axis}　相手：${others.join('・')}`,
-        form:`${axis}－${others.join('・')}`,
+        form:`買い方：3連複1頭軸　${axis}－${others.join('・')}`,
         total:candidates.length||picks.length
       };
     }
     const centers=nos.slice(0,2),mains=nos.slice(2,4),supports=nos.slice(4,6);
-    const form=candidates.length>14
-      ? `全6頭候補：${nos.join('・')}`
-      : `${centers.join('・')}－${[...centers,...mains].join('・')}－${[...mains,...supports].join('・')}`;
+    const fullBoxCount=nC3(nos.length);
+    const isFullBoxCandidates=nos.length>=3&&candidates.length===fullBoxCount;
+    let form;
+    if(isFullBoxCandidates){
+      form=picks.length===candidates.length
+        ? `買い方：3連複${nos.length}頭BOX　${nos.join('・')}（${fullBoxCount}点）`
+        : `買い方：3連複${nos.length}頭BOX候補からAI選定　${fullBoxCount}点中${picks.length}点購入`;
+    }else{
+      form=`買い方：3連複フォーメーション　${centers.join('・')}－${[...centers,...mains].join('・')}－${[...mains,...supports].join('・')}`;
+    }
     return {
       line:`中心：${centers.join('・')}　本線：${mains.join('・')}　押さえ：${supports.join('・')}`,
       form,
