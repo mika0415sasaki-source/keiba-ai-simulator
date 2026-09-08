@@ -22,11 +22,10 @@
     const nos=a.map(h=>+h.no).filter(Number.isFinite);
     if(type.includes('ワイド')){
       const centers=nos.slice(0,2),others=nos.slice(2);
-      const total=Math.max(picks.length,centers.length*others.length+1);
       return {
         line:`中心：${centers.join('・')}　相手：${others.join('・')}`,
         form:`${centers.join('・')}－${others.join('・')}`,
-        total
+        total:picks.length
       };
     }
     if(type.includes('1頭軸')){
@@ -65,7 +64,8 @@
 
   function render(){
     const box=el('ticket');
-    const plan=window.lastBetPlan;
+    let plan=null;
+    try{plan=lastBetPlan}catch(_){plan=window.lastBetPlan}
     if(!box||!plan||!Array.isArray(plan.picks)||!plan.picks.length)return false;
 
     const a=getEval();
@@ -98,13 +98,17 @@
 
   function install(){
     const g=window.generateTickets;
-    if(typeof g!=='function'||g.__betTicketSummaryV318)return false;
+    // v315 の買い目生成 + v317 の金額再配分が入った「最終版」を包む。
+    // 先に元の generateTickets を包むと、その後 v315/v317 に上書きされて要約表示が消える。
+    if(typeof g!=='function'||g.__betTicketSummaryV318||!g.__betStakeRebalanceV317)return false;
     const wrapped=function(...args){
       const out=g.apply(this,args);
-      setTimeout(render,40);
+      setTimeout(render,80);
       return out;
     };
     Object.assign(wrapped,g);
+    wrapped.__betStrategyV315=true;
+    wrapped.__betStakeRebalanceV317=true;
     wrapped.__betTicketSummaryV318=true;
     try{generateTickets=wrapped}catch(_){}
     try{window.generateTickets=wrapped}catch(_){}
@@ -112,6 +116,6 @@
   }
 
   let tries=0;
-  const timer=setInterval(()=>{tries++;if(install()||tries>120)clearInterval(timer)},100);
-  addEventListener('keiba-patches-ready',()=>setTimeout(install,80),{once:true});
+  const timer=setInterval(()=>{tries++;if(install()||tries>160)clearInterval(timer)},100);
+  addEventListener('keiba-patches-ready',()=>setTimeout(install,160),{once:true});
 })();
