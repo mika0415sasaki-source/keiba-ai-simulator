@@ -1,15 +1,12 @@
 (()=>{
-  if(window.__betBudgetPromotionV325)return;
-  window.__betBudgetPromotionV325=true;
+  if(window.__betBudgetPromotionV326)return;
+  window.__betBudgetPromotionV326=true;
 
   const key=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const getPlan=()=>{try{return lastBetPlan||window.lastBetPlan||null}catch(_){return window.lastBetPlan||null}};
   const getEval=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,6):[]}catch(_){return[]}};
 
-  function rankMap(){
-    const m=new Map();getEval().forEach((h,i)=>m.set(+h.no,i));return m;
-  }
-
+  function rankMap(){const m=new Map();getEval().forEach((h,i)=>m.set(+h.no,i));return m}
   function priority(c,type){
     const rm=rankMap(),r=(c.numbers||[]).map(n=>rm.get(+n)??99).sort((a,b)=>a-b);
     if(String(type||'').includes('ワイド')){
@@ -27,55 +24,80 @@
     let red=0,deficit=0;
     for(let i=0;i<items.length;i++){
       const o=+items[i].odds||0;if(!o)continue;
-      const d=Math.max(0,total-o*stakes[i]);
+      const d=Math.max(0,total-o*(+stakes[i]||0));
       if(d>0){red++;deficit+=d}
     }
     return {red,deficit};
   }
 
-  // 候補を先に100円ずつ昇格し、その後だけ追加配分する。
-  // 追加100円で赤字点数が増えるなら、予算は上限として使い切らない。
-  function allocate(items,cap,type){
-    const maxStake=300,stakes=new Array(items.length).fill(100);
-    let total=items.length*100;
-    if(total>=cap)return {stakes,total};
+  // 予算は上限。候補は消さず、まず100円で昇格を試す。
+  // 昇格で赤字買い目が増える候補は「候補」のまま残し、別候補を先に試す。
+  // 昇格できる候補がなくなってからだけ増額し、増額でも赤字点数は増やさない。
+  function optimize(candidates,current,cap,type){
+    const currentKeys=new Set((current||[]).map(p=>key(p.numbers)));
+    let selected=candidates.filter(c=>currentKeys.has(key(c.numbers)));
+    if(!selected.length)selected=candidates.slice(0,Math.min(candidates.length,Math.max(1,Math.floor(cap/100))));
 
+    // まず既存推奨を最低100円に戻して、候補昇格の余地を作る。
+    let stakes=new Array(selected.length).fill(100);
+    let total=selected.length*100;
+    if(total>cap){
+      selected=selected.slice(0,Math.max(1,Math.floor(cap/100)));
+      stakes=new Array(selected.length).fill(100);
+      total=selected.length*100;
+    }
+
+    // 候補昇格を最優先。赤字点数が増えない候補の中から、赤字幅→AI優先度で選ぶ。
     let guard=0;
-    while(total+100<=cap&&guard++<100){
-      const now=metrics(items,stakes,total),opts=[];
-      for(let i=0;i<items.length;i++){
+    while(total+100<=cap&&selected.length<candidates.length&&guard++<100){
+      const now=metrics(selected,stakes,total),selKeys=new Set(selected.map(c=>key(c.numbers))),opts=[];
+      for(let i=0;i<candidates.length;i++){
+        const c=candidates[i],k=key(c.numbers);if(selKeys.has(k))continue;
+        const items=[...selected,c],st=[...stakes,100],nextTotal=total+100,m=metrics(items,st,nextTotal);
+        opts.push({c,i,m,p:priority(c,type)});
+      }
+      const safe=opts.filter(o=>o.m.red<=now.red);
+      if(!safe.length)break;
+      safe.sort((a,b)=>a.m.red-b.m.red||a.m.deficit-b.m.deficit||b.p-a.p||a.i-b.i);
+      selected.push(safe[0].c);stakes.push(100);total+=100;
+    }
+
+    // 候補昇格後に余った予算だけ増額。赤字点数を増やす増額はしない。
+    const maxStake=300;
+    guard=0;
+    while(total+100<=cap&&guard++<200){
+      const now=metrics(selected,stakes,total),opts=[];
+      for(let i=0;i<selected.length;i++){
         if(stakes[i]>=maxStake)continue;
         const next=stakes.slice();next[i]+=100;
-        const m=metrics(items,next,total+100);
-        opts.push({i,red:m.red,deficit:m.deficit,known:(+items[i].odds||0)>0?1:0,p:priority(items[i],type)});
+        const m=metrics(selected,next,total+100);
+        if(m.red>now.red)continue;
+        opts.push({i,m,p:priority(selected[i],type),stake:stakes[i]});
       }
       if(!opts.length)break;
-      opts.sort((a,b)=>a.red-b.red||a.deficit-b.deficit||b.known-a.known||b.p-a.p||a.i-b.i);
-      const best=opts[0];
-      if(best.red>now.red)break;
-      stakes[best.i]+=100;total+=100;
+      opts.sort((a,b)=>a.m.red-b.m.red||a.m.deficit-b.m.deficit||a.stake-b.stake||b.p-a.p||a.i-b.i);
+      stakes[opts[0].i]+=100;total+=100;
     }
-    return {stakes,total};
+
+    return {selected,stakes,total};
   }
 
   function normalize(){
     const plan=getPlan();
     if(!plan||!Array.isArray(plan.candidates)||!plan.candidates.length)return false;
+    if(plan.promotionSafeV326)return false;
     const cap=Math.max(100,Math.floor((+plan.budgetCap||+document.getElementById('budget')?.value||+plan.total||100)/100)*100);
-    const target=Math.min(plan.candidates.length,Math.max(1,Math.floor(cap/100)));
+    const candidates=plan.candidates.map(c=>({numbers:(c.numbers||[]).map(Number).sort((a,b)=>a-b),odds:+c.odds||null}));
     const current=Array.isArray(plan.picks)?plan.picks:[];
+    const o=optimize(candidates,current,cap,plan.type);
 
-    // 既に候補昇格が十分で、予算超過もなければ従来の良い配分をそのまま残す。
-    if(current.length>=target&&(+plan.total||0)<=cap)return false;
-
-    const items=plan.candidates.slice(0,target).map(c=>({numbers:(c.numbers||[]).map(Number).sort((a,b)=>a-b),odds:+c.odds||null}));
-    const a=allocate(items,cap,plan.type);
-    plan.picks=items.map((c,i)=>({...c,stake:a.stakes[i]}));
-    plan.total=a.total;
-    plan.candidateCount=plan.candidates.length;
+    plan.picks=o.selected.map((c,i)=>({...c,stake:o.stakes[i]}));
+    plan.total=o.total;
+    plan.candidateCount=candidates.length;
     plan.recommendedCount=plan.picks.length;
     plan.budgetCap=cap;
     plan.promotionFirst=true;
+    plan.promotionSafeV326=true;
     try{lastBetPlan=plan}catch(_){};window.lastBetPlan=plan;
     try{window.dispatchEvent(new CustomEvent('keiba-bet-plan-updated',{detail:plan}))}catch(_){}
     return true;
@@ -83,7 +105,7 @@
 
   function install(){
     const g=window.generateTickets;
-    if(typeof g!=='function'||g.__betBudgetPromotionV325)return false;
+    if(typeof g!=='function'||g.__betBudgetPromotionV326)return false;
     const wrapped=function(...args){
       const out=g.apply(this,args);
       normalize();
@@ -92,7 +114,7 @@
       return out;
     };
     try{Object.assign(wrapped,g)}catch(_){}
-    wrapped.__betBudgetPromotionV325=true;
+    wrapped.__betBudgetPromotionV326=true;
     try{generateTickets=wrapped}catch(_){};window.generateTickets=wrapped;
     return true;
   }
