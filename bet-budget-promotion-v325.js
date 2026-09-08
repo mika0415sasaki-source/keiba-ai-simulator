@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__betBudgetPromotionV326)return;
-  window.__betBudgetPromotionV326=true;
+  if(window.__betBudgetPromotionV327)return;
+  window.__betBudgetPromotionV327=true;
 
   const key=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const getPlan=()=>{try{return lastBetPlan||window.lastBetPlan||null}catch(_){return window.lastBetPlan||null}};
@@ -21,61 +21,57 @@
   }
 
   function metrics(items,stakes,total){
-    let red=0,deficit=0;
+    let red=0,deficit=0,worst=0;
     for(let i=0;i<items.length;i++){
       const o=+items[i].odds||0;if(!o)continue;
       const d=Math.max(0,total-o*(+stakes[i]||0));
-      if(d>0){red++;deficit+=d}
+      if(d>0){red++;deficit+=d;if(d>worst)worst=d}
     }
-    return {red,deficit};
+    return {red,deficit,worst};
   }
 
-  // 予算は上限。候補は消さず、まず100円で昇格を試す。
-  // 昇格で赤字買い目が増える候補は「候補」のまま残し、別候補を先に試す。
-  // 昇格できる候補がなくなってからだけ増額し、増額でも赤字点数は増やさない。
+  // v327: 「赤字回避のために候補を消す」より、まず100円でカバーを優先。
+  // 例: 20候補・予算2,000円なら20点すべて100円。1点を消して他を増額しない。
+  // 候補を全部100円で買える予算がある場合は全候補を先に昇格し、余剰予算だけ増額する。
+  // 予算不足時だけAI優先度で推奨点を絞り、未購入分は候補として表示に残す。
   function optimize(candidates,current,cap,type){
+    const maxCount=Math.min(candidates.length,Math.max(1,Math.floor(cap/100)));
+    const byKey=new Map(candidates.map(c=>[key(c.numbers),c]));
     const currentKeys=new Set((current||[]).map(p=>key(p.numbers)));
-    let selected=candidates.filter(c=>currentKeys.has(key(c.numbers)));
-    if(!selected.length)selected=candidates.slice(0,Math.min(candidates.length,Math.max(1,Math.floor(cap/100))));
 
-    // まず既存推奨を最低100円に戻して、候補昇格の余地を作る。
+    // 既存推奨を尊重しつつ、100円単位で買える限り候補を先に昇格。
+    let selected=candidates
+      .filter(c=>currentKeys.has(key(c.numbers)))
+      .sort((a,b)=>priority(b,type)-priority(a,type));
+    if(selected.length>maxCount)selected=selected.slice(0,maxCount);
+
+    const selectedKeys=new Set(selected.map(c=>key(c.numbers)));
+    const remaining=candidates
+      .filter(c=>!selectedKeys.has(key(c.numbers)))
+      .sort((a,b)=>priority(b,type)-priority(a,type));
+    for(const c of remaining){
+      if(selected.length>=maxCount)break;
+      selected.push(c);selectedKeys.add(key(c.numbers));
+    }
+
+    // capが候補数×100円以上なら、ここで必ず全候補が100円ずつ入る。
     let stakes=new Array(selected.length).fill(100);
     let total=selected.length*100;
-    if(total>cap){
-      selected=selected.slice(0,Math.max(1,Math.floor(cap/100)));
-      stakes=new Array(selected.length).fill(100);
-      total=selected.length*100;
-    }
 
-    // 候補昇格を最優先。赤字点数が増えない候補の中から、赤字幅→AI優先度で選ぶ。
-    let guard=0;
-    while(total+100<=cap&&selected.length<candidates.length&&guard++<100){
-      const now=metrics(selected,stakes,total),selKeys=new Set(selected.map(c=>key(c.numbers))),opts=[];
-      for(let i=0;i<candidates.length;i++){
-        const c=candidates[i],k=key(c.numbers);if(selKeys.has(k))continue;
-        const items=[...selected,c],st=[...stakes,100],nextTotal=total+100,m=metrics(items,st,nextTotal);
-        opts.push({c,i,m,p:priority(c,type)});
-      }
-      const safe=opts.filter(o=>o.m.red<=now.red);
-      if(!safe.length)break;
-      safe.sort((a,b)=>a.m.red-b.m.red||a.m.deficit-b.m.deficit||b.p-a.p||a.i-b.i);
-      selected.push(safe[0].c);stakes.push(100);total+=100;
-    }
-
-    // 候補昇格後に余った予算だけ増額。赤字点数を増やす増額はしない。
+    // 全候補を先にカバーした後だけ増額。
+    // 増額先は「赤字点数→最大損失→赤字総額」を優先して改善し、同条件ならAI優先度を使う。
     const maxStake=300;
-    guard=0;
-    while(total+100<=cap&&guard++<200){
-      const now=metrics(selected,stakes,total),opts=[];
+    let guard=0;
+    while(total+100<=cap&&guard++<300){
+      const opts=[];
       for(let i=0;i<selected.length;i++){
         if(stakes[i]>=maxStake)continue;
         const next=stakes.slice();next[i]+=100;
         const m=metrics(selected,next,total+100);
-        if(m.red>now.red)continue;
         opts.push({i,m,p:priority(selected[i],type),stake:stakes[i]});
       }
       if(!opts.length)break;
-      opts.sort((a,b)=>a.m.red-b.m.red||a.m.deficit-b.m.deficit||a.stake-b.stake||b.p-a.p||a.i-b.i);
+      opts.sort((a,b)=>a.m.red-b.m.red||a.m.worst-b.m.worst||a.m.deficit-b.m.deficit||a.stake-b.stake||b.p-a.p||a.i-b.i);
       stakes[opts[0].i]+=100;total+=100;
     }
 
@@ -85,7 +81,7 @@
   function normalize(){
     const plan=getPlan();
     if(!plan||!Array.isArray(plan.candidates)||!plan.candidates.length)return false;
-    if(plan.promotionSafeV326)return false;
+    if(plan.coverageFirstV327)return false;
     const cap=Math.max(100,Math.floor((+plan.budgetCap||+document.getElementById('budget')?.value||+plan.total||100)/100)*100);
     const candidates=plan.candidates.map(c=>({numbers:(c.numbers||[]).map(Number).sort((a,b)=>a-b),odds:+c.odds||null}));
     const current=Array.isArray(plan.picks)?plan.picks:[];
@@ -97,7 +93,8 @@
     plan.recommendedCount=plan.picks.length;
     plan.budgetCap=cap;
     plan.promotionFirst=true;
-    plan.promotionSafeV326=true;
+    plan.coverageFirst=true;
+    plan.coverageFirstV327=true;
     try{lastBetPlan=plan}catch(_){};window.lastBetPlan=plan;
     try{window.dispatchEvent(new CustomEvent('keiba-bet-plan-updated',{detail:plan}))}catch(_){}
     return true;
@@ -105,7 +102,7 @@
 
   function install(){
     const g=window.generateTickets;
-    if(typeof g!=='function'||g.__betBudgetPromotionV326)return false;
+    if(typeof g!=='function'||g.__betBudgetPromotionV327)return false;
     const wrapped=function(...args){
       const out=g.apply(this,args);
       normalize();
@@ -114,7 +111,7 @@
       return out;
     };
     try{Object.assign(wrapped,g)}catch(_){}
-    wrapped.__betBudgetPromotionV326=true;
+    wrapped.__betBudgetPromotionV327=true;
     try{generateTickets=wrapped}catch(_){};window.generateTickets=wrapped;
     return true;
   }
