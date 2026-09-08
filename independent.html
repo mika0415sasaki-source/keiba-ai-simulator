@@ -19,35 +19,35 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 <script>
 (()=>{
   const PATCHES=[
-    './sapporo-1800-eval-v249.js?v=20260908-summary325',
-    './sapporo-1800-profile-v248.js?v=20260908-summary325',
-    './hanshin-1200-profile-v276.js?v=20260908-summary325',
-    './nakayama-2000-profile-v282.js?v=20260908-summary325',
-    './bet-profit-guard-v265.js?v=20260908-summary325',
-    './bet-safety-net-v287.js?v=20260908-summary325',
-    './mobile-history-ui-fix-v288.js?v=20260908-summary325',
-    './authoritative-import-v296.js?v=20260908-summary325',
-    './newspaper-style-history-v297.js?v=20260908-summary325',
-    './grade-detail-score-v298.js?v=20260908-summary325',
-    './history-resilience-v299.js?v=20260908-summary325',
-    './grade-missing-guard-v299.js?v=20260908-summary325',
-    './detail-accuracy-mobile-v300.js?v=20260908-summary325',
-    './career-quality-consistency-v301.js?v=20260908-summary325',
-    './analysis-history-market-ui-v302.js?v=20260908-summary325',
-    './analysis-consistency-v303.js?v=20260908-summary325',
-    './recent-sectional-context-v305.js?v=20260908-summary325',
-    './analysis-compact-v306.js?v=20260908-summary325',
-    './marked-ticket-consistency-v307.js?v=20260908-summary325',
-    './bet-strategy-v324.js?v=20260908-summary325',
-    './bet-wide-candidates-v323.js?v=20260908-summary325',
-    './bet-budget-promotion-v325.js?v=20260908-summary325',
-    './bet-ticket-summary-v322.js?v=20260908-summary325'
+    './sapporo-1800-eval-v249.js?v=20260909-summary326',
+    './sapporo-1800-profile-v248.js?v=20260909-summary326',
+    './hanshin-1200-profile-v276.js?v=20260909-summary326',
+    './nakayama-2000-profile-v282.js?v=20260909-summary326',
+    './bet-profit-guard-v265.js?v=20260909-summary326',
+    './bet-safety-net-v287.js?v=20260909-summary326',
+    './mobile-history-ui-fix-v288.js?v=20260909-summary326',
+    './authoritative-import-v296.js?v=20260909-summary326',
+    './newspaper-style-history-v297.js?v=20260909-summary326',
+    './grade-detail-score-v298.js?v=20260909-summary326',
+    './history-resilience-v299.js?v=20260909-summary326',
+    './grade-missing-guard-v299.js?v=20260909-summary326',
+    './detail-accuracy-mobile-v300.js?v=20260909-summary326',
+    './career-quality-consistency-v301.js?v=20260909-summary326',
+    './analysis-history-market-ui-v302.js?v=20260909-summary326',
+    './analysis-consistency-v303.js?v=20260909-summary326',
+    './recent-sectional-context-v305.js?v=20260909-summary326',
+    './analysis-compact-v306.js?v=20260909-summary326',
+    './marked-ticket-consistency-v307.js?v=20260909-summary326',
+    './bet-strategy-v324.js?v=20260909-summary326',
+    './bet-wide-candidates-v323.js?v=20260909-summary326',
+    './bet-budget-promotion-v325.js?v=20260909-summary326',
+    './bet-ticket-summary-v322.js?v=20260909-summary326'
   ];
   const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
   const fetchCode=async(src,ms=5000)=>{const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(src,{cache:'no-store',signal:ac.signal});return r.ok?await r.text():''}catch(e){console.warn('patch skip',src,e);return''}finally{clearTimeout(timer)}};
   const lock=()=>{const a=document.getElementById('importRace'),h=document.getElementById('importHist');if(a){a.disabled=true;a.textContent='準備中…'}if(h)h.disabled=true};
   const unlockFallback=()=>{const a=document.getElementById('importRace'),h=document.getElementById('importHist');if(a&&!['v296','v297'].includes(document.documentElement.dataset.importController||'')){a.disabled=false;a.textContent='出馬表取込'}if(h&&!['v296','v297'].includes(document.documentElement.dataset.importController||'')){h.disabled=false;h.textContent='過去5走を再取得'}};
-  fetch('./v55-parts/part0.txt?v=20260908-summary325',{cache:'no-store'})
+  fetch('./v55-parts/part0.txt?v=20260909-summary326',{cache:'no-store'})
     .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
     .then(async html=>{
       html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析').replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
@@ -56,7 +56,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
       document.head.innerHTML=parsed.head.innerHTML;document.body.innerHTML=parsed.body.innerHTML;document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';try{scrollTo(0,0)}catch(_){}
       for(const spec of baseScripts){if(spec.text.trim())addInline(spec.text);else if(spec.src)addInline(await fetchCode(spec.src))}
       lock();const codes=await Promise.all(PATCHES.map(x=>fetchCode(x)));codes.forEach(addInline);
-      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='summary325';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
+      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='summary326';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
     })
     .catch(e=>{document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>'});
 })();
