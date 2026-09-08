@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__betTicketSummaryV322)return;
-  window.__betTicketSummaryV322=true;
+  if(window.__betTicketSummaryV323)return;
+  window.__betTicketSummaryV323=true;
 
   const el=id=>document.getElementById(id);
   const money=v=>Math.round(Number(v)||0).toLocaleString('ja-JP');
@@ -17,7 +17,9 @@
       return {
         line:`中心：${centers.join('・')}　相手：${others.join('・')}`,
         form:`買い方：ワイド　${centers.join('・')}－${others.join('・')}`,
-        total:candidates.length||picks.length
+        total:candidates.length||picks.length,
+        boxMode:false,
+        boxCount:0
       };
     }
     if(type.includes('1頭軸')){
@@ -25,7 +27,9 @@
       return {
         line:`軸：${axis}　相手：${others.join('・')}`,
         form:`買い方：3連複1頭軸　${axis}－${others.join('・')}`,
-        total:candidates.length||picks.length
+        total:candidates.length||picks.length,
+        boxMode:false,
+        boxCount:0
       };
     }
     const centers=nos.slice(0,2),mains=nos.slice(2,4),supports=nos.slice(4,6);
@@ -42,7 +46,9 @@
     return {
       line:`中心：${centers.join('・')}　本線：${mains.join('・')}　押さえ：${supports.join('・')}`,
       form,
-      total:candidates.length||picks.length
+      total:candidates.length||picks.length,
+      boxMode:isFullBoxCandidates,
+      boxCount:nos.length
     };
   }
 
@@ -59,12 +65,18 @@
     const box=el('ticket'),plan=getPlan();
     if(!box||!plan||!Array.isArray(plan.picks)||!plan.picks.length)return false;
     const sig=signature(plan);
-    if(!force&&box.querySelector('[data-bet-ticket-summary-v322]')&&box.dataset.betTicketSummarySig===sig)return true;
+    if(!force&&box.querySelector('[data-bet-ticket-summary-v323]')&&box.dataset.betTicketSummarySig===sig)return true;
 
     const a=getEval(),type=String(plan.type||''),picks=plan.picks;
     const candidates=(Array.isArray(plan.candidates)&&plan.candidates.length?plan.candidates:picks).map(c=>({...c,numbers:(c.numbers||[]).map(Number)}));
-    const title=type.includes('ワイド')?'ワイド・AI自動選定':type.includes('1頭軸')?'3連複1頭軸・AI自動選定':'3連複フォーメーション・AI自動選定';
     const total=+plan.total||picks.reduce((s,p)=>s+(+p.stake||0),0),s=summary(type,a,candidates,picks);
+    const title=type.includes('ワイド')
+      ?'ワイド・AI自動選定'
+      :type.includes('1頭軸')
+        ?'3連複1頭軸・AI自動選定'
+        :s.boxMode
+          ?`3連複${s.boxCount}頭BOX・AI自動選定`
+          :'3連複フォーメーション・AI自動選定';
     const pickMap=new Map(picks.map(p=>[comboKey(p.numbers),p]));
 
     const rows=candidates.map(c=>{
@@ -81,7 +93,7 @@
     }).join('');
 
     writing=true;
-    box.innerHTML=`<div class="card" style="margin-top:10px" data-bet-ticket-summary-v322>
+    box.innerHTML=`<div class="card" style="margin-top:10px" data-bet-ticket-summary-v323>
       <b class="good">${title}</b>
       <div class="small" style="margin:9px 0 3px;white-space:nowrap;overflow-x:auto"><b>${s.line}</b></div>
       <div class="small" style="margin:3px 0 4px">${s.form}</div>
@@ -99,7 +111,7 @@
     const obs=new MutationObserver(()=>{
       if(writing)return;const box=el('ticket'),plan=getPlan();
       if(!box||!plan||!Array.isArray(plan.picks)||!plan.picks.length)return;
-      if(!box.querySelector('[data-bet-ticket-summary-v322]'))schedule(20,true);
+      if(!box.querySelector('[data-bet-ticket-summary-v323]'))schedule(20,true);
       else if(box.dataset.betTicketSummarySig!==signature(plan))schedule(20,true);
     });
     obs.observe(root,{childList:true,subtree:true,characterData:true});
