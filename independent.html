@@ -32,7 +32,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './history-resilience-v299.js?v=20260909-summary328',
     './grade-missing-guard-v299.js?v=20260909-summary328',
     './detail-accuracy-mobile-v300.js?v=20260909-summary328',
-    './career-quality-consistency-v301.js?v=20260909-summary328',
+    './career-quality-consistency-v301.js?v=20260910-quality333',
     './analysis-history-market-ui-v302.js?v=20260909-summary328',
     './analysis-consistency-v303.js?v=20260909-summary328',
     './recent-sectional-context-v305.js?v=20260909-summary328',
@@ -59,7 +59,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
       document.head.innerHTML=parsed.head.innerHTML;document.body.innerHTML=parsed.body.innerHTML;document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';try{scrollTo(0,0)}catch(_){}
       for(const spec of baseScripts){if(spec.text.trim())addInline(spec.text);else if(spec.src)addInline(await fetchCode(spec.src))}
       lock();const codes=await Promise.all(PATCHES.map(x=>fetchCode(x)));codes.forEach(addInline);
-      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='summary332';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
+      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='summary333';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
     })
     .catch(e=>{document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>'});
 })();
