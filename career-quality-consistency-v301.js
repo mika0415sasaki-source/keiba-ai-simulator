@@ -6,22 +6,35 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const validLast3f=v=>{const n=Number(v);return Number.isFinite(n)&&n>=20&&n<=60?n:null};
   const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
+  const JRA_VENUES=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
   function dateKey(v){const m=String(v||'').normalize('NFKC').replace(/[年月]/g,'-').replace(/日/g,'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):null}
   function rowsOf(h){const rows=(Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)?h.jra_history:[]));return rows.filter(r=>r&&!/取消|除外|中止|失格/.test(String(r.status||''))&&+r.rank>0).slice(0,5)}
   function earliest(rows){return rows.slice().sort((a,b)=>(dateKey(a?.date)||99999999)-(dateKey(b?.date)||99999999))[0]||null}
   function isDebut(r){const t=[r?.grade,r?.race_grade,r?.class_name,r?.race_class,r?.class,r?.race_name,r?.raceName,r?.title,r?.race].filter(Boolean).join(' ');return /新馬/.test(String(t))}
+  function isForeignRun(r){const v=String(r?.venue||'').replace(/競馬場/g,'').trim();return !!v&&!JRA_VENUES.has(v)}
   function quality(h){
-    const rows=rowsOf(h),n=rows.length;if(!n)return{score:0,n,career:false,label:'未取得',issues:[{date:'履歴',missing:['過去走未取得']}]};
-    let have=0,total=0;const issues=[];
-    for(const r of rows){const checks=[['着順',+r.rank>0],['競馬場',!!r.venue],['芝ダ',!!r.surface],['距離',Number.isFinite(+r.distance)&&+r.distance>0],['馬場',!!r.going],['上がり',validLast3f(r.last3f)!=null],['騎手',!!r.jockey]],miss=[];for(const [k,ok] of checks){total++;if(ok)have++;else miss.push(k)}if(miss.length)issues.push({date:r.date||'過去走',missing:miss})}
+    const rows=rowsOf(h),n=rows.length;if(!n)return{score:0,n,career:false,label:'未取得',issues:[{date:'履歴',missing:['過去走未取得']}],excluded:[]};
+    let have=0,total=0;const issues=[],excluded=[];
+    for(const r of rows){
+      const checks=[['着順',+r.rank>0],['競馬場',!!r.venue],['芝ダ',!!r.surface],['距離',Number.isFinite(+r.distance)&&+r.distance>0],['馬場',!!r.going],['騎手',!!r.jockey]],miss=[];
+      if(validLast3f(r.last3f)!=null)checks.push(['上がり',true]);
+      else if(isForeignRun(r))excluded.push({date:r.date||'過去走',field:'上がり',reason:'海外競走の取得元に数値なし'});
+      else checks.push(['上がり',false]);
+      for(const [k,ok] of checks){total++;if(ok)have++;else miss.push(k)}
+      if(miss.length)issues.push({date:r.date||'過去走',missing:miss});
+    }
     const career=n>=5||isDebut(earliest(rows)),fieldScore=Math.round(have/Math.max(1,total)*100),cap=career?100:(CONF[n]??100),score=Math.min(fieldScore,cap);
     if(!career&&n<5)issues.unshift({date:'履歴',missing:[`${n}/5走`]});
     const label=career&&n<5?`全キャリア${n}走`:(n>=5?'5走':`${n}/5走`);
-    return{score,n,career,label,issues};
+    return{score,n,career,label,issues,excluded};
   }
   function formatIssues(q){
     if(!q.issues.length)return'';
     return q.issues.map(x=>{if(x.date==='履歴')return `履歴：${x.missing.join('・')}欠損`;const d=String(x.date||'').replace(/^20\d{2}[\/.-]/,'');return `${d}：${x.missing.join('・')}欠損`}).join('<br>');
+  }
+  function formatExcluded(q){
+    if(!q.excluded?.length)return'';
+    return q.excluded.map(x=>{const d=String(x.date||'').replace(/^20\d{2}[\/.-]/,'');return `${d}：${x.field}は対象外（${x.reason}）`}).join('<br>');
   }
   function horseForCard(card){const t=norm(card?.querySelector('.rank')?.textContent||'');return (Array.isArray(horses)?horses:[]).find(h=>t.includes(norm(h.name)))||null}
   function patchCard(card,h){
@@ -31,7 +44,7 @@
     if(qualityBadge)qualityBadge.textContent=`品質 ${q.score}%`;
     const smalls=[...card.querySelectorAll('.small')];const main=smalls.find(x=>/主データ/.test(x.textContent||''));if(main)main.textContent=`主データ：${source} ${rows.length}走`;
     const statuses=[...card.querySelectorAll('.status')];const dq=statuses.find(x=>/データ品質/.test(x.textContent||''));
-    if(dq){const issue=formatIssues(q),head=q.score===100?(q.career&&q.n<5?`データ品質：${q.label} 完全100%`:`データ品質：完全100%`):`データ品質：${q.label} ${q.score}%`;dq.classList.toggle('ok',q.score===100);dq.classList.toggle('err',q.score<75);dq.innerHTML=`<b>${head}</b>${issue?`<br>${issue}`:''}${q.score<100?'<br>欠損項目だけ指数計算から除外します。':''}`}
+    if(dq){const issue=formatIssues(q),excluded=formatExcluded(q),head=q.score===100?(q.career&&q.n<5?`データ品質：${q.label} 完全100%`:`データ品質：完全100%`):`データ品質：${q.label} ${q.score}%`;dq.classList.toggle('ok',q.score===100);dq.classList.toggle('err',q.score<75);dq.innerHTML=`<b>${head}</b>${issue?`<br>${issue}`:''}${excluded?`<br>${excluded}`:''}${q.score<100?'<br>欠損項目だけ指数計算から除外します。':''}`}
   }
   function patchCards(){for(const card of document.querySelectorAll('#horses .card')){const h=horseForCard(card);if(h)patchCard(card,h)}}
   function compactHeader(){
