@@ -46,7 +46,8 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './course-score-correction-v330.js?v=20260910-course330',
     './nakayama-2200-shape-v334.js?v=20260911-nk2200-v334',
     './race-card-history-correction-v332.js?v=20260910-card332',
-    './quality-summary-consistency-v333.js?v=20260910-quality333'
+    './quality-summary-consistency-v333.js?v=20260910-quality333',
+    './probability-normalization-v335.js?v=20260911-prob335'
   ];
   const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
   const fetchCode=async(src,ms=5000)=>{const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(src,{cache:'no-store',signal:ac.signal});return r.ok?await r.text():''}catch(e){console.warn('patch skip',src,e);return''}finally{clearTimeout(timer)}};
@@ -61,7 +62,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
       document.head.innerHTML=parsed.head.innerHTML;document.body.innerHTML=parsed.body.innerHTML;document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';try{scrollTo(0,0)}catch(_){}
       for(const spec of baseScripts){if(spec.text.trim())addInline(spec.text);else if(spec.src)addInline(await fetchCode(spec.src))}
       lock();const codes=await Promise.all(PATCHES.map(x=>fetchCode(x)));codes.forEach(addInline);
-      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='nk2200-v334';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
+      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='prob-v335';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
     })
     .catch(e=>{document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>'});
 })();
