@@ -667,6 +667,39 @@
     window.__loadNetkeibaForecastV59=loadNetkeibaForecast;
     window.__getNetkeibaForecastState=()=>({...forecastMeta});
 
+    // 本体の旧クリック処理は旧 oddsApi を閉じ込めている環境があるため、
+    // AI分析・買い目の入口はここで直接 v8 を呼ぶ。Safariでの空キャッシュ
+    // 上書きを避け、クライアント側の連続ポーリングもしない。
+    function bindOfficialOddsActions(){
+      const analyzeButton=document.getElementById('analyze');
+      const makeButton=document.getElementById('make');
+      const run=async(mode)=>{
+        try{
+          if(!Array.isArray(horses)||!horses.length)throw new Error('先に出馬表を取り込んでください。');
+          status('raceStatus',mode==='analysis'?'実オッズを取得してAI分析中…':'実オッズを取得して買い目を作成中…');
+          await oddsApi({force:true});
+          evalAll();
+          generateTickets();
+          try{recordAnalysisAudit()}catch(_){}
+          if(mode==='analysis')tab('analysis');
+          try{await savePredictionSnapshot(mode==='analysis'?'AI分析確定':'買い目確定');await refreshMemoryStats(false)}catch(_){}
+        }catch(error){
+          const message=error?.message||String(error);
+          if(mode==='analysis')status('raceStatus',message,true);
+          else document.getElementById('ticket').innerHTML=`<div class="status err">${message}</div>`;
+        }
+      };
+      if(analyzeButton&&!analyzeButton.dataset.officialOddsV8){
+        analyzeButton.dataset.officialOddsV8='1';
+        analyzeButton.onclick=()=>run('analysis');
+      }
+      if(makeButton&&!makeButton.dataset.officialOddsV8){
+        makeButton.dataset.officialOddsV8='1';
+        makeButton.onclick=()=>run('make');
+      }
+    }
+    bindOfficialOddsActions();
+
     function historyNeedsRefresh(h){
       const rows=h?.history||[];
       const bodies=rows.filter(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300).length;
