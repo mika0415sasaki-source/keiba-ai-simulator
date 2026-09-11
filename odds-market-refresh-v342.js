@@ -1,10 +1,10 @@
 (()=>{
-  if(window.__oddsMarketRefreshV342)return;
-  window.__oddsMarketRefreshV342=true;
+  if(window.__oddsMarketRefreshV343)return;
+  window.__oddsMarketRefreshV343=true;
 
   let busy=false;
   let lastTry=0;
-  const RETRY_MS=60000;
+  const RETRY_MS=15000;
 
   function raceReady(){
     try{
@@ -43,12 +43,12 @@
       document.documentElement.dataset.oddsMarketRefresh=`${after.win}-${after.wide}-${after.trio}`;
       document.documentElement.dataset.oddsMarketRefreshReason=reason;
 
-      // 取得できた市場を、表示中の分析・買い目計算へ即時反映する。
       if((after.wide!==before.wide || after.trio!==before.trio || after.win!==before.win) && typeof evalAll==='function'){
         try{evalAll()}catch(_){}
       }else if(typeof renderAnalysis==='function' && typeof evaluated!=='undefined' && Array.isArray(evaluated) && evaluated.length){
         try{renderAnalysis()}catch(_){}
       }
+      try{window.dispatchEvent(new CustomEvent('keiba-odds-updated',{detail:after}))}catch(_){}
       return after.wide>0 && after.trio>0;
     }catch(e){
       console.warn('odds market refresh',reason,e);
@@ -56,12 +56,12 @@
     }finally{busy=false}
   }
 
-  // 画面を開いたままでも、発売開始後にワイド・3連複が0点のまま固定されないよう再取得。
+  // 発売開始後の反映を待たせないため15秒間隔で再確認。
   const timer=setInterval(()=>{
     if(document.visibilityState==='visible' && needsComboRefresh())refreshMissingMarkets('interval');
   },RETRY_MS);
 
-  // Safariへ戻った時・分析/買い目を開いた時は待たずに再確認。
+  // Safariへ戻った時・分析/買い目を開いた時は即再取得。
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')refreshMissingMarkets('visibility',true);
   });
@@ -69,11 +69,12 @@
     const t=e.target?.closest?.('button'); if(!t)return;
     const txt=String(t.textContent||'');
     if(t.id==='analyze'||t.id==='make'||t.dataset?.tab==='analysis'||t.dataset?.tab==='tickets'||/AI分析|買い目/.test(txt)){
-      setTimeout(()=>refreshMissingMarkets('user-action',true),250);
+      setTimeout(()=>refreshMissingMarkets('user-action',true),120);
     }
   },true);
 
-  // パッチ読込直後にも、既に出馬表があるなら確認する。
-  setTimeout(()=>refreshMissingMarkets('boot',true),1200);
+  // 読込直後にも既に出馬表があるなら即確認。続けて短時間の再試行も行う。
+  setTimeout(()=>refreshMissingMarkets('boot',true),500);
+  setTimeout(()=>{if(needsComboRefresh())refreshMissingMarkets('boot-retry',true)},3500);
   addEventListener('beforeunload',()=>clearInterval(timer),{once:true});
 })();
