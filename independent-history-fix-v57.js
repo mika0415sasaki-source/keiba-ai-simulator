@@ -529,7 +529,7 @@
     // キャッシュを採用してしまい、単勝だけ残ることがあった。
     const LIVE_ODDS_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds';
     const baseOddsApi=typeof oddsApi==='function'?oddsApi:null;
-    oddsApi=async function({force=false}={}){
+    async function loadOfficialOddsV8({force=false}={}){
       const race_id=(String(raceUrl()||'').match(/race_id=(20\d{10})/)||[])[1]||'';
       if(!race_id)throw new Error('オッズ取得用のレースIDを確認できません');
       const current=typeof oddsCache!=='undefined'&&oddsCache?oddsCache:{race_id:'',win:{},wide:{},trio:{}};
@@ -565,7 +565,8 @@
         if(baseOddsApi)return baseOddsApi({force});
         throw error;
       }
-    };
+    }
+    oddsApi=loadOfficialOddsV8;
 
     let forecastPromise=null;
     let forecastAutoRetryKey='';
@@ -677,7 +678,7 @@
         try{
           if(!Array.isArray(horses)||!horses.length)throw new Error('先に出馬表を取り込んでください。');
           status('raceStatus',mode==='analysis'?'実オッズを取得してAI分析中…':'実オッズを取得して買い目を作成中…');
-          await oddsApi({force:true});
+          await loadOfficialOddsV8({force:true});
           evalAll();
           generateTickets();
           try{recordAnalysisAudit()}catch(_){}
