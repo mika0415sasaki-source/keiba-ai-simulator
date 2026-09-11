@@ -548,7 +548,16 @@
         const counts={win:Object.keys(win).length,wide:Object.keys(wide).length,trio:Object.keys(trio).length};
         // 空応答は有効な新値ではない。直前の正常値を絶対に消さない。
         if(!counts.win&&!counts.wide&&!counts.trio)throw new Error('実オッズが空です');
-        oddsCache={race_id,win,wide,trio,fetched_at:value.fetched_at||new Date().toISOString(),source:value.source||'netkeiba-odds-v8',counts};
+        oddsCache={
+          race_id,win,wide,trio,
+          fetched_at:value.fetched_at||new Date().toISOString(),
+          // clearPreentryOdds() は「予想値だけ」を消す。ここは v8 の
+          // 発売オッズなので、オブジェクトのまま渡さず明示的に実値扱いにする。
+          source:'netkeiba-odds-v8 ACTUAL',
+          source_detail:value.source||{},
+          odds_type:'actual',
+          counts
+        };
         return oddsCache;
       }catch(error){
         // 実オッズの取得済みキャッシュがあれば保持して画面を壊さない。
