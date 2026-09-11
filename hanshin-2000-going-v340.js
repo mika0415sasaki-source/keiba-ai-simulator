@@ -76,10 +76,9 @@
 
     const rawGoing=goingDen?goingNum/goingDen:60;
     const rawSta=staDen?staNum/staDen:60;
-    // 同一馬場の実績を最優先し、近い馬場状態も補助情報として使う。サンプル不足時は60点へ縮約。
     const trust=clamp((exactCount*1.15+(goingCount-exactCount)*.55)/3,0,1);
     const goingScore=60+(rawGoing-60)*trust;
-    const staminaScore=60+(rawSta-60)*clamp(staDen?.85:0,0,1);
+    const staminaScore=60+(rawSta-60)*clamp(staDen ? .85 : 0,0,1);
     const mix=PROFILE[cur.going].staminaMix;
     const combined=goingScore*(1-mix)+staminaScore*mix;
     return {active:true,goingScore,staminaScore,combined,count:goingCount,exactCount};
