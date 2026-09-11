@@ -524,6 +524,40 @@
       try{oddsCache={race_id:'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
     }
 
+    // 予想単勝とは別に、買い目で使う実オッズ（単勝・ワイド・3連複）は
+    // keiba-odds v8 を唯一の入口にする。旧処理は取得失敗時でも空の
+    // キャッシュを採用してしまい、単勝だけ残ることがあった。
+    const LIVE_ODDS_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds';
+    const baseOddsApi=typeof oddsApi==='function'?oddsApi:null;
+    oddsApi=async function({force=false}={}){
+      const race_id=(String(raceUrl()||'').match(/race_id=(20\d{10})/)||[])[1]||'';
+      if(!race_id)throw new Error('オッズ取得用のレースIDを確認できません');
+      const current=typeof oddsCache!=='undefined'&&oddsCache?oddsCache:{race_id:'',win:{},wide:{},trio:{}};
+      const cachedEnough=String(current.race_id||'')===race_id&&Object.keys(current.win||{}).length&&Object.keys(current.wide||{}).length&&Object.keys(current.trio||{}).length;
+      if(!force&&cachedEnough)return current;
+      try{
+        const controller=new AbortController();
+        const timer=setTimeout(()=>controller.abort(),18000);
+        const response=await fetch(LIVE_ODDS_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({race_id})});
+        const value=await response.json().catch(()=>({error:'オッズAPIの応答を読めません'}));
+        clearTimeout(timer);
+        if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
+        const win=value.win&&typeof value.win==='object'?value.win:{};
+        const wide=value.wide&&typeof value.wide==='object'?value.wide:{};
+        const trio=value.trio&&typeof value.trio==='object'?value.trio:{};
+        const counts={win:Object.keys(win).length,wide:Object.keys(wide).length,trio:Object.keys(trio).length};
+        // 空応答は有効な新値ではない。直前の正常値を絶対に消さない。
+        if(!counts.win&&!counts.wide&&!counts.trio)throw new Error('実オッズが空です');
+        oddsCache={race_id,win,wide,trio,fetched_at:value.fetched_at||new Date().toISOString(),source:value.source||'netkeiba-odds-v8',counts};
+        return oddsCache;
+      }catch(error){
+        // 実オッズの取得済みキャッシュがあれば保持して画面を壊さない。
+        if(String(current.race_id||'')===race_id&&(Object.keys(current.win||{}).length||Object.keys(current.wide||{}).length||Object.keys(current.trio||{}).length))return current;
+        if(baseOddsApi)return baseOddsApi({force});
+        throw error;
+      }
+    };
+
     let forecastPromise=null;
     let forecastAutoRetryKey='';
     let forecastMeta={status:'idle',raceKey:'',oddsType:'unavailable',count:0,officialDatetime:null,error:''};
