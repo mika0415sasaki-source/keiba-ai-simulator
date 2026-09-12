@@ -35,12 +35,7 @@
   GuardedMutationObserver.prototype=NativeMutationObserver.prototype;
   window.MutationObserver=GuardedMutationObserver;
 
-  // v345 の observer 生成が終わった後は、以後の observer を通常動作へ戻す。
-  setTimeout(()=>{
-    if(window.MutationObserver===GuardedMutationObserver){
-      window.MutationObserver=NativeMutationObserver;
-    }
-  },0);
-
+  // body全体を監視するv345だけ、描画結果そのものの変更を再監視しない。
+  // #ranking等を直接監視する後続observerは通常どおり動作する。
   document.documentElement.dataset.v345ObserverGuard='v347';
 })();
