@@ -529,8 +529,15 @@
     // キャッシュを採用してしまい、単勝だけ残ることがあった。
     const LIVE_ODDS_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds';
     const baseOddsApi=typeof oddsApi==='function'?oddsApi:null;
+    function oddsRaceIdFromUrl(url){
+      const raw=String(url||'');
+      const direct=(raw.match(/race_id=(20\d{10})/)||[])[1];
+      if(direct)return direct;
+      const jra=raw.match(/sw01ddd\d{2}(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})/i);
+      return jra ? jra[2]+jra[1]+jra[3]+jra[4]+jra[5] : '';
+    }
     async function loadOfficialOddsV8({force=false}={}){
-      const race_id=(String(raceUrl()||'').match(/race_id=(20\d{10})/)||[])[1]||'';
+      const race_id=oddsRaceIdFromUrl(raceUrl());
       if(!race_id)throw new Error('オッズ取得用のレースIDを確認できません');
       const current=typeof oddsCache!=='undefined'&&oddsCache?oddsCache:{race_id:'',win:{},wide:{},trio:{}};
       const cachedEnough=String(current.race_id||'')===race_id&&Object.keys(current.win||{}).length&&Object.keys(current.wide||{}).length&&Object.keys(current.trio||{}).length;
