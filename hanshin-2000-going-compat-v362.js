@@ -6,7 +6,6 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
   const GOING_INDEX={良:0,稍重:1,重:2,不良:3};
-  // 2026-09-10/11 に阪神芝2000用として確定した配分をそのまま保持する。
   const PROFILE={
     良:  {speed:.22,last3f:.18,course:.14,distance:.14,jockey:.10,blood:.08,trainer:.06,condition:.08,courseAdj:.18,distanceAdj:.08,staminaMix:.15},
     稍重:{speed:.22,last3f:.15,course:.16,distance:.15,jockey:.10,blood:.08,trainer:.06,condition:.08,courseAdj:.24,distanceAdj:.11,staminaMix:.24},
@@ -50,7 +49,8 @@
     });
     const rawGoing=goingDen?goingNum/goingDen:60,rawSta=staDen?staNum/staDen:60;
     const trust=clamp((exactCount*1.15+(goingCount-exactCount)*.55)/3,0,1);
-    const goingScore=60+(rawGoing-60)*trust,staminaScore=60+(rawSta-60)*(staDen?.85:0);
+    const goingScore=60+(rawGoing-60)*trust;
+    const staminaScore=60+(rawSta-60)*(staDen ? .85 : 0);
     const mix=PROFILE[cur.going].staminaMix;
     return {combined:goingScore*(1-mix)+staminaScore*mix,count:goingCount,exactCount};
   }
@@ -76,8 +76,9 @@
   }
 
   function recalc(){
-    if(!isTarget()||!Array.isArray(window.horses||horses)||typeof window.scoreLocalHistory!=='function')return;
+    if(!isTarget()||typeof window.scoreLocalHistory!=='function')return;
     try{
+      if(!Array.isArray(horses))return;
       horses=horses.map(h=>{
         const z={...h};
         const rows=(Array.isArray(z.history)&&z.history.length)?z.history:(Array.isArray(z.jra_history)?z.jra_history:[]);
