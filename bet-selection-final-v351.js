@@ -45,7 +45,6 @@
     const ai=c.reduce((s,h)=>s+(+h.score||0),0);
     const rankSum=r.reduce((s,v)=>s+v,0);
     const market=o?clamp(Math.log10(Math.max(1,o))*5,0,12):0;
-    // 低配当を機械的に消さず、100円的中時に総予算を回収しやすい組合せを加点する。
     const profitBias=o?clamp(((o*100-cap)/Math.max(100,cap))*18,-20,18):0;
     return {c,r,o,key:keyNums(c.map(h=>h.no)),score:hit*520+ai*.48-rankSum*2.2+market+profitBias};
   }
@@ -61,7 +60,6 @@
     const out=[],seen=new Set(),covered=new Map();
     const add=x=>{if(!x||seen.has(x.key))return;seen.add(x.key);out.push(x);x.r.forEach(v=>covered.set(v,(covered.get(v)||0)+1))};
 
-    // 軸違いで全滅しないよう、最初から複数シナリオを混ぜる。
     add(groups.both[0]);
     add(groups.onlyA[0]);
     add(groups.onlyB[0]);
@@ -70,10 +68,11 @@
     while(out.length<pool.length){
       const remaining=pool.filter(x=>!seen.has(x.key));
       if(!remaining.length)break;
-      remaining.sort((a,b)=>{
-        const bonus=x=>x.r.reduce((s,v)=>s+(covered.get(v)||0)===0?s+45:s+(covered.get(v)<=1?10:0),0);
-        return (b.score+bonus(b))-(a.score+bonus(a));
-      });
+      const bonus=x=>x.r.reduce((s,v)=>{
+        const count=covered.get(v)||0;
+        return s+(count===0?45:count===1?10:0);
+      },0);
+      remaining.sort((a,b)=>(b.score+bonus(b))-(a.score+bonus(a)));
       add(remaining[0]);
     }
     return out;
@@ -92,7 +91,6 @@
   function allocate(items,cap){
     const st=new Array(items.length).fill(100);
     let total=items.length*100;
-    // 候補を100円ずつ先に買う。候補を残したまま一部だけ200円へ増額しない。
     if(total>=cap)return {st,total};
     const maxStake=300;
     let guard=0;
@@ -107,7 +105,6 @@
       if(!opts.length)break;
       opts.sort((a,b)=>a.m.red-b.m.red||a.m.worst-b.m.worst||a.m.deficit-b.m.deficit||a.stake-b.stake||b.score-a.score||a.i-b.i);
       const best=opts[0];
-      // 予算は上限。増額で赤字的中点数が増えるなら無理に使い切らない。
       if(best.m.red>now.red)break;
       st[best.i]+=100;total+=100;
     }
@@ -122,7 +119,6 @@
     const d=decide();
     if(d.mode!=='form')return null;
 
-    // 通常戦は上位6頭の全20組を候補にする。予算不足ならAI＋実オッズで購入点だけ選ぶ。
     const pool=combos(a,3).map(c=>item(c,a,d.cap));
     const ordered=scenarioOrder(pool);
     const buyCount=Math.min(ordered.length,Math.max(1,Math.floor(d.cap/100)));
