@@ -533,6 +533,7 @@
       const raw=String(url||'');
       const direct=(raw.match(/race_id=(20\d{10})/)||[])[1];
       if(direct)return direct;
+      // JRAスマホ出馬表: sw01ddd + 曜日 + 場コード + 年 + 回 + 日 + R
       const jra=raw.match(/sw01ddd\d{2}(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})/i);
       return jra ? jra[2]+jra[1]+jra[3]+jra[4]+jra[5] : '';
     }
@@ -989,6 +990,13 @@
       return direct||null;
     }
 
+    function currentRaceActualPopularity(h){
+      if(!officialOddsCache())return null;
+      const record=cachedWinRecord(h);
+      const popularity=Number(record&&typeof record==='object'?(record.popularity??record.pop??record.rank):null);
+      return Number.isInteger(popularity)&&popularity>0?popularity:null;
+    }
+
     function addAnalysisEvidence(){
       const evidence=document.getElementById('evidence');
       if(evidence){
@@ -1002,13 +1010,18 @@
       }
       const profile=document.getElementById('courseProfile');
       if(profile){
-        profile.querySelector?.('[data-course-basis]')?.remove();
+        const venue=document.getElementById('venue')?.value||'';
+        const surface=document.getElementById('surface')?.value||'';
+        const distance=document.getElementById('distance')?.value||'';
+        const turn=(typeof raceMeta==='object'&&raceMeta?.turn)||({札幌:'右',函館:'右',福島:'右',新潟:'左',東京:'左',中山:'右',中京:'左',京都:'右',阪神:'右',小倉:'右'}[venue]||'');
+        const courseDescription=venue==='阪神'&&surface==='芝'&&+distance===2000
+          ?'右回り・内回り。コーナー4回とゴール前の急坂を考慮し、内回り向きの機動力と持続力をコース適性へ反映。'
+          :`${turn}回り・直線形状・坂・コーナー数をコース適性へ反映。`;
+        profile.innerHTML=`<b>コース・馬場補正：</b> ${venue} ${surface}${distance}m・${turn}<br>JRAコース基礎補正：${courseDescription}<br>最終指数の主ウェイト：近走 22.0% / 上がり 18.0% / コース 14.0%`;
         const line=document.createElement('div');
         line.dataset.courseBasis='1';
         line.className='small';
         line.style.marginTop='6px';
-        const venue=document.getElementById('venue')?.value||'';
-        const distance=document.getElementById('distance')?.value||'';
         line.textContent=`コース指数の根拠：${venue}${distance}mの同競馬場実績を最優先し、同じ回り・直線形状・坂の近い競馬場と距離差を段階補正。着順を頭数で正規化し、直近ほど重く評価。`;
         profile.appendChild(line);
       }
@@ -1118,12 +1131,15 @@
       });
       const ranking=document.getElementById('ranking');
       if(ranking){
+        const winRanks=new Map([...evaluated].sort((a,b)=>b.win-a.win).map((h,i)=>[String(h.no),i+1]));
+        const placeRanks=new Map([...evaluated].sort((a,b)=>b.place-a.place).map((h,i)=>[String(h.no),i+1]));
         ranking.innerHTML=evaluated.slice(0,6).map((h,index)=>{
           const market=netkeibaMarketFor(h);
           const actual=currentRaceActualOdds(h);
+          const actualPopularity=currentRaceActualPopularity(h);
           let odds='netkeiba予想オッズ未取得';
           if(actual){
-            const popularity=market?.type==='actual'&&market.popularity?` / ${market.popularity}番人気`:'';
+            const popularity=actualPopularity?` / ${actualPopularity}番人気`:'';
             odds=`${actual.toFixed(1)}倍 / 実オッズ${popularity}`;
           }else if(market?.type==='forecast'){
             const popularity=market.popularity?` / netkeiba予想${market.popularity}番人気`:'';
@@ -1134,17 +1150,19 @@
           }
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
           const summaryMarket=actual
-            ?`単勝${actual.toFixed(1)}倍${market?.type==='actual'&&market.popularity?` ／ ${market.popularity}番人気`:''}`
+            ?`単勝${actual.toFixed(1)}倍${actualPopularity?` ／ ${actualPopularity}番人気`:''}`
             :market?.type==='forecast'
               ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
               :'単勝オッズ未取得';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
           const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
-          return `<details class="card ranking-card"><summary aria-label="${index+1}位 ${h.name}の詳細を開く"><div class="ranking-summary-main"><div class="rank">${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="summary-market">${summaryMarket}</div></div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
+          return `<details class="card ranking-card"><summary aria-label="AI ${index+1}位 ${h.name}の詳細を開く"><div class="ranking-summary-main"><div class="rank">AI ${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="summary-market">${summaryMarket}</div></div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
         }).join('');
       }
       const rows=document.getElementById('rows');
       if(rows){
+        const winRanks=new Map([...evaluated].sort((a,b)=>b.win-a.win).map((h,i)=>[String(h.no),i+1]));
+        const placeRanks=new Map([...evaluated].sort((a,b)=>b.place-a.place).map((h,i)=>[String(h.no),i+1]));
         const table=rows.closest?.('table');
         table?.classList.add('comparison-table');
         table?.parentElement?.classList.add('comparison-wrap');
@@ -1153,9 +1171,10 @@
         rows.innerHTML=evaluated.map((h,index)=>{
           const market=netkeibaMarketFor(h);
           const actual=currentRaceActualOdds(h);
+          const actualPopularity=currentRaceActualPopularity(h);
           let odds='netkeiba予想オッズ未取得';
           if(actual){
-            const popularity=market?.type==='actual'&&market.popularity?`・${market.popularity}番人気`:'';
+            const popularity=actualPopularity?`・${actualPopularity}番人気`:'';
             odds=`${actual.toFixed(1)}倍（実オッズ${popularity}）`;
           }else if(market?.type==='forecast'){
             const popularity=market.popularity?`・${market.popularity}番人気`:'';
@@ -1165,11 +1184,12 @@
             odds='netkeiba予想オッズ取得中';
           }
           const summaryMarket=actual
-            ?`単勝${actual.toFixed(1)}倍${market?.type==='actual'&&market.popularity?` ／ ${market.popularity}番人気`:''}`
+            ?`単勝${actual.toFixed(1)}倍${actualPopularity?` ／ ${actualPopularity}番人気`:''}`
             :market?.type==='forecast'
               ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
               :'単勝オッズ未取得';
-          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span class="comparison-main"><span><b class="comparison-rank">${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-market">${summaryMarket}</span></span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
+          const probabilityRanks=`<span style="display:block;margin-top:6px"><span class="badge">1着率 ${winRanks.get(String(h.no))}位</span><span class="badge">3着内率 ${placeRanks.get(String(h.no))}位</span></span>`;
+          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span class="comparison-main"><span><b class="comparison-rank">AI ${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-market">${summaryMarket}</span>${probabilityRanks}</span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
         }).join('');
         rows.onclick=event=>{
           const button=event.target?.closest?.('.comparison-toggle');
@@ -1208,13 +1228,24 @@
     const originalJraImport=jraImport;
     jraImport=async function(url){
       const value=await originalJraImport.apply(this,arguments);
-      if(/netkeiba\.com/i.test(String(url||''))&&Array.isArray(value?.horses)){
+      if(Array.isArray(value?.horses)){
+        value.horses=value.horses.map(h=>{
+          const carried=Number.isFinite(+h.carried_weight)?+h.carried_weight:(Number.isFinite(+h.weight)&&+h.weight>=45&&+h.weight<=65?+h.weight:null);
+          const body=[h.body_weight,h.weight].map(Number).find(x=>Number.isFinite(x)&&x>=300&&x<=699)||null;
+          return {...h,
+            sex_age:String(h.sex_age||((h.sex&&h.age)?`${h.sex}${h.age}`:'')).trim(),
+            carried_weight:carried,
+            body_weight:body,
+            weight:body,
+            jra_history:Array.isArray(h.jra_history)?h.jra_history:(Array.isArray(h.histories)?h.histories:[])
+          };
+        });
         importedRosterByName=new Map(value.horses.map(h=>[clean(h.name),{
           jockey:String(h.jockey||h.rider||'').trim(),
           sex_age:String(h.sex_age||'').trim(),
           carried_weight:Number.isFinite(+h.carried_weight)?+h.carried_weight:null
         }]));
-        if(String(url||'').includes(CURRENT_RACE_ID)&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
+        if(/netkeiba\.com/i.test(String(url||''))&&String(url||'').includes(CURRENT_RACE_ID)&&!value.horses.some(h=>clean(h.name)==='ファストネットワーク')){
           const insertAt=value.horses.findIndex(h=>clean(h.name)==='フリッカージャブ');
           value.horses.splice(insertAt>=0?insertAt:8,0,{
             no:9,name:'ファストネットワーク',sex_age:'セ6',weight:null,body_weight:null,carried_weight:57,
@@ -1226,9 +1257,11 @@
           value.meta={...(value.meta||{}),entry_count:17,entry_patch:'netkeiba外国馬補完'};
         }
         applyCurrentRoster(value.horses,url);
-        clearPreentryOdds(value.horses);
-        value.meta={...(value.meta||{}),odds_type:'unpublished'};
-        setTimeout(()=>loadNetkeibaForecast(value.horses,url).catch(()=>{}),0);
+        if(/netkeiba\.com/i.test(String(url||''))){
+          clearPreentryOdds(value.horses);
+          value.meta={...(value.meta||{}),odds_type:'unpublished'};
+          setTimeout(()=>loadNetkeibaForecast(value.horses,url).catch(()=>{}),0);
+        }
       }
       scheduleOddsFix();
       return value;
