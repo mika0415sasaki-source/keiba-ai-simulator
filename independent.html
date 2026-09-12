@@ -20,10 +20,25 @@
   let html=await r.text();
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
            .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
-  const tag='<scr'+'ipt src="./independent-patch.js?v=20260901-base7"></scr'+'ipt>'+
-            '<scr'+'ipt src="./core-fix.js?v=20260902-core6"></scr'+'ipt>'+
-            '<scr'+'ipt src="./independent-history-fix-v57.js?v=20260912-roster-rank-fix1"></scr'+'ipt>';
-  html=html.replace('</body>',tag+'</body>');
+  const scripts=[
+    './independent-patch.js?v=20260901-base7',
+    './core-fix.js?v=20260902-core6',
+    './independent-history-fix-v57.js?v=20260912-roster-odds-data1',
+    './course-score-correction-v330.js?v=20260912-restore-course330',
+    './nakayama-2200-shape-v334.js?v=20260912-restore-nk2200',
+    './probability-normalization-v335.js?v=20260912-restore-prob335',
+    './probability-model-v336.js?v=20260912-restore-prob336',
+    './ranking-probability-separation-v337.js?v=20260912-restore-rankprob337',
+    './comparison-probability-ranks-v338.js?v=20260912-restore-compranks338',
+    './jra-going-engine-v341.js?v=20260912-restore-going341',
+    './bet-strategy-v324.js?v=20260912-restore-bet324',
+    './bet-wide-candidates-v323.js?v=20260912-restore-bet323',
+    './bet-budget-promotion-v325.js?v=20260912-restore-bet325',
+    './bet-ticket-summary-v322.js?v=20260912-restore-bet322',
+    './odds-market-refresh-v344.js?v=20260912-restore-heatfix344'
+  ];
+  const tags=scripts.map(src=>'<scr'+'ipt src="'+src+'"></scr'+'ipt>').join('');
+  html=html.replace('</body>',tags+'</body>');
   document.open();
   document.write(html);
   document.close();
