@@ -15,16 +15,23 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 </style>
 </head>
 <body>
-<div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>分析画面を準備しています</small></div>
+<div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>操作画面を準備しています</small></div>
 <script>
-(()=>{
-  const PATCHES=[
+(async()=>{
+ try{
+  const r=await fetch('./v55-parts/part0.txt?v=20260913-native366',{cache:'no-store'});
+  if(!r.ok)throw new Error('本体 '+r.status);
+  let html=await r.text();
+  html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
+           .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
+
+  const scripts=[
     './independent-patch.js?v=20260901-base7',
     './core-fix.js?v=20260902-core6',
     './result-url-support-v354.js?v=20260912-result-v354',
     './same-race-learning-guard-v357.js?v=20260912-same-race-v357',
     './independent-history-fix-v57.js?v=20260912-roster-odds-data1',
-    './authoritative-import-v296.js?v=20260913-stable306-import-v365',
+    './authoritative-import-v296.js?v=20260913-native366-import',
     './analysis-baseline-20260910-v358.js?v=20260913-baseline-v358',
     './course-score-correction-v360.js?v=20260913-course-v360',
     './nakayama-2200-shape-v334.js?v=20260912-restore-nk2200',
@@ -47,22 +54,19 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
     './ios-render-fix-v355.js?v=20260912-render-v355'
   ];
-  const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
-  const fetchCode=async(src,ms=3500)=>{const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(src,{cache:'no-store',signal:ac.signal});return r.ok?await r.text():''}catch(e){console.warn('patch skip',src,e);return''}finally{clearTimeout(timer)}};
-  const lock=()=>{const a=document.getElementById('importRace'),h=document.getElementById('importHist');if(a){a.disabled=true;a.textContent='準備中…'}if(h)h.disabled=true};
-  const unlockFallback=()=>{const a=document.getElementById('importRace'),h=document.getElementById('importHist');if(a&&!['v296','v297'].includes(document.documentElement.dataset.importController||'')){a.disabled=false;a.textContent='出馬表取込'}if(h&&!['v296','v297'].includes(document.documentElement.dataset.importController||'')){h.disabled=false;h.textContent='過去5走を再取得'}};
-  fetch('./v55-parts/part0.txt?v=20260913-stable365',{cache:'no-store'})
-    .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
-    .then(async html=>{
-      html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析').replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
-      const parsed=new DOMParser().parseFromString(html,'text/html');
-      const baseScripts=[...parsed.querySelectorAll('script')].map(s=>({src:s.getAttribute('src')||'',text:s.textContent||''}));parsed.querySelectorAll('script').forEach(s=>s.remove());
-      document.head.innerHTML=parsed.head.innerHTML;document.body.innerHTML=parsed.body.innerHTML;document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';try{scrollTo(0,0)}catch(_){}
-      for(const spec of baseScripts){if(spec.text.trim())addInline(spec.text);else if(spec.src)addInline(await fetchCode(spec.src))}
-      lock();const codes=await Promise.all(PATCHES.map(x=>fetchCode(x)));codes.forEach(addInline);
-      document.documentElement.dataset.app='ready';document.documentElement.dataset.build='stable365';dispatchEvent(new Event('keiba-patches-ready'));setTimeout(unlockFallback,0);
-    })
-    .catch(e=>{document.documentElement.style.backgroundColor='#09101d';document.body.style.backgroundColor='#09101d';document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>'});
+
+  const tags=scripts.map(src=>'<scr'+'ipt src="'+src+'"></scr'+'ipt>').join('');
+  const ready='<scr'+'ipt>document.documentElement.dataset.app="ready";document.documentElement.dataset.build="native366";try{dispatchEvent(new Event("keiba-patches-ready"))}catch(_){}</scr'+'ipt>';
+  html=html.replace('</body>',tags+ready+'</body>');
+
+  document.open();
+  document.write(html);
+  document.close();
+ }catch(e){
+  document.documentElement.style.backgroundColor='#09101d';
+  document.body.style.backgroundColor='#09101d';
+  document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+String(e).replace(/[<>]/g,'')+'</small></div>';
+ }
 })();
 </script>
 </body>
