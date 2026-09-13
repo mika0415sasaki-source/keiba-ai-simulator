@@ -19,7 +19,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 <script>
 (async()=>{
  try{
-  const r=await fetch('./v55-parts/part0.txt?v=20260913-native366',{cache:'no-store'});
+  const r=await fetch('./v55-parts/part0.txt?v=20260913-native367',{cache:'no-store'});
   if(!r.ok)throw new Error('本体 '+r.status);
   let html=await r.text();
   html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
@@ -52,11 +52,12 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './ranking-stable-v356.js?v=20260912-ranking-v356',
     './comparison-stable-v359.js?v=20260913-comparison-v359',
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
-    './ios-render-fix-v355.js?v=20260912-render-v355'
+    './ios-render-fix-v355.js?v=20260912-render-v355',
+    './netkeiba-style-source-v367.js?v=20260913-netkeiba-style-v367'
   ];
 
   const tags=scripts.map(src=>'<scr'+'ipt src="'+src+'"></scr'+'ipt>').join('');
-  const ready='<scr'+'ipt>document.documentElement.dataset.app="ready";document.documentElement.dataset.build="native366";try{dispatchEvent(new Event("keiba-patches-ready"))}catch(_){}</scr'+'ipt>';
+  const ready='<scr'+'ipt>document.documentElement.dataset.app="ready";document.documentElement.dataset.build="native367";try{dispatchEvent(new Event("keiba-patches-ready"))}catch(_){}</scr'+'ipt>';
   html=html.replace('</body>',tags+ready+'</body>');
 
   document.open();
@@ -71,4 +72,4 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 </script>
 </body>
 </html>
-<!-- pages-redeploy-native366 -->
+<!-- pages-redeploy-native367 -->
