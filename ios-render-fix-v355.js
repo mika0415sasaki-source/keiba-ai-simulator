@@ -1,39 +1,50 @@
 (()=>{
-  if(window.__iosRenderFixV355)return;
-  window.__iosRenderFixV355=true;
+  if(window.__iosRenderFixV368)return;
+  window.__iosRenderFixV368=true;
 
   function install(){
-    if(document.getElementById('iosRenderFixV355Style'))return;
-    const s=document.createElement('style');
-    s.id='iosRenderFixV355Style';
+    let s=document.getElementById('iosRenderFixV355Style');
+    if(!s){
+      s=document.createElement('style');
+      s.id='iosRenderFixV355Style';
+      (document.head||document.documentElement).appendChild(s);
+    }
     s.textContent=`
-      /* iPhone Safari: large translucent sticky header caused content/tabs to show
-         through the header and produced repaint/ghosting while scrolling. */
+      html,body{
+        background:#09101d !important;
+        min-height:100% !important;
+      }
       header{
         background:#09101d !important;
         -webkit-backdrop-filter:none !important;
         backdrop-filter:none !important;
-        isolation:isolate;
       }
       @media(max-width:700px){
         header{
           position:relative !important;
           top:auto !important;
-          z-index:1 !important;
+          z-index:auto !important;
           transform:none !important;
           will-change:auto !important;
         }
         .wrap{
-          position:relative;
-          z-index:0;
+          position:relative !important;
+          z-index:auto !important;
+          background:#09101d !important;
         }
         #analysis,#tickets,#learn,#memory,#input{
-          isolation:isolate;
+          isolation:auto !important;
+          contain:none !important;
+          transform:none !important;
+          background:#09101d !important;
+        }
+        #horses,#ranking,#rows{
+          visibility:visible !important;
+          opacity:1 !important;
         }
       }
     `;
-    (document.head||document.documentElement).appendChild(s);
-    document.documentElement.dataset.iosRenderFix='v355';
+    document.documentElement.dataset.iosRenderFix='v368';
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
