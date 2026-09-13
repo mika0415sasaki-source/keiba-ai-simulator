@@ -52,13 +52,13 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './ranking-stable-v356.js?v=20260912-ranking-v356',
     './comparison-stable-v359.js?v=20260913-comparison-v359',
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
-    './ios-render-fix-v355.js?v=20260914-render-v368-restored',
+    './ios-render-fix-v355.js?v=20260913-render-v374',
     './current-data-v370.js?v=20260913-current-v374',
-    './ios-horse-full-render-v376.js?v=20260914-full-v376'
+    './mobile-horse-list-v374.js?v=20260913-mobile-horses-v374'
   ];
 
   const tags=scripts.map(src=>'<scr'+'ipt src="'+src+'"></scr'+'ipt>').join('');
-  const ready='<scr'+'ipt>document.documentElement.dataset.app="ready";document.documentElement.dataset.build="native376";try{dispatchEvent(new Event("keiba-patches-ready"))}catch(_){}</scr'+'ipt>';
+  const ready='<scr'+'ipt>document.documentElement.dataset.app="ready";document.documentElement.dataset.build="native374";try{dispatchEvent(new Event("keiba-patches-ready"))}catch(_){}</scr'+'ipt>';
   html=html.replace('</body>',tags+ready+'</body>');
 
   document.open();
@@ -73,4 +73,4 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 </script>
 </body>
 </html>
-<!-- pages-redeploy-native376 -->
+<!-- pages-redeploy-native374-2 -->
