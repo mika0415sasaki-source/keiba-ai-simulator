@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__iosRenderFixV368)return;
-  window.__iosRenderFixV368=true;
+  if(window.__iosRenderFixV375)return;
+  window.__iosRenderFixV375=true;
 
   function install(){
     let s=document.getElementById('iosRenderFixV355Style');
@@ -42,9 +42,34 @@
           visibility:visible !important;
           opacity:1 !important;
         }
+
+        /* iPhone Safari paint guard only. Do not replace/reflow the horse UI. */
+        #horses{
+          height:auto !important;
+          max-height:none !important;
+          overflow:visible !important;
+          contain:none !important;
+          content-visibility:visible !important;
+          transform:none !important;
+          -webkit-transform:none !important;
+          filter:none !important;
+          -webkit-filter:none !important;
+          will-change:auto !important;
+        }
+        #horses > *{
+          contain:none !important;
+          content-visibility:visible !important;
+          transform:none !important;
+          -webkit-transform:none !important;
+          filter:none !important;
+          -webkit-filter:none !important;
+          opacity:1 !important;
+          visibility:visible !important;
+          will-change:auto !important;
+        }
       }
     `;
-    document.documentElement.dataset.iosRenderFix='v368';
+    document.documentElement.dataset.iosRenderFix='v375-display-only';
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
