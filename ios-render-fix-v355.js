@@ -42,6 +42,10 @@
           visibility:visible !important;
           opacity:1 !important;
         }
+        #horses > .card{
+          content-visibility:auto;
+          contain-intrinsic-size:auto 560px;
+        }
       }
     `;
     document.documentElement.dataset.iosRenderFix='v368';
