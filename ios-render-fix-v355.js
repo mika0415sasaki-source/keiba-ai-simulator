@@ -42,6 +42,9 @@
           visibility:visible !important;
           opacity:1 !important;
         }
+        #horses > .card{
+          contain:layout paint !important;
+        }
       }
     `;
     document.documentElement.dataset.iosRenderFix='v368';
