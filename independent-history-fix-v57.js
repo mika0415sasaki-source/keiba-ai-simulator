@@ -792,7 +792,8 @@
         const weightLabel=current?`${current}kg`:(previous?`前走${previous}kg`:'馬体重未発表');
         const ageWeight=[h.sex_age||'',weightLabel].filter(Boolean).join(' / ');
         const parts=[ageWeight,h.jockey||'騎手未取得',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);
-        small.textContent=parts.join('　');
+        const nextText=parts.join('　');
+        if(small.textContent!==nextText)small.textContent=nextText;
       });
       document.querySelectorAll('#ranking .card .small').forEach(el=>{
         if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
