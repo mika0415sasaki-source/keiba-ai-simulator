@@ -72,7 +72,7 @@
     box.innerHTML=`<b>適用ペース：${applied}</b><br>逃げ ${escN}頭 / 先行 ${lead}頭 / 差し ${diff}頭 / 追込 ${clos}頭 / 不明 ${horses.length-known}頭<br>${manual==='自動'?`過去走の通過順から脚質判定 → ${auto}想定`:'手動設定をAI分析へ反映'}`;
   }
 
-  function render({notify=true}={}){installQualityPatch();try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn(e)};try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn(e)};try{renderPaceReasonV296()}catch(e){console.warn(e)};if(notify){try{dispatchEvent(new Event('keiba-data-updated'))}catch(_){}}}
+  function render(){installQualityPatch();try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn(e)};try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn(e)};try{renderPaceReasonV296()}catch(e){console.warn(e)};try{dispatchEvent(new Event('keiba-data-updated'))}catch(_){}}
   function updateHistoryCount(){if(!Array.isArray(horses))return;const ok=horses.filter(h=>(h.history||[]).length).length,runs=horses.reduce((s,h)=>s+Math.min(5,(h.history||[]).length),0),jr=horses.filter(h=>(h.jra_history||[]).length).length;if(el('histCount'))el('histCount').textContent=`netkeiba ${ok}/${horses.length}頭・合計${runs}走 / JRA照合 ${jr}頭`}
 
   function applyRace(j,sourceUrl,rid){
@@ -84,10 +84,10 @@
     if(raceMeta.race_name&&el('raceName'))el('raceName').value=raceMeta.race_name;setSelect('venue',raceMeta.venue);setSelect('surface',raceMeta.surface);setSelect('distance',raceMeta.distance);setSelect('going',raceMeta.going);updateHistoryCount();render();
   }
 
-  async function hydrateMemory(renderAfter=true){
+  async function hydrateMemory(){
     if(!Array.isArray(horses)||!horses.length)return;const ac=new AbortController();try{
       const j=await fetchJson(MEMORY_ENDPOINT,{action:'horse_memory',names:horses.map(h=>h.name)},ac,4000);const map=new Map((j.rows||[]).map(r=>[norm(r.horse_name),r.memory_json||{}]));
-      horses=horses.map(h=>{const mem=map.get(norm(h.name))||{},p=mem.profile||{},z={...h};const id=String(z.netkeiba_horse_id||z.horse_id||mem.netkeiba_horse_id||p.netkeiba_horse_id||'');if(id){z.netkeiba_horse_id=id;z.horse_id=id}for(const k of ['sire','dam','damsire'])if(!z[k]&&p[k])z[k]=p[k];if(!z.sex_age&&p.sex_age)z.sex_age=p.sex_age;if(!z.jockey&&p.jockey)z.jockey=p.jockey;return z});if(renderAfter)render();
+      horses=horses.map(h=>{const mem=map.get(norm(h.name))||{},p=mem.profile||{},z={...h};const id=String(z.netkeiba_horse_id||z.horse_id||mem.netkeiba_horse_id||p.netkeiba_horse_id||'');if(id){z.netkeiba_horse_id=id;z.horse_id=id}for(const k of ['sire','dam','damsire'])if(!z[k]&&p[k])z[k]=p[k];if(!z.sex_age&&p.sex_age)z.sex_age=p.sex_age;if(!z.jockey&&p.jockey)z.jockey=p.jockey;return z});render();
     }catch(e){console.warn('memory hydrate skipped',e)}
   }
 
@@ -104,14 +104,14 @@
 
   function mergeEnrichment(j){
     const rows=Array.isArray(j?.horses)?j.horses:[],byId=new Map(rows.map(r=>[String(r.netkeiba_horse_id||r.horse_id||r.id||''),r])),byName=new Map(rows.map(r=>[norm(r.name),r]));let ok=0,runs=0,ped=0,sty=0;
-    horses=horses.map(h=>{const x=byId.get(String(h.netkeiba_horse_id||h.horse_id||''))||byName.get(norm(h.name));if(!x)return {...h,style:horseStyle(h)};const z={...h};if(Array.isArray(x.history)&&x.history.length){z.history=x.history.slice(0,5);ok++;runs+=z.history.length;try{z.histScores=scoreLocalHistory(z.history);if(z.histScores)z.histScores.available=true}catch(_){z.histScores=null}}else{z.history=[];z.histScores=null}for(const k of ['sire','dam','damsire'])if(x[k])z[k]=x[k];if(x.netkeiba_horse_id||x.horse_id||x.id){z.netkeiba_horse_id=String(x.netkeiba_horse_id||x.horse_id||x.id);z.horse_id=z.netkeiba_horse_id}z.style=styleFromRows(z.history)||styleFromRows(z.jra_history)||'';if(z.sire&&z.dam&&z.damsire)ped++;if(z.style)sty++;return z});updateHistoryCount();render({notify:false});return{ok,runs,ped,sty};
+    horses=horses.map(h=>{const x=byId.get(String(h.netkeiba_horse_id||h.horse_id||''))||byName.get(norm(h.name));if(!x)return {...h,style:horseStyle(h)};const z={...h};if(Array.isArray(x.history)&&x.history.length){z.history=x.history.slice(0,5);ok++;runs+=z.history.length;try{z.histScores=scoreLocalHistory(z.history);if(z.histScores)z.histScores.available=true}catch(_){z.histScores=null}}else{z.history=[];z.histScores=null}for(const k of ['sire','dam','damsire'])if(x[k])z[k]=x[k];if(x.netkeiba_horse_id||x.horse_id||x.id){z.netkeiba_horse_id=String(x.netkeiba_horse_id||x.horse_id||x.id);z.horse_id=z.netkeiba_horse_id}z.style=styleFromRows(z.history)||styleFromRows(z.jra_history)||'';if(z.sire&&z.dam&&z.damsire)ped++;if(z.style)sty++;return z});updateHistoryCount();render();return{ok,runs,ped,sty};
   }
 
   async function importHistory(){
     const btn=el('importHist');if(state.historyLoading){try{state.historyController?.abort('user')}catch(_){};return}if(!Array.isArray(horses)||!horses.length){setStatus('histStatus','先に出馬表を取り込んでください。',true);return}
     const mySeq=++state.seq;state.historyLoading=true;state.historyController=new AbortController();if(btn){btn.disabled=false;btn.textContent='取得中（押すと中断）'};setStatus('histStatus','netkeiba馬IDで過去5走を取得しています。');
     try{
-      await hydrateMemory(false);const url=String(el('raceUrl')?.value||raceMeta?.source_url||''),rid=raceMeta?.race_id||ridFrom(url),items=horses.map(h=>({name:h.name,id:String(h.netkeiba_horse_id||h.horse_id||'')}));
+      await hydrateMemory();const url=String(el('raceUrl')?.value||raceMeta?.source_url||''),rid=raceMeta?.race_id||ridFrom(url),items=horses.map(h=>({name:h.name,id:String(h.netkeiba_horse_id||h.horse_id||'')}));
       const j=await fetchJson(ENRICH_ENDPOINT,{race_id:rid,url,race_date:raceMeta?.race_date||raceMeta?.date||'',items},state.historyController,18000);if(mySeq!==state.seq)return;const r=mergeEnrichment(j);
       const extra=j?.history_api_error?`\n履歴API: ${j.history_api_error}`:'';setStatus('histStatus',`過去走 ${r.ok}/${horses.length}頭・合計${r.runs}走 / 血統 ${r.ped}/${horses.length}頭 / 脚質 ${r.sty}/${horses.length}頭 を取得しました。${extra}`,r.ok===0);
     }catch(e){if(mySeq===state.seq)setStatus('histStatus',e?.message||String(e),true)}finally{if(mySeq===state.seq){state.historyLoading=false;state.historyController=null;if(btn){btn.disabled=false;btn.textContent='過去5走を再取得'}}}
