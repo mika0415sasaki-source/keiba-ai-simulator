@@ -28,15 +28,15 @@
           will-change:auto !important;
         }
         .wrap{
-          position:relative !important;
+          position:static !important;
           z-index:auto !important;
-          background:#09101d !important;
+          background:transparent !important;
         }
         #analysis,#tickets,#learn,#memory,#input{
           isolation:auto !important;
           contain:none !important;
           transform:none !important;
-          background:#09101d !important;
+          background:transparent !important;
         }
         #horses,#ranking,#rows{
           visibility:visible !important;
