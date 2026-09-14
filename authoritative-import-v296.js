@@ -38,7 +38,8 @@
   }
   function installQualityPatch(){
     try{
-      const base=typeof dataQuality==='function'?dataQuality:null;if(!base||base.__v296)return;
+      const base=typeof dataQuality==='function'?dataQuality:null;if(!base)return;
+      let current=base;for(let i=0;i<20&&typeof current==='function';i++,current=current.__original){if(current.__v296)return}
       const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
       const patched=function(h){
         const rows=completedRows(h),n=rows.length;
