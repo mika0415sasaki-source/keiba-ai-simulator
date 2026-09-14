@@ -42,8 +42,15 @@
           visibility:visible !important;
           opacity:1 !important;
         }
+        .ios-horses-panel{
+          background:transparent !important;
+          border-color:transparent !important;
+          border-radius:0 !important;
+          overflow:visible !important;
+        }
       }
     `;
+    document.getElementById('horses')?.closest('.panel')?.classList.add('ios-horses-panel');
     document.documentElement.dataset.iosRenderFix='v368';
   }
 
