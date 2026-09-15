@@ -1298,8 +1298,10 @@
           forecastMeta.count<(horses||[]).length
         ))loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
         for(const h of horses||[]){
-          if((h.history||[]).length)h.histScores=scoreBalancedHistory(h.history);
-          else if((h.jra_history||[]).length)h.histScores=scoreBalancedHistory(h.jra_history);
+          // Use the currently installed scoring chain so the baseline model and
+          // course-performance correction are not replaced by the older fallback.
+          if((h.history||[]).length)h.histScores=scoreLocalHistory(h.history);
+          else if((h.jra_history||[]).length)h.histScores=scoreLocalHistory(h.jra_history);
         }
         const usable=(horses||[]).filter(h=>(h.history||[]).length||(h.jra_history||[]).length).length;
         if((horses||[]).length&&usable===0){
