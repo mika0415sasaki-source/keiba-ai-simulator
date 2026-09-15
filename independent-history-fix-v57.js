@@ -529,6 +529,7 @@
     // キャッシュを採用してしまい、単勝だけ残ることがあった。
     const LIVE_ODDS_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds';
     const baseOddsApi=typeof oddsApi==='function'?oddsApi:null;
+    let officialOddsPromise=null;
     function oddsRaceIdFromUrl(url){
       const raw=String(url||'');
       const direct=(raw.match(/race_id=(20\d{10})/)||[])[1];
@@ -543,12 +544,15 @@
       const current=typeof oddsCache!=='undefined'&&oddsCache?oddsCache:{race_id:'',win:{},wide:{},trio:{}};
       const cachedEnough=String(current.race_id||'')===race_id&&Object.keys(current.win||{}).length&&Object.keys(current.wide||{}).length&&Object.keys(current.trio||{}).length;
       if(!force&&cachedEnough)return current;
-      try{
+      if(officialOddsPromise)return officialOddsPromise;
+      officialOddsPromise=(async()=>{try{
         const controller=new AbortController();
-        const timer=setTimeout(()=>controller.abort(),18000);
-        const response=await fetch(LIVE_ODDS_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({race_id})});
-        const value=await response.json().catch(()=>({error:'オッズAPIの応答を読めません'}));
-        clearTimeout(timer);
+        const timer=setTimeout(()=>controller.abort(),30000);
+        let response,value;
+        try{
+          response=await fetch(LIVE_ODDS_API,{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({race_id})});
+          value=await response.json().catch(()=>({error:'オッズAPIの応答を読めません'}));
+        }finally{clearTimeout(timer)}
         if(!response.ok)throw new Error(value.error||('HTTP '+response.status));
         const win=value.win&&typeof value.win==='object'?value.win:{};
         const wide=value.wide&&typeof value.wide==='object'?value.wide:{};
@@ -569,10 +573,12 @@
         return oddsCache;
       }catch(error){
         // 実オッズの取得済みキャッシュがあれば保持して画面を壊さない。
-        if(String(current.race_id||'')===race_id&&(Object.keys(current.win||{}).length||Object.keys(current.wide||{}).length||Object.keys(current.trio||{}).length))return current;
+        // 出馬表に含まれる一部の単勝だけは成功扱いにしない。
+        if(String(current.race_id||'')===race_id&&officialOddsCache()&&(Object.keys(current.win||{}).length||Object.keys(current.wide||{}).length||Object.keys(current.trio||{}).length))return current;
         if(baseOddsApi)return baseOddsApi({force});
         throw error;
-      }
+      }})();
+      try{return await officialOddsPromise}finally{officialOddsPromise=null}
     }
     oddsApi=loadOfficialOddsV8;
 
