@@ -20,7 +20,8 @@
     row.classList.toggle('is-open',open);
     button.setAttribute('aria-expanded',open?'true':'false');
     const c=button.querySelector('.comparison-chevron');
-    if(c)c.textContent=open?'▲':'▼';
+    const mark=open?'▲':'▼';
+    if(c&&c.textContent!==mark)c.textContent=mark;
     restoring=false;
   }
 
