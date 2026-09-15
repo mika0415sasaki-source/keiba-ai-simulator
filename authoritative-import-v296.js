@@ -88,7 +88,7 @@
   async function hydrateMemory(renderAfter=true){
     if(!Array.isArray(horses)||!horses.length)return;const ac=new AbortController();try{
       const j=await fetchJson(MEMORY_ENDPOINT,{action:'horse_memory',names:horses.map(h=>h.name)},ac,4000);const map=new Map((j.rows||[]).map(r=>[norm(r.horse_name),r.memory_json||{}]));
-      horses=horses.map(h=>{const mem=map.get(norm(h.name))||{},p=mem.profile||{},z={...h};const id=String(z.netkeiba_horse_id||z.horse_id||mem.netkeiba_horse_id||p.netkeiba_horse_id||'');if(id){z.netkeiba_horse_id=id;z.horse_id=id}for(const k of ['sire','dam','damsire'])if(!z[k]&&p[k])z[k]=p[k];if(!z.sex_age&&p.sex_age)z.sex_age=p.sex_age;if(!z.jockey&&p.jockey)z.jockey=p.jockey;return z});if(renderAfter)render();
+      horses=horses.map(h=>{const mem=map.get(norm(h.name))||null,p=mem?.profile||{},z={...h};if(mem)z.legacyMemory=mem;const id=String(z.netkeiba_horse_id||z.horse_id||mem?.netkeiba_horse_id||p.netkeiba_horse_id||'');if(id){z.netkeiba_horse_id=id;z.horse_id=id}for(const k of ['sire','dam','damsire'])if(!z[k]&&p[k])z[k]=p[k];if(!z.sex_age&&p.sex_age)z.sex_age=p.sex_age;if(!z.jockey&&p.jockey)z.jockey=p.jockey;return z});if(renderAfter)render();
     }catch(e){console.warn('memory hydrate skipped',e)}
   }
 
