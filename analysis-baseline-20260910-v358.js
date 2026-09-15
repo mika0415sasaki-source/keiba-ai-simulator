@@ -120,7 +120,18 @@
         if(Array.isArray(evaluated)){
           evaluated=evaluated.map(e=>{
             const src=horseSource(e),gf=gradeFeature(src?.history||src?.jra_history||[]),raw=+e.score||0;
-            let score=clamp(raw*.90+gf.score*.10,0,100),baseScore=clamp((+e.baseScore||raw)*.90+gf.score*.10,0,100);
+            const alreadyComposed=Number.isFinite(+e.gradeScore)&&Number.isFinite(+e.bodyWeightScore);
+            const odds=Number(e?.winOdds);
+            const marketAdj=Number.isFinite(odds)&&odds>1?clamp(((100/odds)-10)*.06,-1.2,1.8):0;
+            // independent-history-fix-v57 has already composed grade 10% and body weight 6%.
+            // Do not add grade a second time. Carry only the 16% of the legacy market
+            // adjustment lost in that 84% blend so v337 can remove the full adjustment.
+            let score=alreadyComposed
+              ?clamp(raw+marketAdj*.16,0,100)
+              :clamp(raw*.90+gf.score*.10,0,100);
+            let baseScore=alreadyComposed
+              ?clamp((+e.baseScore||raw)+marketAdj*.16,0,100)
+              :clamp((+e.baseScore||raw)*.90+gf.score*.10,0,100);
             const newQ=historicalQuality(src),oldQ=Number.isFinite(+e.quality)?+e.quality:newQ;
             if(Number.isFinite(newQ)&&oldQ!==newQ){
               const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.jockey||0)*(weights?.jockey??.10)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
