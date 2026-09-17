@@ -22,6 +22,8 @@
         evaluated=evaluated.map(e=>{
           const z={...e};
           if(Number.isFinite(+z.gradeScore))z.gradeScore=cap(z.gradeScore,98.5);
+          if(Number.isFinite(+z.score))z.score=cap(z.score,99);
+          if(Number.isFinite(+z.baseScore))z.baseScore=cap(z.baseScore,99);
           return z;
         });
       }
@@ -41,5 +43,5 @@
   }
   apply();
   addEventListener('keiba-data-updated',()=>setTimeout(apply,180));
-  document.documentElement.dataset.scoreScaleGuard='v2';
+  document.documentElement.dataset.scoreScaleGuard='v3';
 })();
