@@ -1,3 +1,20 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09101d">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>KEIBA AI 独自分析</title>
+<style>
+html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+#boot{padding:120px 24px;text-align:center;line-height:1.7;color:#eef3ff}
+#boot small{color:#9fb0cf}
+</style>
+</head>
+<body>
 <div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>操作画面を準備しています</small></div>
 <script>
 (()=>{
@@ -36,3 +53,63 @@
   ];
 
   const safeText=s=>String(s??'').replace(/[<>]/g,'');
+  const addInline=(code,label)=>{
+    if(!code||!code.trim())return;
+    const s=document.createElement('script');
+    s.textContent=code+'\n//# sourceURL='+String(label||'keiba-inline.js').replace(/\s/g,'_');
+    document.body.appendChild(s);
+  };
+  const fetchCode=async(src,ms=7000)=>{
+    const ac=new AbortController();
+    const timer=setTimeout(()=>ac.abort(),ms);
+    try{
+      const r=await fetch(src,{cache:'no-store',signal:ac.signal});
+      if(!r.ok)throw new Error(src+' '+r.status);
+      return await r.text();
+    }catch(e){
+      console.warn('patch skip',src,e);
+      return '';
+    }finally{clearTimeout(timer)}
+  };
+  const showFatal=e=>{
+    document.documentElement.style.backgroundColor='#09101d';
+    document.body.style.backgroundColor='#09101d';
+    document.body.innerHTML='<div id="boot">読み込みに失敗しました。<br>Safariを再読み込みしてください。<br><small>'+safeText(e)+'</small></div>';
+  };
+
+  fetch('./v55-parts/part0.txt?v='+BUILD,{cache:'no-store'})
+    .then(r=>{if(!r.ok)throw new Error('本体 '+r.status);return r.text()})
+    .then(async html=>{
+      html=html.replace(/KEIBA AI 独自分析 v\d+/g,'KEIBA AI 独自分析')
+               .replace(/KEIBA_AI_Independent_v\d+/g,'KEIBA_AI_Independent_current');
+
+      const parsed=new DOMParser().parseFromString(html,'text/html');
+      const baseScripts=[...parsed.querySelectorAll('script')].map(s=>({src:s.getAttribute('src')||'',text:s.textContent||''}));
+      parsed.querySelectorAll('script').forEach(s=>s.remove());
+
+      document.head.innerHTML=parsed.head.innerHTML;
+      document.body.innerHTML=parsed.body.innerHTML;
+      document.documentElement.style.backgroundColor='#09101d';
+      document.body.style.backgroundColor='#09101d';
+      try{scrollTo(0,0)}catch(_){}
+
+      for(const spec of baseScripts){
+        if(spec.text.trim())addInline(spec.text,'part0-inline.js');
+        else if(spec.src){
+          const code=await fetchCode(spec.src);
+          addInline(code,spec.src);
+        }
+      }
+
+      const codes=await Promise.all(PATCHES.map(src=>fetchCode(src)));
+      codes.forEach((code,i)=>addInline(code,PATCHES[i]));
+
+      document.documentElement.dataset.app='ready';
+      document.documentElement.dataset.build='course-feature-v2';
+      try{dispatchEvent(new Event('keiba-patches-ready'))}catch(_){}
+    })
+    .catch(showFatal);
+})();
+</script>
+</body>
+</html>
