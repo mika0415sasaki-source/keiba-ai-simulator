@@ -21,9 +21,15 @@
       if(Array.isArray(evaluated)){
         evaluated=evaluated.map(e=>{
           const z={...e};
-          if(Number.isFinite(+z.gradeScore))z.gradeScore=cap(z.gradeScore,98.5);
-          if(Number.isFinite(+z.score))z.score=cap(z.score,99);
-          if(Number.isFinite(+z.baseScore))z.baseScore=cap(z.baseScore,99);
+          if(Number.isFinite(+z.gradeScore)){
+            const before=+z.gradeScore,after=cap(before,98.5),delta=(after-before)*.10;
+            z.gradeScore=after;
+            if(Number.isFinite(+z.score))z.score=cap(+z.score+delta,99);
+            if(Number.isFinite(+z.baseScore))z.baseScore=cap(+z.baseScore+delta,99);
+          }else{
+            if(Number.isFinite(+z.score))z.score=cap(z.score,99);
+            if(Number.isFinite(+z.baseScore))z.baseScore=cap(z.baseScore,99);
+          }
           return z;
         });
       }
