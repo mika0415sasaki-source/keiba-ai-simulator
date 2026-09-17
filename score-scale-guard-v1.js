@@ -2,14 +2,19 @@
   if(window.__scoreScaleGuardV1)return;
   window.__scoreScaleGuardV1=true;
   const cap=(v,max)=>Number.isFinite(+v)?Math.min(+v,max):v;
+  function capHistory(out){
+    if(!out||typeof out!=='object')return out;
+    const z={...out};
+    if(Number.isFinite(+z.speed))z.speed=cap(z.speed,97.5);
+    if(Number.isFinite(+z.last3f))z.last3f=cap(z.last3f,98.5);
+    return z;
+  }
   function apply(){
     try{
       if(Array.isArray(horses)){
         horses=horses.map(h=>{
           if(!h?.histScores)return h;
-          const z={...h,histScores:{...h.histScores}};
-          if(Number.isFinite(+z.histScores.speed))z.histScores.speed=cap(z.histScores.speed,97.5);
-          if(Number.isFinite(+z.histScores.last3f))z.histScores.last3f=cap(z.histScores.last3f,98.5);
+          const z={...h,histScores:capHistory(h.histScores)};
           return z;
         });
       }
@@ -22,13 +27,19 @@
       }
     }catch(e){console.warn('score scale guard v1',e)}
   }
-  let old=null;try{old=window.evalAll}catch(_){}
-  if(typeof old==='function'&&!old.__scoreScaleGuardV1){
-    const fn=function(...args){const out=old.apply(this,args);apply();return out};
-    fn.__scoreScaleGuardV1=true;fn.__original=old;
+  let oldHistory=null;try{oldHistory=window.scoreLocalHistory}catch(_){}
+  if(typeof oldHistory==='function'&&!oldHistory.__scoreScaleGuardV1){
+    const fn=function(...args){return capHistory(oldHistory.apply(this,args)||{})};
+    fn.__scoreScaleGuardV1=true;fn.__original=oldHistory;
+    try{window.scoreLocalHistory=fn;scoreLocalHistory=fn}catch(_){}
+  }
+  let oldEval=null;try{oldEval=window.evalAll}catch(_){}
+  if(typeof oldEval==='function'&&!oldEval.__scoreScaleGuardV1){
+    const fn=function(...args){const out=oldEval.apply(this,args);apply();return out};
+    fn.__scoreScaleGuardV1=true;fn.__original=oldEval;
     try{window.evalAll=fn;evalAll=fn}catch(_){}
   }
   apply();
   addEventListener('keiba-data-updated',()=>setTimeout(apply,180));
-  document.documentElement.dataset.scoreScaleGuard='v1';
+  document.documentElement.dataset.scoreScaleGuard='v2';
 })();
