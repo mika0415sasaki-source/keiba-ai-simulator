@@ -9,8 +9,8 @@
   function turnFrom(v){const s=String(v||'').normalize('NFKC');const m=s.match(/[（(]\s*(左|右)/);return m?m[1]:''}
   function metaCurrent(){
     const vals=[];
-    try{if(window.raceMeta)vals.push(raceMeta.courseCode,raceMeta.course_code,raceMeta.course_letter,raceMeta.courseLetter,raceMeta.turfCourse,raceMeta.course,raceMeta.course_layout,raceMeta.layout,raceMeta.turn)}catch(_){}
-    try{vals.push(window.currentRace?.courseCode,window.currentRace?.course_code,window.currentRace?.course_letter,window.currentRace?.courseLetter,window.currentRace?.course,window.currentRace?.course_layout,window.currentRace?.layout,window.currentRace?.turn)}catch(_){}
+    try{if(window.raceMeta)vals.push(raceMeta.courseCode,raceMeta.course_code,raceMeta.course_letter,raceMeta.courseLetter,raceMeta.turfCourse,raceMeta.course,raceMeta.course_label,raceMeta.courseName,raceMeta.course_text,raceMeta.course_layout,raceMeta.layout,raceMeta.turn)}catch(_){}
+    try{vals.push(window.currentRace?.courseCode,window.currentRace?.course_code,window.currentRace?.course_letter,window.currentRace?.courseLetter,window.currentRace?.course,window.currentRace?.course_label,window.currentRace?.courseName,window.currentRace?.course_text,window.currentRace?.course_layout,window.currentRace?.layout,window.currentRace?.turn)}catch(_){}
     try{vals.push(el('course')?.value,el('courseCode')?.value,el('courseLetter')?.value,el('courseLayout')?.value,el('turn')?.value)}catch(_){}
     let letter='',layout='',turn='';
     for(const x of vals){if(!letter)letter=letterFrom(x);if(!layout)layout=layoutFrom(x);if(!turn)turn=turnFrom(x)}
