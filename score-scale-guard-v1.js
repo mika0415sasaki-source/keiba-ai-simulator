@@ -43,5 +43,5 @@
   }
   apply();
   addEventListener('keiba-data-updated',()=>setTimeout(apply,180));
-  document.documentElement.dataset.scoreScaleGuard='v3';
+  document.documentElement.dataset.scoreScaleGuard='v4';
 })();
