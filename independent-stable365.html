@@ -45,7 +45,8 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './ranking-stable-v356.js?v=20260912-ranking-v356',
     './comparison-stable-v359.js?v=20260913-comparison-v359',
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
-    './ios-render-fix-v355.js?v=20260912-render-v355'
+    './ios-render-fix-v355.js?v=20260912-render-v355',
+    './body-weight-published-guard-v1.js?v=20260918-weightguard-v2'
   ];
   const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
   const fetchCode=async(src,ms=3500)=>{const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(src,{cache:'no-store',signal:ac.signal});return r.ok?await r.text():''}catch(e){console.warn('patch skip',src,e);return''}finally{clearTimeout(timer)}};
