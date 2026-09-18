@@ -118,8 +118,9 @@
     const a=hs();if(a.length<3)return [];
     const d=decide();
     if(d.mode!=='form')return null;
+    const betRows=[...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
 
-    const pool=combos(a,3).map(c=>item(c,a,d.cap));
+    const pool=combos(betRows,3).map(c=>item(c,betRows,d.cap));
     const ordered=scenarioOrder(pool);
     const buyCount=Math.min(ordered.length,Math.max(1,Math.floor(d.cap/100)));
     const selected=ordered.slice(0,buyCount);
