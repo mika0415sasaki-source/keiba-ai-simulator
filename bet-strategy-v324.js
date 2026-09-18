@@ -14,7 +14,8 @@
   function trioOdds(c){try{return num(trioOddsFor(c))}catch(_){return null}}
 
   function shape(){
-    const a=hs();if(a.length<3)return {strong:false,chaos:false,severe:false};
+    const a0=hs();if(a0.length<3)return {strong:false,chaos:false,severe:false};
+    const a=[...a0].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
     const s1=+a[0].score||0,s2=+a[1].score||0,s3=+a[2].score||0,s6=+a[a.length-1].score||0;
     const p1=+a[0].place||0,p3=+a[2].place||0;
     const g12=s1-s2,g13=s1-s3,spread=s1-s6;
@@ -193,11 +194,15 @@
   function generate(){
     try{if(typeof evalAll==='function')evalAll()}catch(_){}
     const a=hs();if(a.length<3)return [];
-    const d=decide();let candidates=[],ordered=[];
+    const d=decide();
+    const betRows=(d.mode==='axis'||d.mode==='form')
+      ? [...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999))
+      : a;
+    let candidates=[],ordered=[];
     if(d.mode==='wide'){
       candidates=widePool(a);ordered=candidates;
     }else{
-      const p=trioPools(a,d.mode,d.cap);candidates=p.candidates;ordered=p.ordered;
+      const p=trioPools(betRows,d.mode,d.cap);candidates=p.candidates;ordered=p.ordered;
     }
     if(!candidates.length)return [];
     const recN=recommendedCount(d.cap,d.mode,candidates.length),recommended=ordered.slice(0,recN),alloc=allocate(recommended,d.cap,d.mode);

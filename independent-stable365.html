@@ -30,14 +30,14 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './nakayama-2200-shape-v334.js?v=20260912-restore-nk2200',
     './probability-normalization-v335.js?v=20260912-restore-prob335',
     './probability-model-v336.js?v=20260912-restore-prob336',
-    './ranking-probability-separation-v337.js?v=20260912-restore-rankprob337',
+    './ranking-probability-separation-v337.js?v=20260918-top3-global-v1',
     './comparison-probability-ranks-v338.js?v=20260912-restore-compranks338',
     './jra-going-engine-v341.js?v=20260912-restore-going341',
     './hanshin-2000-going-compat-v362.js?v=20260913-hanshin2000-v362b',
-    './bet-strategy-v324.js?v=20260912-restore-bet324',
+    './bet-strategy-v324.js?v=20260918-top3-global-v1',
     './bet-wide-candidates-v323.js?v=20260912-restore-bet323',
     './bet-budget-promotion-v325.js?v=20260912-restore-bet325',
-    './bet-selection-final-v351.js?v=20260912-final-v351',
+    './bet-selection-final-v351.js?v=20260918-top3-global-v1',
     './bet-ticket-summary-v322.js?v=20260912-restore-bet322',
     './odds-market-refresh-v344.js?v=20260912-restore-heatfix344',
     './v345-observer-guard-v347.js?v=20260912-observer-v347',
@@ -45,7 +45,8 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './ranking-stable-v356.js?v=20260912-ranking-v356',
     './comparison-stable-v359.js?v=20260913-comparison-v359',
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
-    './ios-render-fix-v355.js?v=20260912-render-v355'
+    './ios-render-fix-v355.js?v=20260912-render-v355',
+    './body-weight-published-guard-v1.js?v=20260918-weightguard-v3'
   ];
   const addInline=code=>{if(!code||!code.trim())return;const s=document.createElement('script');s.textContent=code;document.body.appendChild(s)};
   const fetchCode=async(src,ms=3500)=>{const ac=new AbortController();const timer=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(src,{cache:'no-store',signal:ac.signal});return r.ok?await r.text():''}catch(e){console.warn('patch skip',src,e);return''}finally{clearTimeout(timer)}};
