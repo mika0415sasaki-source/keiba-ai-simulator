@@ -18,7 +18,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
 <div id="boot">KEIBA AI 独自分析を読み込み中…<br><small>操作画面を準備しています</small></div>
 <script>
 (()=>{
-  const BUILD='20260914-safari-stable377';
+  const BUILD='20260918-course-v5';
   const PATCHES=[
     './independent-patch.js?v=20260901-base7',
     './core-fix.js?v=20260902-core6',
@@ -28,6 +28,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './authoritative-import-v296.js?v=20260913-native366-import',
     './analysis-baseline-20260910-v358.js?v=20260915-score-weight1',
     './course-score-correction-v360.js?v=20260913-course-v360',
+    './course-feature-engine-v1.js?v=20260917-course-feature1',
     './nakayama-2200-shape-v334.js?v=20260912-restore-nk2200',
     './probability-normalization-v335.js?v=20260912-restore-prob335',
     './probability-model-v336.js?v=20260912-restore-prob336',
@@ -47,7 +48,9 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
     './comparison-stable-v359.js?v=20260913-comparison-v359',
     './ui-summary-stable-v350.js?v=20260912-stable-v350',
     './ios-render-fix-v355.js?v=20260914-render-v368-restored',
-    './current-data-v370.js?v=20260913-current-v374'
+    './current-data-v370.js?v=20260913-current-v374',
+    './score-scale-guard-v1.js?v=20260917-score-scale2',
+    './body-weight-published-guard-v1.js?v=20260918-weightguard2'
   ];
 
   const safeText=s=>String(s??'').replace(/[<>]/g,'');
@@ -103,7 +106,7 @@ html,body{margin:0;min-height:100%;background:#09101d;color:#eef3ff;font-family:
       codes.forEach((code,i)=>addInline(code,PATCHES[i]));
 
       document.documentElement.dataset.app='ready';
-      document.documentElement.dataset.build='safari-stable377';
+      document.documentElement.dataset.build='course-feature-v2';
       try{dispatchEvent(new Event('keiba-patches-ready'))}catch(_){}
     })
     .catch(showFatal);
