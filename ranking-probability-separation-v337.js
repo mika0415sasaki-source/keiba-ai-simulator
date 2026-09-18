@@ -145,8 +145,10 @@
       h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性85%+単勝市場15%':'1着AI100%／3着内安定性100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
+    const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
     rows.forEach((h,i)=>h.aiRankV337=i+1);
     probOrder.forEach((h,i)=>h.probabilityRankV337=i+1);
+    placeOrder.forEach((h,i)=>h.placeProbabilityRankV337=i+1);
     document.documentElement.dataset.rankingModel='ai-ability-only-v337';
     document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability85-market15-v337';
     document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
@@ -175,7 +177,7 @@
         const h=rows[i];if(!h)return;
         const rank=card.querySelector('.rank');
         if(rank){
-          const mark=['◎','○','▲','△','☆','注'][i]||'';
+          const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||i+1)-1]||'';
           rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
         }
         const details=card.querySelector('.ranking-card-details');
