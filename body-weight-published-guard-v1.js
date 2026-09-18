@@ -5,20 +5,41 @@
   const valid=v=>Number.isFinite(+v)&&+v>=300&&+v<=700;
   const explicitCurrent=h=>{
     const keys=['current_body_weight','currentBodyWeight','race_body_weight','raceBodyWeight','official_body_weight','officialBodyWeight'];
-    for(const k of keys)if(valid(h?.[k]))return Math.round(+h[k]);
-    if(h?.body_weight_published===true||h?.bodyWeightPublished===true||h?.weight_published===true)return valid(h?.body_weight)?Math.round(+h.body_weight):null;
-    if(Number.isFinite(+h?.body_weight_change)&&valid(h?.body_weight))return Math.round(+h.body_weight);
-    return null;
+    for(const k of keys)if(valid(h?.[k]))return {weight:Math.round(+h[k]),explicit:true};
+    if(h?.body_weight_published===true||h?.bodyWeightPublished===true||h?.weight_published===true)return valid(h?.body_weight)?{weight:Math.round(+h.body_weight),explicit:true}:{weight:null,explicit:true};
+    if(Number.isFinite(+h?.body_weight_change)&&valid(h?.body_weight))return {weight:Math.round(+h.body_weight),explicit:false};
+    return {weight:null,explicit:false};
   };
+
+  function raceDate(){
+    try{
+      const vals=[window.raceMeta?.race_date,window.raceMeta?.date,window.raceMeta?.raceDate,window.currentRace?.race_date,window.currentRace?.date];
+      for(const v of vals){
+        const m=String(v||'').normalize('NFKC').match(/(20\\d{2})[\\/.-](\\d{1,2})[\\/.-](\\d{1,2})/);
+        if(m)return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
+      }
+      const u=String(document.getElementById('raceUrl')?.value||'');
+      const ms=[...u.matchAll(/(20\\d{6})/g)];
+      if(ms.length){const s=ms[ms.length-1][1];return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`}
+    }catch(_){ }
+    return '';
+  }
+
+  function beforeRaceDay(){
+    const d=raceDate();
+    if(!d)return false;
+    const raceStart=Date.parse(`${d}T00:00:00+09:00`);
+    return Number.isFinite(raceStart)&&Date.now()<raceStart;
+  }
 
   function normalize(){
     try{
       if(!Array.isArray(horses))return;
       horses=horses.map(h=>{
-        const z={...h},cur=explicitCurrent(z);
-        if(cur!==null){
-          z.body_weight=cur;
-          z.weight=cur;
+        const z={...h},cur=explicitCurrent(z),preRaceDay=beforeRaceDay();
+        if(cur.weight!==null&&(cur.explicit||!preRaceDay)){
+          z.body_weight=cur.weight;
+          z.weight=cur.weight;
           z.current_body_weight=cur.weight;
           z.body_weight_published=true;
           return z;
