@@ -15,7 +15,7 @@
     try{
       const vals=[window.raceMeta?.race_date,window.raceMeta?.date,window.raceMeta?.raceDate,window.currentRace?.race_date,window.currentRace?.date];
       for(const v of vals){
-        const m=String(v||'').normalize('NFKC').match(/(20\\d{2})[\\/.-](\\d{1,2})[\\/.-](\\d{1,2})/);
+        const m=String(v||'').normalize('NFKC').match(/(20\d{2})[\\/.-](\d{1,2})[\\/.-](\d{1,2})/);
         if(m)return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
       }
     }catch(_){ }
