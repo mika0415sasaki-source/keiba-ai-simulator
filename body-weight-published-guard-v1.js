@@ -18,9 +18,6 @@
         const m=String(v||'').normalize('NFKC').match(/(20\\d{2})[\\/.-](\\d{1,2})[\\/.-](\\d{1,2})/);
         if(m)return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
       }
-      const u=String(document.getElementById('raceUrl')?.value||'');
-      const ms=[...u.matchAll(/(20\\d{6})/g)];
-      if(ms.length){const s=ms[ms.length-1][1];return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`}
     }catch(_){ }
     return '';
   }
