@@ -201,7 +201,7 @@
     if(d.mode==='wide'){
       candidates=widePool(a);ordered=candidates;
     }else{
-      const p=trioPools(a,d.mode,d.cap);candidates=p.candidates;ordered=p.ordered;
+      const p=trioPools(betRows,d.mode,d.cap);candidates=p.candidates;ordered=p.ordered;
     }
     if(!candidates.length)return [];
     const recN=recommendedCount(d.cap,d.mode,candidates.length),recommended=ordered.slice(0,recN),alloc=allocate(recommended,d.cap,d.mode);
