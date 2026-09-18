@@ -19,7 +19,7 @@
         if(cur!==null){
           z.body_weight=cur;
           z.weight=cur;
-          z.current_body_weight=cur;
+          z.current_body_weight=cur.weight;
           z.body_weight_published=true;
           return z;
         }
