@@ -7,7 +7,6 @@
     const keys=['current_body_weight','currentBodyWeight','race_body_weight','raceBodyWeight','official_body_weight','officialBodyWeight'];
     for(const k of keys)if(valid(h?.[k]))return {weight:Math.round(+h[k]),explicit:true};
     if(h?.body_weight_published===true||h?.bodyWeightPublished===true||h?.weight_published===true)return valid(h?.body_weight)?{weight:Math.round(+h.body_weight),explicit:true}:{weight:null,explicit:true};
-    if(Number.isFinite(+h?.body_weight_change)&&valid(h?.body_weight))return {weight:Math.round(+h.body_weight),explicit:false};
     return {weight:null,explicit:false};
   };
 
