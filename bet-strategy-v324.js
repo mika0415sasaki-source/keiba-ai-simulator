@@ -193,7 +193,11 @@
   function generate(){
     try{if(typeof evalAll==='function')evalAll()}catch(_){}
     const a=hs();if(a.length<3)return [];
-    const d=decide();let candidates=[],ordered=[];
+    const d=decide();
+    const betRows=(d.mode==='axis'||d.mode==='form')
+      ? [...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999))
+      : a;
+    let candidates=[],ordered=[];
     if(d.mode==='wide'){
       candidates=widePool(a);ordered=candidates;
     }else{
