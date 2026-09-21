@@ -1373,6 +1373,9 @@
 
           renderHorses();
           try{evalAll()}catch(error){console.warn('evaluation',error)}
+          // History retrieval changes the horse data after the initial import.
+          // Notify the downstream ranking/probability/UI patches so they settle on the new histories.
+          try{dispatchEvent(new Event('keiba-data-updated'))}catch(_){}
           try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){}
 
           const ok=horses.filter(h=>(h.history||[]).length).length;
