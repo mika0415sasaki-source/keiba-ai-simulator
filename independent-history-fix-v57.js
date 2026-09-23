@@ -996,9 +996,9 @@
     function bodyWeightFeature(h){
       const current=Number.isFinite(+h?.body_weight)&&+h.body_weight>=300?Math.round(+h.body_weight):null;
       const historyWeight=(h?.history||[]).find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
-      const previous=Number.isFinite(+h?.last_body_weight)&&+h.last_body_weight>=300
-        ?Math.round(+h.last_body_weight)
-        :(Number.isFinite(+historyWeight)?Math.round(+historyWeight):null);
+      const previous=Number.isFinite(+historyWeight)
+        ?Math.round(+historyWeight)
+        :(Number.isFinite(+h?.last_body_weight)&&+h.last_body_weight>=300?Math.round(+h.last_body_weight):null);
       if(!current){
         return {score:75,current:null,previous,change:null,published:false,label:previous?`未発表（前走${previous}kg・評価は中立）`:'未発表（評価は中立）'};
       }
