@@ -276,7 +276,7 @@
       });
     }
 
-    function applyHistory(h,rows,via){
+    function applyHistory(h,rows,via,previousBodyWeight=null){
       // Prefer freshly fetched rows when the same race already exists in cache.
       // The new parser may contain fields (race name, grade, body weight) that an
       // older saved row did not have, so keeping the old row first would silently
@@ -296,8 +296,13 @@
       }
       if(!unique.length)return false;
       h.history=unique;
+      const explicitPrevious=Number(previousBodyWeight);
       const latestBody=unique.find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
-      if(Number.isFinite(+latestBody))h.last_body_weight=Math.round(+latestBody);
+      if(Number.isFinite(explicitPrevious)&&explicitPrevious>=300&&explicitPrevious<=700){
+        h.last_body_weight=Math.round(explicitPrevious);
+      }else if(Number.isFinite(+latestBody)){
+        h.last_body_weight=Math.round(+latestBody);
+      }
       h.histScores=scoreLocalHistory(unique);
       h.histScores.available=true;
       h.netkeibaVia=via;
@@ -1391,7 +1396,7 @@
             // Replace cached rows so an old same-name/incorrect-ID association cannot
             // remain among the latest five races.
             h.history=[];
-            applyHistory(h,row.history,row.via||'netkeiba過去走');
+            applyHistory(h,row.history,row.via||'netkeiba過去走',row.last_body_weight);
             if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
           }
