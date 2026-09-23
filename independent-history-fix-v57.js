@@ -263,8 +263,16 @@
       const cutoff=raceDateNumber();
       return (rows||[]).map(normalizeRun).filter(Boolean).filter(x=>x.rank&&x.distance).filter(x=>{
         if(!cutoff)return true;
-        const m=String(x.date||'').match(/(20\d{2})[\/.\-年](\d{1,2})[\/.\-月](\d{1,2})/);
-        return !m||(+m[1]*10000+(+m[2])*100+(+m[3]))<cutoff;
+        const raw=String(x.date||'').trim();
+        const compact=raw.replace(/\D/g,'');
+        let value=0;
+        if(/^20\d{6}$/.test(compact)){
+          value=+compact;
+        }else{
+          const m=raw.match(/(20\d{2})[\/\.\-年](\d{1,2})[\/\.\-月](\d{1,2})/);
+          if(m)value=+m[1]*10000+(+m[2])*100+(+m[3]);
+        }
+        return !value||value<cutoff;
       });
     }
 
