@@ -783,6 +783,14 @@
         h.provisional=true;
         h.provisional_no=true;
       });
+      // The current announced weight must win over the pre-entry/history reset.
+      for(const h of list||[]){
+        const currentBody=Number(h.__currentBodyWeightV370);
+        if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+          h.body_weight=currentBody;
+          h.weight=currentBody;
+        }
+      }
       return list;
     }
 
