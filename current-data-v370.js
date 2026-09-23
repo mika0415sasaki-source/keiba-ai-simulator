@@ -77,8 +77,6 @@
       const h=hs[hi];
       const x=jockeyOffsetDetected&&hi+1<orderedRows.length?orderedRows[hi+1]:orderedRows[hi];
       if(x){
-      const x=currentRowFor(h);
-      if(x){
         const id=String(x.netkeiba_horse_id||x.horse_id||'').trim();if(id){h.netkeiba_horse_id=id;h.horse_id=id}
         const sa=String(x.sex_age||'').replace(/\s+/g,'');if(/^[牡牝セ騙]\d+$/.test(sa)){h.sex_age=sa;h.sex=sa[0];h.age=+sa.slice(1)}
         const j=cleanJockey(x.jockey);if(j&&(!String(h.jockey||h.rider||'').trim()||jockeyOffsetDetected)){h.jockey=j;h.rider=j}
@@ -86,7 +84,7 @@
         if(Number.isFinite(+x.body_weight)&&+x.body_weight>=300&&+x.body_weight<=700){h.body_weight=+x.body_weight;h.weight=+x.body_weight}
         for(const k of ['sire','dam','damsire'])if(String(x[k]||'').trim())h[k]=String(x[k]).trim();
       }
-      const s=styleFor(h);h.style=s;h.style_source=s?'netkeiba競馬新聞':'';if(s)h.netkeiba_style=s;else delete h.netkeiba_style;
+      const st=styleFor(h);h.style=st;h.style_source=st?'netkeiba競馬新聞':'';if(st)h.netkeiba_style=st;else delete h.netkeiba_style;
     }
   }
 
