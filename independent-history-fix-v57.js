@@ -296,6 +296,11 @@
       h.netkeibaRejected=false;
       h.netkeibaError='';
       try{mergeNetkeibaWithJra(h)}catch(_){}
+      const currentBody=Number(h.__currentBodyWeightV370);
+      if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+        h.body_weight=currentBody;
+        h.weight=currentBody;
+      }
       return true;
     }
     window.__applyHistoryV57=applyHistory;
@@ -747,6 +752,13 @@
             h.body_weight=null;
             if(Number.isFinite(+h.weight)&&+h.weight>=300)h.weight=null;
           }
+        }
+      }
+      for(const h of list||[]){
+        const currentBody=Number(h.__currentBodyWeightV370);
+        if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+          h.body_weight=currentBody;
+          h.weight=currentBody;
         }
       }
       if(!String(url||'').includes(CURRENT_RACE_ID))return list;
