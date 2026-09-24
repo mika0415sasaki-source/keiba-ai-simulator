@@ -179,7 +179,7 @@ function validNetkeibaHistoryForHorse(h,rows){
 async function oddsApi({force=false}={}){
  const race_id=raceIdFromUrl(document.getElementById("raceUrl").value);
  if(!race_id)throw new Error("オッズ取得用のレースIDを確認できません");
- if(!force && oddsCache?.race_id===race_id && (Object.keys(oddsCache.win||{}).length||Object.keys(oddsCache.trio||{}).length))return oddsCache;
+ if(!force && oddsCache?.race_id===race_id && Object.keys(oddsCache.win||{}).length && Object.keys(oddsCache.wide||{}).length && Object.keys(oddsCache.trio||{}).length)return oddsCache;
  const r=await fetch(ODDS_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({race_id})});
  const j=await r.json().catch(()=>({error:"オッズAPIの応答を読めません"}));
  if(!r.ok)throw new Error(j.error||"オッズ取得エラー");

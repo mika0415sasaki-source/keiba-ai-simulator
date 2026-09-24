@@ -263,12 +263,20 @@
       const cutoff=raceDateNumber();
       return (rows||[]).map(normalizeRun).filter(Boolean).filter(x=>x.rank&&x.distance).filter(x=>{
         if(!cutoff)return true;
-        const m=String(x.date||'').match(/(20\d{2})[\/.\-年](\d{1,2})[\/.\-月](\d{1,2})/);
-        return !m||(+m[1]*10000+(+m[2])*100+(+m[3]))<cutoff;
+        const raw=String(x.date||'').trim();
+        const compact=raw.replace(/\D/g,'');
+        let value=0;
+        if(/^20\d{6}$/.test(compact)){
+          value=+compact;
+        }else{
+          const m=raw.match(/(20\d{2})[\/\.\-年](\d{1,2})[\/\.\-月](\d{1,2})/);
+          if(m)value=+m[1]*10000+(+m[2])*100+(+m[3]);
+        }
+        return !value||value<cutoff;
       });
     }
 
-    function applyHistory(h,rows,via){
+    function applyHistory(h,rows,via,previousBodyWeight=null){
       // Prefer freshly fetched rows when the same race already exists in cache.
       // The new parser may contain fields (race name, grade, body weight) that an
       // older saved row did not have, so keeping the old row first would silently
@@ -288,14 +296,24 @@
       }
       if(!unique.length)return false;
       h.history=unique;
+      const explicitPrevious=Number(previousBodyWeight);
       const latestBody=unique.find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
-      if(Number.isFinite(+latestBody))h.last_body_weight=Math.round(+latestBody);
+      if(Number.isFinite(explicitPrevious)&&explicitPrevious>=300&&explicitPrevious<=700){
+        h.last_body_weight=Math.round(explicitPrevious);
+      }else if(Number.isFinite(+latestBody)){
+        h.last_body_weight=Math.round(+latestBody);
+      }
       h.histScores=scoreLocalHistory(unique);
       h.histScores.available=true;
       h.netkeibaVia=via;
       h.netkeibaRejected=false;
       h.netkeibaError='';
       try{mergeNetkeibaWithJra(h)}catch(_){}
+      const currentBody=Number(h.__currentBodyWeightV370);
+      if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+        h.body_weight=currentBody;
+        h.weight=currentBody;
+      }
       return true;
     }
     window.__applyHistoryV57=applyHistory;
@@ -749,6 +767,13 @@
           }
         }
       }
+      for(const h of list||[]){
+        const currentBody=Number(h.__currentBodyWeightV370);
+        if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+          h.body_weight=currentBody;
+          h.weight=currentBody;
+        }
+      }
       if(!String(url||'').includes(CURRENT_RACE_ID))return list;
       const byName=new Map((list||[]).map(h=>[clean(h.name),h]));
       CURRENT_RACE_ROSTER.forEach((row,index)=>{
@@ -771,6 +796,14 @@
         h.provisional=true;
         h.provisional_no=true;
       });
+      // The current announced weight must win over the pre-entry/history reset.
+      for(const h of list||[]){
+        const currentBody=Number(h.__currentBodyWeightV370);
+        if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
+          h.body_weight=currentBody;
+          h.weight=currentBody;
+        }
+      }
       return list;
     }
 
@@ -963,9 +996,9 @@
     function bodyWeightFeature(h){
       const current=Number.isFinite(+h?.body_weight)&&+h.body_weight>=300?Math.round(+h.body_weight):null;
       const historyWeight=(h?.history||[]).find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
-      const previous=Number.isFinite(+h?.last_body_weight)&&+h.last_body_weight>=300
-        ?Math.round(+h.last_body_weight)
-        :(Number.isFinite(+historyWeight)?Math.round(+historyWeight):null);
+      const previous=Number.isFinite(+historyWeight)
+        ?Math.round(+historyWeight)
+        :(Number.isFinite(+h?.last_body_weight)&&+h.last_body_weight>=300?Math.round(+h.last_body_weight):null);
       if(!current){
         return {score:75,current:null,previous,change:null,published:false,label:previous?`未発表（前走${previous}kg・評価は中立）`:'未発表（評価は中立）'};
       }
@@ -1363,7 +1396,7 @@
             // Replace cached rows so an old same-name/incorrect-ID association cannot
             // remain among the latest five races.
             h.history=[];
-            applyHistory(h,row.history,row.via||'netkeiba過去走');
+            applyHistory(h,row.history,row.via||'netkeiba過去走',row.last_body_weight);
             if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
           }
@@ -1373,6 +1406,9 @@
 
           renderHorses();
           try{evalAll()}catch(error){console.warn('evaluation',error)}
+          // History retrieval changes the horse data after the initial import.
+          // Notify the downstream ranking/probability/UI patches so they settle on the new histories.
+          try{dispatchEvent(new Event('keiba-data-updated'))}catch(_){}
           try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){}
 
           const ok=horses.filter(h=>(h.history||[]).length).length;
