@@ -41,7 +41,7 @@
     rr.forEach((r,i)=>{
       const rank=+r.rank,field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);
       const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
-      const g=GRADE[runGrade(r)]||68,rel=relevance(r,t),run=.70*pos+.15*g+.15*rel,w=REC[i]||.4;
+      const g=GRADE[runGrade(r)]||68,rel=relevance(r,t),run=.55*pos+.15*g+.30*rel,w=REC[i]||.4;
       n+=run*w;d+=w;
     });
     return d?n/d:50;
@@ -123,9 +123,6 @@
             const alreadyComposed=Number.isFinite(+e.gradeScore)&&Number.isFinite(+e.bodyWeightScore);
             const odds=Number(e?.winOdds);
             const marketAdj=Number.isFinite(odds)&&odds>1?clamp(((100/odds)-10)*.06,-1.2,1.8):0;
-            // independent-history-fix-v57 has already composed grade 10% and body weight 6%.
-            // Do not add grade a second time. Carry only the 16% of the legacy market
-            // adjustment lost in that 84% blend so v337 can remove the full adjustment.
             let score=alreadyComposed
               ?clamp(raw+marketAdj*.16,0,100)
               :clamp(raw*.90+gf.score*.10,0,100);
