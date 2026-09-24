@@ -7,6 +7,24 @@
   function letterFrom(v){const s=String(v||'').normalize('NFKC');const m=s.match(/(?:^|[^A-Z])([ABCD])(?:コース|course)?(?:$|[^A-Z])/i);return m?m[1].toUpperCase():''}
   function layoutFrom(v){const s=String(v||'').normalize('NFKC');if(/(?:^|[\s(（])外(?:回り|コース)?(?:$|[\s)）])/i.test(s)||/outer/i.test(s))return'外';if(/(?:^|[\s(（])内(?:回り|コース)?(?:$|[\s)）])/i.test(s)||/inner/i.test(s))return'内';return''}
   function turnFrom(v){const s=String(v||'').normalize('NFKC');const m=s.match(/[（(]\s*(左|右)/);return m?m[1]:''}
+  function inferLayout(venue,surface,distance){
+    const v=normVenue(venue),s=String(surface||''),d=+distance||0;
+    if(s!=='芝')return'';
+    if(v==='阪神'){
+      if(d===1600||d===1800)return'外';
+      if(d===2000||d===2200)return'内';
+      if(d===2400)return'外';
+    }
+    if(v==='京都'){
+      if(d===1400||d===1600||d===1800||d===2200||d===2400||d===3000||d===3200)return'外';
+      if(d===2000)return'内';
+    }
+    if(v==='中山'){
+      if(d===1800||d===2000||d===2500)return'内';
+      if(d===2200||d===2600||d===3200||d===3600||d===4000)return'外';
+    }
+    return'';
+  }
   function metaCurrent(){
     const vals=[];
     try{if(window.raceMeta)vals.push(raceMeta.courseCode,raceMeta.course_code,raceMeta.course_letter,raceMeta.courseLetter,raceMeta.turfCourse,raceMeta.course,raceMeta.course_label,raceMeta.courseName,raceMeta.course_text,raceMeta.course_layout,raceMeta.layout,raceMeta.turn)}catch(_){}
@@ -14,7 +32,9 @@
     try{vals.push(el('course')?.value,el('courseCode')?.value,el('courseLetter')?.value,el('courseLayout')?.value,el('turn')?.value)}catch(_){}
     let letter='',layout='',turn='';
     for(const x of vals){if(!letter)letter=letterFrom(x);if(!layout)layout=layoutFrom(x);if(!turn)turn=turnFrom(x)}
-    const venue=normVenue(el('venue')?.value);if(!turn)turn=TURN[venue]||'';
+    const venue=normVenue(el('venue')?.value),surface=String(el('surface')?.value||''),dist=+(el('distance')?.value||0);
+    if(!layout)layout=inferLayout(venue,surface,dist);
+    if(!turn)turn=TURN[venue]||'';
     return{letter,layout,turn}
   }
   function metaRow(r){
@@ -22,6 +42,7 @@
     let letter='',layout='',turn='';
     for(const x of vals){if(!letter)letter=letterFrom(x);if(!layout)layout=layoutFrom(x);if(!turn)turn=turnFrom(x)}
     if(!turn)turn=String(r?.turn||'').normalize('NFKC').match(/^(左|右)$/)?.[1]||'';
+    if(!layout)layout=inferLayout(r?.venue||r?.courseVenue||r?.race_venue,r?.surface,+r?.distance||0);
     return{letter,layout,turn}
   }
   function current(){
