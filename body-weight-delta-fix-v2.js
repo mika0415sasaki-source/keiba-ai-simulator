@@ -11,6 +11,7 @@
     const d=s.replace(/\D/g,'');
     return /^20\d{6}$/.test(d)?+d:null;
   };
+  const todayNum=()=>{const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()};
   const currentRaceDate=()=>{
     try{
       const vals=[window.raceMeta?.race_date,window.raceMeta?.date,window.raceMeta?.raceDate];
@@ -22,6 +23,7 @@
     }catch(_){}
     return null;
   };
+  const preRace=()=>{const d=currentRaceDate();return !!d&&d>todayNum()};
   const horseList=()=>{try{return Array.isArray(window.horses)?window.horses:[]}catch(_){return[]}};
 
   function previousWeight(h){
@@ -35,6 +37,7 @@
   }
 
   function currentWeight(h){
+    if(preRace())return null;
     const v=Number(h?.__currentBodyWeightV370);
     if(valid(v))return Math.round(v);
     const keys=['current_body_weight','currentBodyWeight','race_body_weight','raceBodyWeight','official_body_weight','officialBodyWeight'];
@@ -55,10 +58,7 @@
       const small=card.querySelector(':scope > .small');
       if(!small)continue;
       const cur=currentWeight(h),prev=previousWeight(h);
-      if(!cur)continue;
-      const change=prev?cur-prev:null;
-      const sign=change!=null&&change>0?'+':'';
-      const body=prev?`馬体重 ${cur}kg（前走比 ${sign}${change}kg）`:`馬体重 ${cur}kg（前走比—）`;
+      const body=cur?`馬体重 ${cur}kg${prev?`（前走比 ${cur-prev>=0?'+':''}${cur-prev}kg）`:''}`:prev?`馬体重 未発表（前走${prev}kg）`:'馬体重 未発表';
       const sex=String(h.sex_age||((h.sex&&h.age)?`${h.sex}${h.age}`:'')).trim();
       const jockey=String(h.jockey||h.rider||'').trim();
       const cw=valid(h.carried_weight)?`斤量 ${(+h.carried_weight).toFixed(1)}kg`:'';
