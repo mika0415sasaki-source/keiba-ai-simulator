@@ -242,7 +242,8 @@
         venue:row.venue||row.course||'',
         surface:row.surface||'',
         distance:+(row.distance??row.dist)||0,
-        going:row.going||'',
+        going:(/不良/.test(String(row.going||row.track_condition||row.condition||''))?'不良':/稍重/.test(String(row.going||row.track_condition||row.condition||''))?'稍重':/重/.test(String(row.going||row.track_condition||row.condition||''))?'重':/良/.test(String(row.going||row.track_condition||row.condition||''))?'良':''),
+        status:String(row.status||row.result_status||row.rank_text||row.result||'').trim(),
         rank:+(row.rank??row.pos)||0,
         jockey:row.jockey||'',
         passage,
@@ -261,7 +262,7 @@
 
     function normalizeHistory(rows){
       const cutoff=raceDateNumber();
-      return (rows||[]).map(normalizeRun).filter(Boolean).filter(x=>x.rank&&x.distance).filter(x=>{
+      return (rows||[]).map(normalizeRun).filter(Boolean).filter(x=>x.rank&&x.distance&&!/(取消|除外|中止|失格)/.test(String(x.status||''))).filter(x=>{
         if(!cutoff)return true;
         const raw=String(x.date||'').trim();
         const compact=raw.replace(/\D/g,'');
