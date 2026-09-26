@@ -11,6 +11,29 @@
   function relevance(r,t){let d=68;if(Number.isFinite(+r.distance)&&t.distance){const x=Math.abs(+r.distance-t.distance);d=x===0?100:x<=200?92:x<=400?80:x<=600?68:58}if(t.surface&&r.surface&&r.surface!==t.surface)d=Math.min(d,55);return d}
   function completed(rows){return(Array.isArray(rows)?rows:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0).slice(0,5)}
   function recentScore(rows){const rr=completed(rows),t=target();if(!rr.length)return 50;let n=0,d=0;rr.forEach((r,i)=>{const rank=+r.rank,field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);const g=GRADE[runGrade(r)]||68,rel=relevance(r,t),run=.55*pos+.15*g+.30*rel,w=REC[i]||.4;n+=run*w;d+=w});return d?n/d:50}
+  function rowsForHorse(h){return Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)?h.jra_history:[])}
+  function syncRecentDisplay(){
+    try{
+      const hs=Array.isArray(window.horses)?window.horses:[];
+      if(!hs.length)return;
+      const byName=new Map(hs.map(h=>[norm(h?.name),h]));
+      document.querySelectorAll('#rows tr').forEach(tr=>{
+        const name=norm(String(tr.querySelector('td:first-child')?.textContent||'').replace(/^\d+\s*/,''));
+        const h=byName.get(name);if(!h)return;
+        const rows=rowsForHorse(h);if(!rows.length)return;
+        const score=recentScore(rows).toFixed(1);
+        const cells=tr.querySelectorAll('td');if(cells[2])cells[2].textContent=score;
+      });
+      document.querySelectorAll('.metric').forEach(m=>{
+        const label=String(m.firstChild?.textContent||'').trim();
+        if(!/^近走$/.test(label))return;
+        const card=m.closest('.card,.ranking-card');
+        const name=norm(String(card?.querySelector('.rank')?.textContent||'').replace(/^\d+\s*/,''));
+        const h=byName.get(name);if(!h)return;
+        const rows=rowsForHorse(h);if(rows.length){const b=m.querySelector('b');if(b)b.textContent=recentScore(rows).toFixed(1)}
+      });
+    }catch(_){ }
+  }
   const old=window.scoreLocalHistory;if(typeof old!=='function')return;
   const fn=function(rows){let out={};try{out=old.apply(this,arguments)||{}}catch(_){};return {...out,speed:recentScore(rows),metricVersion:'recent-score-correction-v1'}};
   fn.__recentScoreCorrectionV1=true;fn.__original=old;window.scoreLocalHistory=fn;try{scoreLocalHistory=fn}catch(_){}
@@ -19,21 +42,23 @@
       const oe=window.evalAll;
       window.evalAll=function(...a){
         try{
-          if(Array.isArray(window.horses))window.horses=window.horses.map(h=>{const z={...h},rows=(Array.isArray(z.history)&&z.history.length)?z.history:(Array.isArray(z.jra_history)?z.jra_history:[]);if(rows.length)z.histScores=window.scoreLocalHistory(rows);return z});
+          if(Array.isArray(window.horses))window.horses=window.horses.map(h=>{const z={...h},rows=rowsForHorse(z);if(rows.length)z.histScores=window.scoreLocalHistory(rows);return z});
         }catch(_){}
         const out=oe.apply(this,a);
         try{
           if(Array.isArray(window.evaluated)){
             window.evaluated=window.evaluated.map(e=>{
               const h=(Array.isArray(window.horses)?window.horses:[]).find(x=>+x.no===+e.no||norm(x.name)===norm(e.name));
-              const rows=h?(Array.isArray(h.history)&&h.history.length?h.history:(Array.isArray(h.jra_history)?h.jra_history:[])):[];
-              return rows.length?{...e,speed:recentScore(rows),recentScore:recentScore(rows)}:e;
+              const rows=rowsForHorse(h);return rows.length?{...e,speed:recentScore(rows),recentScore:recentScore(rows)}:e;
             });
           }
         }catch(_){}
+        setTimeout(syncRecentDisplay,0);setTimeout(syncRecentDisplay,300);
         return window.evaluated||out;
       };
       try{evalAll=window.evalAll}catch(_){}
     }
   }catch(_){ }
+  addEventListener('keiba-data-updated',()=>{setTimeout(syncRecentDisplay,0);setTimeout(syncRecentDisplay,500)});
+  addEventListener('pageshow',()=>setTimeout(syncRecentDisplay,0));
 })();
