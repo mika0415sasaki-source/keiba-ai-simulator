@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>KEIBA AI 出馬表テスト</title></head>
+<body style="margin:0;background:#09101d">
+<iframe id="app" src="./independent.html?weight-test=20260926" style="display:block;width:100%;height:100vh;border:0"></iframe>
+<script>
+(()=>{
+  const frame=document.getElementById('app');
+  const norm=v=>String(v||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
+  const valid=v=>Number.isFinite(+v)&&+v>=300&&+v<=700;
+  const dateNum=v=>{const m=String(v||'').normalize('NFKC').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):null};
+  function raceDate(d){
+    const vals=[d.raceMeta?.race_date,d.raceMeta?.date,d.raceMeta?.raceDate];
+    for(const v of vals){const n=dateNum(v);if(n)return n}
+    const u=String(d.document.getElementById('raceUrl')?.value||'');
+    const ms=u.match(/20\d{6}/g);return ms?.length?+ms[ms.length-1]:null;
+  }
+  function previousWeight(d,h){
+    const cutoff=raceDate(d);
+    const rows=(Array.isArray(h?.history)?h.history:[]).map(r=>({
+      date:dateNum(r?.date),
+      weight:[r?.body_weight,r?.horse_weight,r?.bodyWeight,r?.weight].map(Number).find(valid),
+      status:String(r?.status||r?.rank_text||'')
+    })).filter(r=>valid(r.weight)&&!/(取消|除外|中止|失格)/.test(r.status)&&(!cutoff||!r.date||r.date<cutoff));
+    rows.sort((a,b)=>(b.date||0)-(a.date||0));
+    return rows.length?Math.round(rows[0].weight):null;
+  }
+  function currentWeight(h){
+    for(const k of ['body_weight','weight','current_body_weight','currentBodyWeight','race_body_weight','raceBodyWeight','official_body_weight','officialBodyWeight'])if(valid(h?.[k]))return Math.round(+h[k]);
+    return null;
+  }
+  function patch(d){
+    const hs=Array.isArray(d.horses)?d.horses:[]; const root=d.document.getElementById('horses'); if(!root||!hs.length)return;
+    const byName=new Map(hs.map(h=>[norm(h.name),h]));
+    for(const card of root.querySelectorAll(':scope > .card')){
+      const title=card.querySelector('.rank'); const name=String(title?.textContent||'').replace(/^\s*\d+\s*/,'').trim(); const h=byName.get(norm(name)); if(!h)continue;
+      const small=card.querySelector('.small'); if(!small)continue;
+      const cur=currentWeight(h); if(cur===null)continue;
+      const prev=previousWeight(d,h); const delta=prev===null?null:cur-prev;
+      const sign=delta===null?'—':delta>0?'+' : '';
+      const text=String(small.textContent||'');
+      const next=text.replace(/馬体重\s*(?:未発表|\d+kg(?:（前走比\s*[+\-]?\d+kg）)?)/,`馬体重 ${cur}kg${delta===null?'（前走比—）':`（前走比 ${sign}${delta}kg）`}`);
+      if(next!==text)small.textContent=next;
+    }
+    d.document.documentElement.dataset.entryWeightDelta='v1';
+  }
+  function install(){
+    const d=frame.contentWindow; if(!d||!d.document)return;
+    const run=()=>patch(d);
+    run();
+    if(!d.__entryWeightDeltaObserver){
+      const mo=new d.MutationObserver(()=>run());
+      mo.observe(d.document.body,{subtree:true,childList:true,characterData:true});
+      d.__entryWeightDeltaObserver=mo;
+    }
+    d.addEventListener('keiba-data-updated',()=>setTimeout(run,80));
+    d.addEventListener('keiba-patches-ready',()=>setTimeout(run,80));
+  }
+  frame.addEventListener('load',()=>setTimeout(install,200));
+})();
+</script>
+</body>
+</html>
