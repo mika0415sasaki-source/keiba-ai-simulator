@@ -1,6 +1,6 @@
 (()=>{
-  if(window.__bodyWeightPreviousDeltaFinalV1)return;
-  window.__bodyWeightPreviousDeltaFinalV1=true;
+  if(window.__bodyWeightPreviousDeltaFinalV2)return;
+  window.__bodyWeightPreviousDeltaFinalV2=true;
 
   const valid=v=>Number.isFinite(+v)&&+v>=300&&+v<=700;
   const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
@@ -13,21 +13,12 @@
   };
   const horsesList=()=>{try{return Array.isArray(window.horses)?window.horses:[]}catch(_){return[]}};
   const raceDate=()=>{
-    try{
-      for(const v of [window.raceMeta?.race_date,window.raceMeta?.date,window.raceMeta?.raceDate]){
-        const n=dateNum(v);if(n)return n;
-      }
-    }catch(_){}
-    try{
-      const u=String(document.getElementById('raceUrl')?.value||'');
-      const ms=u.match(/20\d{6}/g);if(ms?.length)return +ms[ms.length-1];
-    }catch(_){}
+    try{for(const v of [window.raceMeta?.race_date,window.raceMeta?.date,window.raceMeta?.raceDate]){const n=dateNum(v);if(n)return n}}catch(_){}
+    try{const u=String(document.getElementById('raceUrl')?.value||'');const ms=u.match(/20\d{6}/g);if(ms?.length)return +ms[ms.length-1]}catch(_){}
     return null;
   };
   const currentWeight=h=>{
-    for(const v of [h?.__currentBodyWeightV370,h?.official_body_weight,h?.current_body_weight,h?.race_body_weight,h?.body_weight,h?.weight]){
-      if(valid(v))return Math.round(+v);
-    }
+    for(const v of [h?.__currentBodyWeightV370,h?.official_body_weight,h?.current_body_weight,h?.race_body_weight,h?.body_weight,h?.weight])if(valid(v))return Math.round(+v);
     return null;
   };
   const previousWeight=h=>{
@@ -62,9 +53,22 @@
       if(small.textContent!==text)small.textContent=text;
     }
   }
-  const run=()=>{try{patch()}catch(e){console.warn('body weight previous delta final',e)}};
-  addEventListener('keiba-data-updated',()=>setTimeout(run,180));
-  addEventListener('keiba-patches-ready',()=>setTimeout(run,180));
-  addEventListener('pageshow',()=>setTimeout(run,250));
-  setTimeout(run,250);setTimeout(run,700);setTimeout(run,1500);
+  const run=()=>{try{patch()}catch(e){console.warn('body weight previous delta final v2',e)}};
+  function hookRender(){
+    try{
+      const old=window.renderHorses;
+      if(typeof old==='function'&&!old.__bodyWeightPreviousDeltaFinalV2){
+        const fn=function(...args){const out=old.apply(this,args);try{setTimeout(run,0)}catch(_){}return out};
+        fn.__bodyWeightPreviousDeltaFinalV2=true;
+        fn.__original=old;
+        window.renderHorses=fn;
+        try{renderHorses=fn}catch(_){}
+      }
+    }catch(_){}
+  }
+  const install=()=>{hookRender();run()};
+  addEventListener('keiba-data-updated',()=>setTimeout(install,180));
+  addEventListener('keiba-patches-ready',()=>setTimeout(install,180));
+  addEventListener('pageshow',()=>setTimeout(install,250));
+  setTimeout(install,250);setTimeout(install,700);setTimeout(install,1500);setTimeout(install,3000);
 })();
