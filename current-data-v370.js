@@ -1,43 +1,18 @@
 (()=>{
   if(window.__currentDataV370)return;
   window.__currentDataV370=true;
-
   const ENDPOINT='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-newspaper-v2';
-  const VALID_STYLE=new Set(['逃','先','差','追']);
-  const cache=new Map();
-  let loadingKey='',timer=0;
-
-  const el=id=>document.getElementById(id);
-  const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
-  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-  const validStyle=s=>VALID_STYLE.has(String(s||''))?String(s):'';
-  const cleanJockey=s=>String(s||'').normalize('NFKC').replace(/^替/,'').replace(/\s+(?:[4-6]\d)(?:\.\d)?\s*$/,'').trim();
-  const horseList=()=>{try{return Array.isArray(horses)?horses:[]}catch(_){return[]}};
-
-  function raceId(){
-    try{const x=String(raceMeta?.race_id||'');if(/^20\d{10}$/.test(x))return x}catch(_){}
-    const u=String(el('raceUrl')?.value||'');
-    try{if(typeof raceIdFromUrl==='function'){const x=String(raceIdFromUrl(u)||'');if(/^20\d{10}$/.test(x))return x}}catch(_){}
-    let m=u.match(/(?:race_id[=:_-]*|\/race\/)(20\d{10})/i)||u.match(/\b(20\d{10})\b/);if(m)return m[1];
-    m=u.match(/sw01ddd(?:10|01)?(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})/i);return m?`${m[2]}${m[1]}${m[3]}${m[4]}${m[5]}`:'';
-  }
+  const VALID_STYLE=new Set(['逃','先','差','追']); const cache=new Map(); let loadingKey='',timer=0;
+  const el=id=>document.getElementById(id), norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim(), esc=s=>String(s||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])), validStyle=s=>VALID_STYLE.has(String(s||''))?String(s):'';
+  const cleanJockey=s=>String(s||'').normalize('NFKC').replace(/^替/,'').replace(/\s+(?:[4-6]\d)(?:\.\d)?\s*$/,'').trim(); const horseList=()=>{try{return Array.isArray(horses)?horses:[]}catch(_){return[]}};
+  function raceId(){try{const x=String(raceMeta?.race_id||'');if(/^20\d{10}$/.test(x))return x}catch(_){} const u=String(el('raceUrl')?.value||''); try{if(typeof raceIdFromUrl==='function'){const x=String(raceIdFromUrl(u)||'');if(/^20\d{10}$/.test(x))return x}}catch(_){} let m=u.match(/(?:race_id[=:_-]*|\/race\/)(20\d{10})/i)||u.match(/\b(20\d{10})\b/);if(m)return m[1];m=u.match(/sw01ddd(?:10|01)?(\d{2})(20\d{2})(\d{2})(\d{2})(\d{2})/i);return m?`${m[2]}${m[1]}${m[3]}${m[4]}${m[5]}`:''}
   function key(){return raceId()+'|'+horseList().map(h=>`${+h.no||0}:${norm(h.name)}`).join('|')}
-
-  function normalizeQuality(base){
-    const q=base&&typeof base==='object'?{...base}:{};
-    q.score=Number.isFinite(+q.score)?Math.max(0,Math.min(100,+q.score)):0;
-    q.label=String(q.label|| (q.score===100?'完全':q.score?'一部取得':'未取得'));
-    q.issues=(Array.isArray(q.issues)?q.issues:[]).map(x=>({...(x&&typeof x==='object'?x:{}),date:String(x?.date||''),missing:Array.isArray(x?.missing)?x.missing.map(String):[]}));
-    return q;
-  }
+  function normalizeQuality(base){const q=base&&typeof base==='object'?{...base}:{};q.score=Number.isFinite(+q.score)?Math.max(0,Math.min(100,+q.score)):0;q.label=String(q.label||(q.score===100?'完全':q.score?'一部取得':'未取得'));q.issues=(Array.isArray(q.issues)?q.issues:[]).map(x=>({...x,date:String(x?.date||''),missing:Array.isArray(x?.missing)?x.missing.map(String):[]}));return q}
   function dateKey(v){const m=String(v||'').normalize('NFKC').replace(/[年月]/g,'-').replace(/日/g,'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):99999999}
-  function careerComplete(h){const rows=(Array.isArray(h?.history)?h.history:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r.status||r.rank_text||''))&&Number.isFinite(+r.rank)&&+r.rank>0).slice(0,5);if(rows.length>=5)return true;if(!rows.length)return false;const earliest=rows.slice().sort((a,b)=>dateKey(a.date)-dateKey(b.date))[0];return /新馬/.test([earliest?.grade,earliest?.race_grade,earliest?.class_name,earliest?.race_class,earliest?.class,earliest?.race_name,earliest?.raceName,earliest?.title,earliest?.race].filter(Boolean).join(' '));}
+  function careerComplete(h){const rows=(Array.isArray(h?.history)?h.history:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r.status||r.rank_text||''))&&Number.isFinite(+r.rank)&&+r.rank>0).slice(0,5);if(rows.length>=5)return true;if(!rows.length)return false;const earliest=rows.slice().sort((a,b)=>dateKey(a.date)-dateKey(b.date))[0];return /新馬/.test([earliest?.grade,earliest?.race_grade,earliest?.class_name,earliest?.race_class,earliest?.class,earliest?.race_name,earliest?.raceName,earliest?.title,earliest?.race].filter(Boolean).join(' '))}
   function installQualityGuard(){let base=null;try{base=typeof dataQuality==='function'?dataQuality:null}catch(_){}if(!base||base.__currentDataV370)return;const fn=function(h){let q;try{q=normalizeQuality(base(h))}catch(_){q=normalizeQuality(null)}if(careerComplete(h)){q.issues=q.issues.filter(x=>x.date!=='0000/履歴'&&!x.missing.some(v=>/\/5走/.test(v)));if(!q.issues.length){q.score=100;q.label='完全'}}return q};fn.__currentDataV370=true;fn.__original=base;try{dataQuality=fn}catch(_){}try{window.dataQuality=fn}catch(_){}}
-
-  function currentRowFor(h){return cache.get(norm(h?.name))||null}
-  function styleFor(h){const row=currentRowFor(h),s=validStyle(row?.style);if(s)return s;if(validStyle(h?.style)&&/netkeiba/.test(String(h?.style_source||'')))return validStyle(h.style);return ''}
+  function currentRowFor(h){return cache.get(norm(h?.name))||null} function styleFor(h){const row=currentRowFor(h),s=validStyle(row?.style);if(s)return s;if(validStyle(h?.style)&&/netkeiba/.test(String(h?.style_source||'')))return validStyle(h.style);return ''}
   function applyCurrentData(){const hs=horseList();for(const h of hs){const x=currentRowFor(h);if(x){const id=String(x.netkeiba_horse_id||x.horse_id||'').trim();if(id){h.netkeiba_horse_id=id;h.horse_id=id}const sa=String(x.sex_age||'').replace(/\s+/g,'');if(/^[牡牝セ騙]\d+$/.test(sa)){h.sex_age=sa;h.sex=sa[0];h.age=+sa.slice(1)}const j=cleanJockey(x.jockey);if(j){h.jockey=j;h.rider=j}if(Number.isFinite(+x.carried_weight)&&+x.carried_weight>=40&&+x.carried_weight<=70)h.carried_weight=+x.carried_weight;if(Number.isFinite(+x.body_weight)&&+x.body_weight>=300&&+x.body_weight<=700){h.body_weight=+x.body_weight;h.weight=+x.body_weight}for(const k of ['sire','dam','damsire'])if(String(x[k]||'').trim())h[k]=String(x[k]).trim()}const s=styleFor(h);h.style=s;h.style_source=s?'netkeiba競馬新聞':'';if(s)h.netkeiba_style=s;else delete h.netkeiba_style}}
-
   function previousWeight(h){const rows=Array.isArray(h?.history)?h.history:[];const cutoff=(()=>{const d=raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate;const m=String(d||'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):null})();const num=v=>{const n=Number(v);return Number.isFinite(n)&&n>=300&&n<=700?n:null};const dk=v=>{const m=String(v||'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):0};const a=rows.map(r=>({w:num(r?.body_weight??r?.horse_weight??r?.bodyWeight??r?.weight),d:dk(r?.date),s:String(r?.status||r?.rank_text||'')})).filter(r=>r.w!==null&&!/(取消|除外|中止|失格)/.test(r.s)&&(!cutoff||!r.d||r.d<cutoff));a.sort((x,y)=>y.d-x.d);return a[0]?.w??null}
   function bodyText(h){const cur=Number.isFinite(+h?.body_weight)&&+h.body_weight>=300&&+h.body_weight<=700?Math.round(+h.body_weight):(Number.isFinite(+h?.weight)&&+h.weight>=300&&+h.weight<=700?Math.round(+h.weight):null);if(cur===null)return '馬体重 未発表';const prev=previousWeight(h);if(prev===null)return `馬体重 ${cur}kg`;const d=cur-prev,sg=d>0?'+':'';return `馬体重 ${cur}kg（前走比 ${sg}${d}kg）`}
   function renderPace(){const box=el('paceReason'),hs=horseList();if(!box)return;if(!hs.length){box.innerHTML='出馬表取込後に自動判定します。';return}const styles=hs.map(styleFor),known=styles.filter(Boolean).length,escN=styles.filter(x=>x==='逃').length,lead=styles.filter(x=>x==='先').length,diff=styles.filter(x=>x==='差').length,clos=styles.filter(x=>x==='追').length,manual=String(el('pace')?.value||'自動');if(known<Math.ceil(hs.length*.6)){try{raceMeta.autoPace=''}catch(_){}box.innerHTML=`<b>適用ペース：${manual==='自動'?'判定待ち':esc(manual)}</b><br>netkeiba脚質 ${known}/${hs.length}頭（逃げ ${escN} / 先行 ${lead} / 差し ${diff} / 追込 ${clos} / 不明 ${hs.length-known}）<br>${manual==='自動'?'netkeiba競馬新聞の脚質が6割以上そろってから自動判定します。':'手動設定をAI分析へ反映'}`;return}const auto=escN>=2||escN+lead>=Math.max(5,Math.ceil(known*.5))?'ハイ':escN===0&&lead<=2?'スロー':'ミドル';try{raceMeta.autoPace=auto}catch(_){}const applied=manual==='自動'?auto:manual;box.innerHTML=`<b>適用ペース：${esc(applied)}</b><br>逃げ ${escN}頭 / 先行 ${lead}頭 / 差し ${diff}頭 / 追込 ${clos}頭 / 不明 ${hs.length-known}頭<br>${manual==='自動'?`netkeiba競馬新聞の脚質をそのまま使用 → ${auto}想定`:'手動設定をAI分析へ反映'}`}
