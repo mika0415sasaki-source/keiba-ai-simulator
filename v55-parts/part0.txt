@@ -694,6 +694,20 @@ function fillLabel(k){
  const m={rank:"着順",venue:"競馬場",surface:"芝/ダ",distance:"距離",going:"馬場",last3f:"上がり",jockey:"騎手",passage:"通過順"};
  return m[k]||k;
 }
+function entryBodyWeightText(h){
+ const current=Number.isFinite(+h?.body_weight)&&+h.body_weight>=300&&+h.body_weight<=700?Math.round(+h.body_weight):(Number.isFinite(+h?.weight)&&+h.weight>=300&&+h.weight<=700?Math.round(+h.weight):null);
+ if(current===null)return "馬体重 未発表";
+ const rows=Array.isArray(h?.history)?h.history:[];
+ const cutoff=(()=>{const d=raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate;const m=String(d||"").match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):null})();
+ const num=v=>{const n=Number(v);return Number.isFinite(n)&&n>=300&&n<=700?n:null};
+ const dk=v=>{const m=String(v||"").match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):0};
+ const a=rows.map(r=>({w:num(r?.body_weight??r?.horse_weight??r?.bodyWeight??r?.weight),d:dk(r?.date),s:String(r?.status||r?.rank_text||"")})).filter(r=>r.w!==null&&!/(取消|除外|中止|失格)/.test(r.s)&&(!cutoff||!r.d||r.d<cutoff));
+ a.sort((x,y)=>y.d-x.d);
+ const prev=a[0]?.w??null;
+ if(prev===null)return `馬体重 ${current}kg`;
+ const delta=current-prev,sign=delta>0?"+":"";
+ return `馬体重 ${current}kg（前走比 ${sign}${delta}kg）`;
+}
 function renderHorses(){
  const root=document.getElementById("horses"),fragment=document.createDocumentFragment();
  horses.forEach(h=>{
@@ -710,7 +724,7 @@ function renderHorses(){
   const issueHtml=q.issues.length
     ? `<div class="status ${q.score>=85?"":"bad"}" style="margin-top:8px"><b>データ品質：${q.label} ${q.score}%</b><br>${q.issues.map(x=>`${String(x.date).slice(5)}：${x.missing.join("・")}欠損`).join("<br>")}<br><span class="small">JRAで補完できない欠損項目だけ指数計算から除外します。</span></div>`
     : `<div class="status ok" style="margin-top:8px"><b>データ品質：${filled?"JRA補完後 ":""}完全 100%</b></div>`;
-  d.innerHTML=`<div class="rank">${h.no} ${h.name}</div><div class="small">${h.sex_age||""} / ${h.weight||""}kg　${h.jockey||""}</div><div class="small">脚質推定：${h.style||""}　父：${h.sire||"—"}　母：${h.dam||"—"}　母父：${h.damsire||"—"}</div><div class="small">騎手相性：${h.jockey_combo||"JRA前4走コンビ成績を反映"}</div><div style="margin-top:6px"><span class="badge good">${source}</span><span class="badge">品質 ${q.score}%</span></div><div class="small" style="margin-top:5px">主データ：${source}${filled?` / JRA補完 ${h.jraFillCount}項目`:""}</div>${issueHtml}<div class="grid" style="margin-top:8px"><div class="metric"><span>近走</span><b>${sc?.speed?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>上がり</span><b>${sc?.last3f?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>距離適性</span><b>${sc?.distance?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>コース適性</span><b>${sc?.course?.toFixed?.(1)||"—"}</b></div></div><div class="hist">${rows.map(r=>`<div class="hist-row"><span>${String(r.date||"").slice(5)}</span><span>${r.venue||"⚠"}</span><span>${r.surface||""}${r.distance||""}</span><span>${r.rank?`${r.rank}着`:r.status||"—"}</span><span>${r.going||""} 上り ${Number.isFinite(+r.last3f)?(+r.last3f).toFixed(1):"—"}</span></div>`).join("")}</div>`;
+  d.innerHTML=`<div class="rank">${h.no} ${h.name}</div><div class="small">${h.sex_age||""} / ${entryBodyWeightText(h)}　${h.jockey||""}</div><div class="small">脚質推定：${h.style||""}　父：${h.sire||"—"}　母：${h.dam||"—"}　母父：${h.damsire||"—"}</div><div class="small">騎手相性：${h.jockey_combo||"JRA前4走コンビ成績を反映"}</div><div style="margin-top:6px"><span class="badge good">${source}</span><span class="badge">品質 ${q.score}%</span></div><div class="small" style="margin-top:5px">主データ：${source}${filled?` / JRA補完 ${h.jraFillCount}項目`:""}</div>${issueHtml}<div class="grid" style="margin-top:8px"><div class="metric"><span>近走</span><b>${sc?.speed?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>上がり</span><b>${sc?.last3f?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>距離適性</span><b>${sc?.distance?.toFixed?.(1)||"—"}</b></div><div class="metric"><span>コース適性</span><b>${sc?.course?.toFixed?.(1)||"—"}</b></div></div><div class="hist">${rows.map(r=>`<div class="hist-row"><span>${String(r.date||"").slice(5)}</span><span>${r.venue||"⚠"}</span><span>${r.surface||""}${r.distance||""}</span><span>${r.rank?`${r.rank}着`:r.status||"—"}</span><span>${r.going||""} 上り ${Number.isFinite(+r.last3f)?(+r.last3f).toFixed(1):"—"}</span></div>`).join("")}</div>`;
   fragment.appendChild(d);
  });
  root.replaceChildren(fragment);
