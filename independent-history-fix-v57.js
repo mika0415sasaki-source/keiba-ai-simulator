@@ -1344,6 +1344,15 @@
           return [];
         }
         const value=originalEvalAll.apply(this,arguments);
+        // Keep the final displayed "近走" synchronized with the installed v305 score chain.
+        // originalEvalAll can copy the pre-v305 speed value into evaluated; histScores is authoritative.
+        if(Array.isArray(evaluated)){
+          evaluated=evaluated.map(e=>{
+            const src=(horses||[]).find(x=>+x?.no===+e?.no||clean(x?.name)===clean(e?.name));
+            const hs=src?.histScores;
+            return hs&&Number.isFinite(+hs.speed)?{...e,speed:+hs.speed,recentScore:+hs.speed}:e;
+          });
+        }
         rerenderBodyAwareRanking();
         scheduleOddsFix();
         return value;
