@@ -7,76 +7,40 @@
   const REC=[1,.82,.68,.56,.46];
   const oldLocal=typeof window.scoreLocalHistory==='function'?window.scoreLocalHistory:null;
 
-  function gradeOf(r){
-    const s=String(r?.grade||r?.race_grade||r?.class_name||r?.race_class||r?.class||r?.race_name||r?.raceName||'').normalize('NFKC').toUpperCase().replace(/\s+/g,'');
-    if(/JPN3|JPNIII|G3|GIII/.test(s))return'G3';
-    if(/JPN2|JPNII(?!I)|G2|GII(?!I)/.test(s))return'G2';
-    if(/JPN1|JPNI(?!I)|G1|GI(?!I)/.test(s))return'G1';
-    if(/リステッド/.test(s)||/(?:^|[^A-Z])L(?:$|[^A-Z])/.test(s))return'L';
-    if(/オープン|OPEN|OP/.test(s))return'OP';
-    if(/3勝/.test(s))return'3勝';if(/2勝/.test(s))return'2勝';if(/1勝/.test(s))return'1勝';
-    if(/未勝利/.test(s))return'未勝利';if(/新馬/.test(s))return'新馬';return'';
-  }
-  const GRADE={G1:100,G2:94,G3:88,L:82,OP:78,'3勝':72,'2勝':66,'1勝':60,'未勝利':56,'新馬':54};
-
   function completed(rows){
     return (Array.isArray(rows)?rows:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0).slice(0,5);
   }
-  function target(){
-    return {surface:el('surface')?.value||'',distance:+(el('distance')?.value||0)};
-  }
-  function relevance(r,t){
-    let d=68;
-    if(Number.isFinite(+r.distance)&&t.distance){
-      const x=Math.abs(+r.distance-t.distance);
-      d=x===0?100:x<=200?92:x<=400?80:x<=600?68:58;
-    }
-    if(t.surface&&r.surface&&r.surface!==t.surface)d=Math.min(d,55);
-    return d;
-  }
-  function recentScore(rows){
-    const rr=completed(rows),t=target();if(!rr.length)return 50;
-    let n=0,d=0;
-    rr.forEach((r,i)=>{
-      const rank=+r.rank,field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);
-      const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
-      const g=GRADE[gradeOf(r)]||68;
-      const rel=relevance(r,t);
-      const run=.55*pos+.15*g+.30*rel;
-      const w=REC[i]||.4;n+=run*w;d+=w;
-    });
-    return d?n/d:50;
-  }
 
-  const VENUE_ADJ={東京:-.10,新潟:-.15,京都:-.05,阪神:0,中京:.05,中山:.15,小倉:.10,福島:.15,札幌:.20,函館:.25};
-  function expectedLast3f(r){
-    const dist=Number.isFinite(+r.distance)?+r.distance:1600,surface=String(r.surface||'芝');
-    let base,going=0;
-    if(/ダ/.test(surface)){
-      base=36.0+Math.max(0,dist-1200)*.0015;
-      going=r.going==='稍重'?-.10:r.going==='重'?-.25:r.going==='不良'?-.35:0;
-    }else{
-      base=34.2+Math.max(0,dist-1600)*.0010;
-      going=r.going==='稍重'?.40:r.going==='重'?.80:r.going==='不良'?1.20:0;
-    }
-    return base+(VENUE_ADJ[String(r.venue||'').replace(/競馬場/g,'')]||0)+going;
-  }
   function sectionalScore(rows){
     const rr=completed(rows);let n=0,d=0,count=0;
+    const VENUE_ADJ={東京:-.10,新潟:-.15,京都:-.05,阪神:0,中京:.05,中山:.15,小倉:.10,福島:.15,札幌:.20,函館:.25};
+    const expectedLast3f=r=>{
+      const dist=Number.isFinite(+r.distance)?+r.distance:1600,surface=String(r.surface||'芝');
+      let base,going=0;
+      if(/ダ/.test(surface)){
+        base=36.0+Math.max(0,dist-1200)*.0015;
+        going=r.going==='稍重'?-.10:r.going==='重'?-.25:r.going==='不良'?-.35:0;
+      }else{
+        base=34.2+Math.max(0,dist-1600)*.0010;
+        going=r.going==='稍重'?.40:r.going==='重'?.80:r.going==='不良'?1.20:0;
+      }
+      return base+(VENUE_ADJ[String(r.venue||'').replace(/競馬場/g,'')]||0)+going;
+    };
     rr.forEach((r,i)=>{
       const x=+r.last3f;if(!Number.isFinite(x)||x<20||x>60)return;
-      const expected=expectedLast3f(r);
-      const run=clamp(75+(expected-x)*10,35,98);
-      const w=REC[i]||.4;n+=run*w;d+=w;count++;
+      const run=clamp(75+(expectedLast3f(r)-x)*10,35,98),w=REC[i]||.4;
+      n+=run*w;d+=w;count++;
     });
     return count&&d?n/d:55;
   }
 
+  // IMPORTANT: recent-score calculation belongs to analysis-baseline-20260910-v358.js.
+  // This patch only adds the sectional/last-3F metric and must not overwrite speed/recentScore.
   function scoreV305(rows){
-    let out={available:completed(rows).length>0,speed:50,last3f:55,distance:50,course:50};
+    let out={available:completed(rows).length>0,last3f:55,distance:50,course:50};
     if(oldLocal){try{const prev=oldLocal.apply(this,arguments);if(prev&&typeof prev==='object')out={...prev}}catch(_) {}}
     const rr=completed(rows);
-    return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'v305-55-15-30'};
+    return {...out,available:rr.length>0,last3f:sectionalScore(rows),metricVersion:'v305-sectional-only'};
   }
   scoreV305.__v305=true;scoreV305.__original=oldLocal;
   try{window.scoreLocalHistory=scoreV305;scoreLocalHistory=scoreV305}catch(_){}
@@ -104,7 +68,7 @@
     }
     const ev=el('evidence');if(ev){
       let d=ev.querySelector('[data-metric-v305]');if(!d){d=document.createElement('div');d.dataset.metricV305='1';d.style.marginTop='10px';ev.appendChild(d)}
-      d.innerHTML='<b>近走・上がり評価 v305</b><br>近走：着順だけの単純平均を廃止。頭数に対する着順・レース格・今回距離/芝ダへの近さ・新しい走ほど重い時系列ウェイトで評価。<br>上がり：33秒台を自動的に100点へ丸める方式を廃止。芝/ダート・距離・競馬場・馬場状態ごとの基準上がりとの差を時系列加重して評価.';
+      d.innerHTML='<b>近走・上がり評価 v305</b><br>近走：既存の分析ベースライン計算を使用。上がり：33秒台を自動的に100点へ丸める方式を廃止。芝/ダート・距離・競馬場・馬場状態ごとの基準上がりとの差を時系列加重して評価.';
     }
   }
 
@@ -123,5 +87,5 @@
   addEventListener('keiba-data-updated',()=>setTimeout(settle,0));
   addEventListener('pageshow',()=>setTimeout(settle,0));
   setTimeout(settle,0);
-  document.documentElement.dataset.metricModel='v305-55-15-30';
+  document.documentElement.dataset.metricModel='v305-sectional-only';
 })();
