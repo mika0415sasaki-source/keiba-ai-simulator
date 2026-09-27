@@ -42,7 +42,7 @@
       const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
       const g=GRADE[gradeOf(r)]||68;
       const rel=relevance(r,t);
-      const run=.55*pos+.15*g+.30*rel;
+      const run=.70*pos+.15*g+.15*rel;
       const w=REC[i]||.4;n+=run*w;d+=w;
     });
     return d?n/d:50;
@@ -76,7 +76,7 @@
     let out={available:completed(rows).length>0,speed:50,last3f:55,distance:50,course:50};
     if(oldLocal){try{const prev=oldLocal.apply(this,arguments);if(prev&&typeof prev==='object')out={...prev}}catch(_) {}}
     const rr=completed(rows);
-    return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'v305-55-15-30'};
+    return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'v305'};
   }
   scoreV305.__v305=true;scoreV305.__original=oldLocal;
   try{window.scoreLocalHistory=scoreV305;scoreLocalHistory=scoreV305}catch(_){}
@@ -123,5 +123,5 @@
   addEventListener('keiba-data-updated',()=>setTimeout(settle,0));
   addEventListener('pageshow',()=>setTimeout(settle,0));
   setTimeout(settle,0);
-  document.documentElement.dataset.metricModel='v305-55-15-30';
+  document.documentElement.dataset.metricModel='v305';
 })();
