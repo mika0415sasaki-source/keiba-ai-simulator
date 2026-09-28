@@ -27,7 +27,7 @@
     loadNetkeibaHistories=async function({silent=false,force=false}={}){
       const runKey=horses.map(h=>`${h.name}:${h.netkeiba_horse_id||h.horse_id||''}`).join('|');
       if(historyLoading)return {ok:0,total:horses.length,skipped:true};
-      if(!force&&historyLastKey===runKey&&Date.now()-historyLastAt<30000)return {ok:horses.filter(h=>(h.history||[]).length).length,total:horses.length,totalRuns:horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),skipped:true};
+      if(!force&&historyLastKey===runKey)return {ok:horses.filter(h=>(h.history||[]).length).length,total:horses.length,totalRuns:horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),skipped:true};
       historyLoading=true;
       try{
         if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0};}
