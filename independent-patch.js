@@ -14,7 +14,7 @@
     function memoryRunToHistory(r){
       if(!r)return null;
       const passage=Array.isArray(r.passage)?r.passage:String(r.corners||'').split('-').map(Number).filter(Number.isFinite);
-      return {date:r.date||'',venue:r.venue||r.course||'',surface:r.surface||'',distance:+(r.distance??r.dist)||0,going:r.going||'',rank:+(r.rank??r.pos)||0,last3f:Number.isFinite(+(r.last3f??r.last3))?+(r.last3f??r.last3):null,jockey:r.jockey||'',passage,field_size:+(r.field_size||0)||null,source:r.source||'netkeiba-memory'};
+      return {date:r.date||'',venue:r.venue||r.course||'',surface:r.surface||'',distance:+(r.distance??r.dist)||0,going:r.going||'',rank:+(r.rank??r.pos)||0,last3f:Number.isFinite(+(r.last3f??r.last3))?+(r.last3f??r.last3):null,jockey:r.jockey||'',passage,field_size:+(r.field_size||0)||null,body_weight:[r.body_weight,r.horse_weight,r.bodyWeight,r.weight].map(Number).find(v=>Number.isFinite(v)&&v>=300&&v<=700)||null,source:r.source||'netkeiba-memory'};
     }
     function currentRaceDate(){
       const s=String(document.getElementById('raceUrl')?.value||'');
