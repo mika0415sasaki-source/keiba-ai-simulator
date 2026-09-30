@@ -25,6 +25,8 @@
   const horseList=()=>{try{return Array.isArray(window.horses)?window.horses:[]}catch(_){return[]}};
 
   function previousWeight(h){
+    const saved=Number(h?.last_body_weight);
+    if(valid(saved))return Math.round(saved);
     const cutoff=currentRaceDate();
     const rows=(Array.isArray(h?.history)?h.history:[]).map(r=>({
       date:dateNum(r?.date),
