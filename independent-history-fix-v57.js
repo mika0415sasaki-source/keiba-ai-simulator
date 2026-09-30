@@ -761,7 +761,6 @@
             const imported=Number.isFinite(+h.body_weight)&&+h.body_weight>=300
               ?Math.round(+h.body_weight)
               :(Number.isFinite(+h.weight)&&+h.weight>=300?Math.round(+h.weight):null);
-            if(imported&&!h.last_body_weight)h.last_body_weight=imported;
             h.body_weight=null;
             if(Number.isFinite(+h.weight)&&+h.weight>=300)h.weight=null;
           }
@@ -789,7 +788,6 @@
         if(row.damsire)h.damsire=row.damsire;
         if(Date.now()<CURRENT_BODY_WEIGHT_RELEASE_AT){
           const last=Number.isFinite(+h.body_weight)&&+h.body_weight>=300?+h.body_weight:(Number.isFinite(+h.weight)&&+h.weight>=300?+h.weight:null);
-          if(last&&!h.last_body_weight)h.last_body_weight=last;
           h.body_weight=null;
           h.weight=null;
         }
