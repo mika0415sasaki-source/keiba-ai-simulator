@@ -818,22 +818,6 @@
 
     function fixOddsPresentation(){
       if(!isNetkeiba())return;
-      const cards=[...document.querySelectorAll('#horses .card')];
-      cards.forEach(card=>{
-        const title=card.querySelector('.rank')?.textContent||'';
-        const h=(horses||[]).find(x=>title.includes(x.name));
-        if(!h)return;
-        const small=card.querySelector(':scope > .small');
-        if(!small)return;
-        const current=Number.isFinite(+h.body_weight)&&+h.body_weight>=300?Math.round(+h.body_weight):null;
-        const historyWeight=(h.history||[]).find(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300)?.body_weight;
-        const previous=Number.isFinite(+h.last_body_weight)&&+h.last_body_weight>=300?Math.round(+h.last_body_weight):(Number.isFinite(+historyWeight)?Math.round(+historyWeight):null);
-        const weightLabel=current?`${current}kg`:(previous?`前走${previous}kg`:'馬体重未発表');
-        const ageWeight=[h.sex_age||'',weightLabel].filter(Boolean).join(' / ');
-        const parts=[ageWeight,h.jockey||'騎手未取得',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);
-        const nextText=parts.join('　');
-        if(small.textContent!==nextText)small.textContent=nextText;
-      });
       document.querySelectorAll('#ranking .card .small').forEach(el=>{
         if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
           if(!/netkeiba予想|実オッズ/.test(el.textContent||''))el.textContent='netkeiba予想オッズ取得中';
