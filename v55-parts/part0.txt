@@ -668,6 +668,29 @@ function sameRaceRow(a,b){
  if(ad&&bd&&ad!==bd)return false;
  return true;
 }
+function historyBeforeTargetRace(rows){
+ const target=String(raceDateFromUrl(document.getElementById("raceUrl")?.value||"")||"").replace(/\\D/g,"");
+ if(!target)return Array.isArray(rows)?rows:[];
+ const year=+target.slice(0,4);
+ const key=v=>{
+  const s=String(v??"").normalize("NFKC").trim();
+  let m=s.match(/(20\\d{2})[\\/-\\.](\\d{1,2})[\\/-\\.](\\d{1,2})/);
+  if(m)return m[1]+String(+m[2]).padStart(2,"0")+String(+m[3]).padStart(2,"0");
+  m=s.match(/\\b(20\\d{2})(\\d{2})(\\d{2})\\b/);
+  if(m)return m[1]+m[2]+m[3];
+  m=s.match(/(?:^|\\D)(\\d{1,2})[\\/-\\.](\\d{1,2})(?:$|\\D)/);
+  if(m)return String(year)+String(+m[1]).padStart(2,"0")+String(+m[2]).padStart(2,"0");
+  return "";
+ };
+ return (Array.isArray(rows)?rows:[]).map((r,i)=>({r,i,d:key(r?.date||r?.race_date||r?.raceDate||r?.開催日||r?.date_text)}))
+   .filter(x=>!x.d||x.d<target)
+   .sort((a,b)=>{
+     if(a.d&&b.d)return b.d.localeCompare(a.d);
+     if(a.d&&!b.d)return -1;
+     if(!a.d&&b.d)return 1;
+     return a.i-b.i;
+   }).map(x=>x.r);
+}
 function mergeNetkeibaWithJra(h){
  const nk=(h.history||[]).map(r=>({...r,filled_from_jra:[]}));
  const jra=h.jra_history||[];
@@ -810,7 +833,7 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
     const r=map.get(String(h.name).trim());const rows=r?.history||r?.rows||[];
     h.netkeibaRejected=false;
     if(rows.length&&validNetkeibaHistoryForHorse(h,rows)){
-      h.history=rows.slice(0,5);h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;mergeNetkeibaWithJra(h);ok++;
+      h.history=historyBeforeTargetRace(rows).slice(0,5);h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;mergeNetkeibaWithJra(h);ok++;
     }else{
       h.history=[];h.histScores=null;if(rows.length){h.netkeibaRejected=true;rejected++}
     }
