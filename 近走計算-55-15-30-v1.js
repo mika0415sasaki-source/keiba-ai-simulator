@@ -15,7 +15,7 @@
     if(/3勝/.test(s))return'3勝';if(/2勝/.test(s))return'2勝';if(/1勝/.test(s))return'1勝';
     if(/未勝利/.test(s))return'未勝利';if(/新馬/.test(s))return'新馬';return'';
   };
-  const completed=rows=>(Array.isArray(rows)?rows:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0).slice(0,5);
+  const completed=rows=>{const rr=(Array.isArray(rows)?rows:[]).filter(r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0);const dv=r=>{const m=String(r?.date||r?.race_date||r?.raceDate||'').match(/(20\\d{2})[^0-9]?(\\d{1,2})[^0-9]?(\\d{1,2})/);return m?+m[1]*10000+ +m[2]*100+ +m[3]:0};return rr.map((r,i)=>({...r,__recentOrder:i})).sort((a,b)=>{const da=dv(a),db=dv(b);return db-da||a.__recentOrder-b.__recentOrder}).slice(0,5)};
   const target=()=>({surface:String(document.getElementById('surface')?.value||''),distance:+(document.getElementById('distance')?.value||0)});
   const relevance=(r,t)=>{
     let d=68;
@@ -45,7 +45,7 @@
       const rows=Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)?h.jra_history:[]);
       if(rows.length){
         const base=h.histScores&&typeof h.histScores==='object'?h.histScores:{};
-        h.histScores={...base,speed:recentScore(rows),metricVersion:'近走計算-55-15-30-v1'};
+        h.histScores={...base,speed:recentScore(rows),metricVersion:'近走計算-55-15-30-v2-date-order'};
       }
     }
     if(Array.isArray(window.evaluated)){
