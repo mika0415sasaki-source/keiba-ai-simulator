@@ -113,11 +113,7 @@
    cards.forEach(card=>{
     const title=card.querySelector('.rank')?.textContent||'';const h=horses.find(x=>title.includes(x.name));if(!h)return;
     const smalls=card.querySelectorAll(':scope > .small');
-    if(smalls[0]){
-      const ageWeight=[h.sex_age||'',weightLabel(h)].filter(Boolean).join(' / ');
-      const parts=[ageWeight,h.jockey||'騎手未取得',Number.isFinite(+h.carried_weight)?`斤量${(+h.carried_weight).toFixed(1)}kg`:'' ].filter(Boolean);
-      smalls[0].textContent=parts.join('　');
-    }
+    // Horse-card first line is owned by current-data-v370; do not overwrite it here.
     if(smalls[1])smalls[1].textContent=`脚質推定：${['逃','先','差','追'].includes(h.style)?h.style:'未取得'}　父：${validPed(h.sire)||'未取得'}　母：${validPed(h.dam)||'未取得'}　母父：${validPed(h.damsire)||'未取得'}`;
    });
    document.querySelectorAll('#ranking .card').forEach(el=>{let s=el.innerHTML;s=s.replace(/予想単勝\s*([0-9.]+)倍\s*\/\s*予想\d+番人気/g,'予想単勝 $1倍 / 人気未確定');if(s!==el.innerHTML)el.innerHTML=s});
