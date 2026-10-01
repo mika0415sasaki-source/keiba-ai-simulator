@@ -669,27 +669,25 @@ function sameRaceRow(a,b){
  return true;
 }
 function historyBeforeTargetRace(rows){
- const target=String(raceDateFromUrl(document.getElementById("raceUrl")?.value||"")||"").replace(/\\D/g,"");
+ const url=String(document.getElementById("raceUrl")?.value||"");
+ const m=url.match(/(?:^|\\D)(20\\d{2})(\\d{2})(\\d{2})/);
+ const target=m?m[1]+m[2]+m[3]:"";
  if(!target)return Array.isArray(rows)?rows:[];
  const year=+target.slice(0,4);
  const key=v=>{
   const s=String(v??"").normalize("NFKC").trim();
-  let m=s.match(/(20\\d{2})[\\/-\\.](\\d{1,2})[\\/-\\.](\\d{1,2})/);
-  if(m)return m[1]+String(+m[2]).padStart(2,"0")+String(+m[3]).padStart(2,"0");
-  m=s.match(/\\b(20\\d{2})(\\d{2})(\\d{2})\\b/);
-  if(m)return m[1]+m[2]+m[3];
-  m=s.match(/(?:^|\\D)(\\d{1,2})[\\/-\\.](\\d{1,2})(?:$|\\D)/);
-  if(m)return String(year)+String(+m[1]).padStart(2,"0")+String(+m[2]).padStart(2,"0");
+  let x=s.match(/(20\\d{2})[\\/-\\.](\\d{1,2})[\\/-\\.](\\d{1,2})/);
+  if(x)return x[1]+String(+x[2]).padStart(2,"0")+String(+x[3]).padStart(2,"0");
+  x=s.match(/\\b(20\\d{2})(\\d{2})(\\d{2})\\b/);
+  if(x)return x[1]+x[2]+x[3];
+  x=s.match(/(?:^|\\D)(\\d{1,2})[\\/-\\.](\\d{1,2})(?:$|\\D)/);
+  if(x)return String(year)+String(+x[1]).padStart(2,"0")+String(+x[2]).padStart(2,"0");
   return "";
  };
  return (Array.isArray(rows)?rows:[]).map((r,i)=>({r,i,d:key(r?.date||r?.race_date||r?.raceDate||r?.開催日||r?.date_text)}))
-   .filter(x=>!x.d||x.d<target)
-   .sort((a,b)=>{
-     if(a.d&&b.d)return b.d.localeCompare(a.d);
-     if(a.d&&!b.d)return -1;
-     if(!a.d&&b.d)return 1;
-     return a.i-b.i;
-   }).map(x=>x.r);
+  .filter(x=>!x.d||x.d<target)
+  .sort((a,b)=>a.d&&b.d?(b.d.localeCompare(a.d)):(a.d?-1:b.d?1:a.i-b.i))
+  .map(x=>x.r);
 }
 function mergeNetkeibaWithJra(h){
  const nk=(h.history||[]).map(r=>({...r,filled_from_jra:[]}));
