@@ -677,11 +677,11 @@ function historyBeforeTargetRace(rows){
  const year=+target.slice(0,4);
  const key=v=>{
   const s=String(v??"").normalize("NFKC").trim();
-  let x=s.match(/(20\\d{2})[\\/-\\.](\\d{1,2})[\\/-\\.](\\d{1,2})/);
+  let x=s.match(/(20\d{2})[\/-\\.](\d{1,2})[\/-\\.](\d{1,2})/);
   if(x)return x[1]+String(+x[2]).padStart(2,"0")+String(+x[3]).padStart(2,"0");
-  x=s.match(/\\b(20\\d{2})(\\d{2})(\\d{2})\\b/);
+  x=s.match(/\\b(20\d{2})(\d{2})(\d{2})\\b/);
   if(x)return x[1]+x[2]+x[3];
-  x=s.match(/(?:^|\\D)(\\d{1,2})[\\/-\\.](\\d{1,2})(?:$|\\D)/);
+  x=s.match(/(?:^|\\D)(\d{1,2})[\/-\\.](\d{1,2})(?:$|\\D)/);
   if(x)return String(year)+String(+x[1]).padStart(2,"0")+String(+x[2]).padStart(2,"0");
   return "";
  };
