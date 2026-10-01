@@ -816,11 +816,7 @@
 
     function fixOddsPresentation(){
       if(!isNetkeiba())return;
-      document.querySelectorAll('#ranking .card .small').forEach(el=>{
-        if(/(?:予想)?単勝|オッズ/.test(el.textContent||'')){
-          if(!/netkeiba予想|実オッズ/.test(el.textContent||''))el.textContent='netkeiba予想オッズ取得中';
-        }
-      });
+      // Do not overwrite rendered odds. The odds renderer owns this text.
       ['evidence','raceStatus'].forEach(id=>{
         const el=document.getElementById(id);
         if(!el)return;
