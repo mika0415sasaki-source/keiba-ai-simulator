@@ -670,8 +670,9 @@ function sameRaceRow(a,b){
 }
 function historyBeforeTargetRace(rows){
  const url=String(document.getElementById("raceUrl")?.value||"");
- const m=url.match(/(?:^|\\D)(20\\d{2})(\\d{2})(\\d{2})/);
- const target=m?m[1]+m[2]+m[3]:"";
+ let target="";
+ try{if(typeof raceDateFromUrl==="function")target=String(raceDateFromUrl(url)||"").replace(/\D/g,"")}catch(_){}
+ if(!/^20\d{6}$/.test(target)){const ms=[...url.matchAll(/(20\d{6})/g)];target=ms.length?ms[ms.length-1][1]:"";}
  if(!target)return Array.isArray(rows)?rows:[];
  const year=+target.slice(0,4);
  const key=v=>{
