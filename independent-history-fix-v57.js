@@ -946,7 +946,10 @@
           closingN+=closing*weight;closingD+=weight;
         }
       });
-      const form=+(formD?formN/formD:65).toFixed(1);
+      const rawForm=+(formD?formN/formD:65).toFixed(1);
+      // 近走は有効走数に応じて中立値68へ収束させ、2走だけなら40%の確信度にする。
+      const credibility=Math.min(1,hist.length/5);
+      const form=+(68+(rawForm-68)*credibility).toFixed(1);
       const closing=+(closingD?closingN/closingD:65).toFixed(1);
       const grade=historyGradeFeature(hist);
       return {
@@ -1167,11 +1170,13 @@
             odds='netkeiba予想オッズ取得中';
           }
           const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
+          const source=typeof horses!=='undefined'&&Array.isArray(horses)?(horses.find(x=>+x?.no===+h?.no||clean(x?.name)===clean(h?.name))||h):h;
+          const sourcePopularity=[source?.popularity,source?.forecast_popularity,source?.netkeiba_forecast_popularity,source?.netkeiba_actual_popularity,market?.popularity,actualPopularity].map(Number).find(v=>Number.isInteger(v)&&v>0)||null;
           const summaryMarket=actual
-            ?`単勝${actual.toFixed(1)}倍${actualPopularity?` ／ ${actualPopularity}番人気`:''}`
+            ? '単勝'+actual.toFixed(1)+'倍'+(sourcePopularity?' ／ '+sourcePopularity+'番人気':'')
             :market?.type==='forecast'
-              ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
-              :'単勝オッズ未取得';
+              ? '単勝'+market.odds.toFixed(1)+'倍'+(sourcePopularity?' ／ 予想'+sourcePopularity+'番人気':'')
+              :sourcePopularity ? '単勝オッズ未取得 ／ '+sourcePopularity+'番人気' : '単勝オッズ未取得';
           const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
           const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
           return `<details class="card ranking-card"><summary aria-label="AI ${index+1}位 ${h.name}の詳細を開く"><div class="ranking-summary-main"><div class="rank">AI ${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="summary-market">${summaryMarket}</div></div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
