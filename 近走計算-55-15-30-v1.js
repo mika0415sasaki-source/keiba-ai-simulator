@@ -79,23 +79,7 @@
     if(t.surface&&r.surface&&String(r.surface)!==t.surface)d=Math.min(d,55);
     return d;
   };
-  const recentScore=rows=>{
-    const rr=completed(rows),t=target();if(!rr.length)return 50;
-    let n=0,d=0;
-    rr.forEach((r,i)=>{
-      const rank=+r.rank;
-      const field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);
-      const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
-      const g=GRADE[gradeOf(r)]||68;
-      const rel=relevance(r,t);
-      const run=.55*pos+.15*g+.30*rel;
-      const w=REC[i]||.4;n+=run*w;d+=w;
-    });
-    const raw=d?n/d:NEUTRAL;
-    // 5走未満は「成績が悪い」と決めつけず、証拠量が少ない分だけ中立値へ縮小する。
-    const credibility=Math.min(1,d/FULL_WEIGHT);
-    return clamp(NEUTRAL+(raw-NEUTRAL)*credibility,25,100);
-  };
+  const recentScore=rows=>finalRecentScore(rows);
 
   let installed=false;
   function finalRecentScore(rows){
