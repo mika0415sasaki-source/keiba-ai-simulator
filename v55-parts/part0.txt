@@ -682,7 +682,7 @@ function historyBeforeTargetRace(rows){
   x=s.match(/\\b(20\d{2})(\d{2})(\d{2})\\b/);
   if(x)return x[1]+x[2]+x[3];
   x=s.match(/(?:^|\\D)(\d{1,2})[\/-\\.](\d{1,2})(?:$|\\D)/);
-  if(x)return String(year)+String(+x[1]).padStart(2,"0")+String(+x[2]).padStart(2,"0");
+  if(x){const mo=+x[1],day=+x[2],tm=+target.slice(4,6),td=+target.slice(6,8),y=(mo>tm||(mo===tm&&day>=td))?year-1:year;return String(y)+String(mo).padStart(2,"0")+String(day).padStart(2,"0");}
   return "";
  };
  return (Array.isArray(rows)?rows:[]).map((r,i)=>({r,i,d:key(r?.date||r?.race_date||r?.raceDate||r?.開催日||r?.date_text)}))
