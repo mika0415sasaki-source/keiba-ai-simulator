@@ -121,7 +121,7 @@
         if(need.length)await fallbackPass(need);
 
         if(preentry()){for(const h of horses){const s=inferStyle(h);if(s)h.style=s}}
-        renderHorses();evalAll();if(typeof renderPaceReason==='function')renderPaceReason();scheduleFix();
+        evalAll();renderHorses();if(typeof renderPaceReason==='function')renderPaceReason();scheduleFix();
         const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length,fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
         const hc=document.getElementById('histCount'); if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
         if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。'+(jraN?'JRA照合で'+fills+'項目を補完。':''));
