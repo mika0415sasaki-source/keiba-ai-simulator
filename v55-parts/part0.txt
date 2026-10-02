@@ -777,7 +777,7 @@ function bloodScore(h){const s=[h.sire,h.dam,h.damsire].filter(Boolean).length;r
 function evalAll(){
  renderPaceReason();const venue=document.getElementById("venue").value,dist=+document.getElementById("distance").value,surface=document.getElementById("surface").value,going=document.getElementById("going").value,pace=document.getElementById("pace").value==="自動"?(raceMeta.autoPace||"ミドル"):document.getElementById("pace").value;
  evaluated=horses.map(h=>{
-  const sc=(h.histScores?.available?h.histScores:scoreLocalHistory(h.jra_history));const q=dataQuality(h);const qualityFactor=cl(q.score/100,.55,1);const jockey=jockeyComboScore(h),blood=bloodScore(h),trainer=n(h.trainer_score,70),condition=n(h.condition_score,72),memory=legacyBonus(h);
+  const freshScore=scoreLocalHistory(h.histScores?.rows||h.history||h.jra_history||[]);const sc={...(h.histScores||{}),...(freshScore||{})};const q=dataQuality(h);const qualityFactor=cl(q.score/100,.55,1);const jockey=jockeyComboScore(h),blood=bloodScore(h),trainer=n(h.trainer_score,70),condition=n(h.condition_score,72),memory=legacyBonus(h);
   let base=sc.speed*weights.speed+sc.last3f*weights.last3f+sc.course*weights.course+sc.distance*weights.distance+jockey*weights.jockey+blood*weights.blood+trainer*weights.trainer+condition*weights.condition;
   base=base*qualityFactor + memory;const style=h.style||inferStyleFromJra(h);let paceAdj=0;if(pace==="ハイ")paceAdj=style==="差"||style==="追"?4:style==="逃"?-3:0;if(pace==="スロー")paceAdj=style==="逃"||style==="先"?3:style==="追"?-2:0;
   let goingAdj=0;const hist=activeHistory(h).filter(r=>r.going===going&&r.rank);if(hist.length){const av=hist.reduce((a,r)=>a+(+r.rank),0)/hist.length;goingAdj=cl(5-av,-4,4)}
