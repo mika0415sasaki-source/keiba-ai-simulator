@@ -98,7 +98,23 @@
   };
 
   let installed=false;
-  function apply(){
+  function finalRecentScore(rows){
+  const rr=completed(rows);
+  if(!rr.length)return 50;
+  let n=0,d=0;
+  rr.forEach((r,i)=>{
+    const rank=+r.rank,field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);
+    const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
+    const g=GRADE[gradeOf(r)]||68,rel=relevance(r,target());
+    const run=.55*pos+.15*g+.30*rel,w=REC[i]||.4;
+    n+=run*w;d+=w;
+  });
+  const raw=n/d;
+  const credibility=Math.min(1,rr.length/5);
+  return clamp(NEUTRAL+(raw-NEUTRAL)*credibility,25,100);
+}
+
+function apply(){
     if(!Array.isArray(window.horses)||!window.horses.length)return;
     for(const h of window.horses){
       if(Array.isArray(h?.history)&&h.history.length)h.history=historyBeforeTarget(h.history);
