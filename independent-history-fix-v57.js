@@ -1327,6 +1327,24 @@
           return [];
         }
         const value=originalEvalAll.apply(this,arguments);
+        // v57 の近走値を最終評価オブジェクトへ直接反映する。
+        // 旧評価経路が originalEvalAll 後に e.speed を再生成すると、
+        // h.histScores の信頼度補正が画面上で消えてしまうため、ここを最終値とする。
+        if(Array.isArray(evaluated)){
+          for(const e of evaluated){
+            const source=(horses||[]).find(h=>+h?.no===+e?.no||clean(h?.name)===clean(e?.name));
+            const recent=source?.histScores;
+            if(!recent?.available)continue;
+            e.speed=+recent.speed;
+            e.form=+recent.form;
+            e.last3f=+recent.last3f;
+            e.closing=+recent.closing;
+            e.distance=+recent.distance;
+            e.course=+recent.course;
+            e.going=+recent.going;
+            e.histScores=recent;
+          }
+        }
         rerenderBodyAwareRanking();
         scheduleOddsFix();
         return value;
