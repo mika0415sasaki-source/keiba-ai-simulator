@@ -79,6 +79,7 @@
     if(t.surface&&r.surface&&String(r.surface)!==t.surface)d=Math.min(d,55);
     return d;
   };
+  window.__recentScoreAuthoritative=finalRecentScore;
   const recentScore=rows=>finalRecentScore(rows);
 
   let installed=false;
