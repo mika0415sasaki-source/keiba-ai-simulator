@@ -204,7 +204,8 @@ function winPopularityFor(h){
  if(w[no]){const p=pick(w[no]);if(p)return p}
  if(Array.isArray(w)){const r=w.find(x=>String(+(x.no??x.horse_no??x.number))===no);const p=pick(r);if(p)return p}
  for(const [k,v] of Object.entries(w)){if(String(+k)===no){const p=pick(v);if(p)return p}if(v&&typeof v==="object"&&String(+(v.no??v.horse_no??v.number))===no){const p=pick(v);if(p)return p}}
- return null;
+ const horsePopularity=pick(h?.popularity)??pick(h?.forecast_popularity)??pick(h?.netkeiba_forecast_popularity)??pick(h?.netkeiba_actual_popularity);
+ return horsePopularity;
 }
 function winOddsFor(h){
  const no=String(+h.no), w=oddsCache?.win||{};
