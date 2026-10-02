@@ -44,7 +44,7 @@
       m=s.match(/\\b(20\\d{2})(\\d{2})(\\d{2})\\b/);
       if(m)return m[1]+m[2]+m[3];
       m=s.match(/(?:^|\\D)(\\d{1,2})[\\/-\\.](\\d{1,2})(?:$|\\D)/);
-      if(m&&targetYear){const mo=+m[1],day=+m[2],tdk=targetDateKey(),tm=tdk?+tdk.slice(4,6):0,td=tdk?+tdk.slice(6,8):0,y=(mo>tm||(mo===tm&&day>=td))?targetYear-1:targetYear;return String(y)+String(mo).padStart(2,'0')+String(day).padStart(2,'0');}
+      if(m&&targetYear){const mo=+m[1],day=+m[2],tdk=targetDateKey(),tm=tdk?+tdk.slice(4,6):0,td=tdk?+tdk.slice(6,8):0,y=(mo>tm||(mo===tm&&day>td))?targetYear-1:targetYear;return String(y)+String(mo).padStart(2,'0')+String(day).padStart(2,'0');}
     }
     const ids=[r?.race_id,r?.raceId,r?.raceid];
     for(const raw of ids){
