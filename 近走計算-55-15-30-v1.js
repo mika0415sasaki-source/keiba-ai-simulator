@@ -98,6 +98,22 @@
   return clamp(NEUTRAL+(raw-NEUTRAL)*credibility,25,100);
 }
 
+function patchRenderedRecentScores(){
+    try{
+      const root=document.getElementById('horses');
+      if(!root||!Array.isArray(window.horses))return;
+      for(const h of window.horses){
+        const score=Number(h?.histScores?.speed);
+        if(!Number.isFinite(score))continue;
+        const card=[...root.querySelectorAll('.card')].find(card=>String(card.querySelector('.rank')?.textContent||'').includes(String(h?.name||'')));
+        if(!card)continue;
+        const metric=[...card.querySelectorAll('.metric')].find(x=>String(x.querySelector('span')?.textContent||'').trim()==='近走');
+        const b=metric?.querySelector('b');
+        if(b)b.textContent=score.toFixed(1);
+      }
+    }catch(e){console.warn('recent score DOM patch',e)}
+  }
+
 function apply(){
     if(!Array.isArray(window.horses)||!window.horses.length)return;
     for(const h of window.horses){
@@ -116,6 +132,7 @@ function apply(){
         return rows.length?{...e,speed:recentScore(rows),recentScore:recentScore(rows)}:e;
       });
     }
+    patchRenderedRecentScores();
   }
   function install(){
     if(installed)return true;
