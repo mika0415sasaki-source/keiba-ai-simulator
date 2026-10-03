@@ -83,7 +83,7 @@
     const fn=function(rows){
       let out={};try{out=old.apply(this,arguments)||{}}catch(_){out={}}
       const rr=completed(rows);
-      return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'20260910-v305-baseline'};
+      return {...out,available:rr.length>0,speed:Number.isFinite(+out.speed)?+out.speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'20260910-v305-baseline'};
     };
     fn.__baseline20260910V358=true;fn.__original=old;
     try{window.scoreLocalHistory=fn;scoreLocalHistory=fn}catch(_){}
