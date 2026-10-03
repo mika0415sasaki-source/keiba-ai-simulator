@@ -104,8 +104,10 @@
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
     const ai=Number.isFinite(+h?.score)?+h.score:65;
-    // 表示近走35% / 複勝圏安定度25% / コース・距離・馬場20% /
-    // 上がり10% / AI指数5% / データ信頼度5%
+    // 固定の35%/25%/20%…という任意配分は使わない。
+    // 3着内は「どれか1軸だけ突出」よりも、複数の評価軸が揃っている馬を
+    // 安定馬として評価するため、取得済み各軸の調和平均でまとめる。
+    // 直近5走が少ない場合だけ、中立値65へ寄せてデータ不足を抑える。
     const count=performances.length;
     const credibility=clamp(count/5,0,1);
     const displayedRecent=Number.isFinite(+h?.speed)?+h.speed:NaN;
@@ -113,7 +115,13 @@
     const recent=65+(recentBase-65)*credibility;
     const stable=65+(consistency-65)*credibility;
     const reliability=65+35*credibility;
-    return clamp(recent*.35+stable*.25+balance*.20+closing*.10+ai*.05+reliability*.05,25,99);
+    const axesForPlace=[recent,stable,balance,closing,ai,reliability]
+      .map(Number)
+      .filter(Number.isFinite);
+    if(!axesForPlace.length)return 65;
+    const harmonicDen=axesForPlace.reduce((s,v)=>s+1/Math.max(1,v),0);
+    const harmonic=axesForPlace.length/harmonicDen;
+    return clamp(harmonic,25,99);
   }
 
   function placeShares(rows){
