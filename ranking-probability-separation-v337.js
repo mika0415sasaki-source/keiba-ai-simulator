@@ -104,11 +104,13 @@
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
     const ai=Number.isFinite(+h?.score)?+h.score:65;
-    // 近走35% / 複勝圏安定度25% / コース・距離・馬場20% /
+    // 表示近走35% / 複勝圏安定度25% / コース・距離・馬場20% /
     // 上がり10% / AI指数5% / データ信頼度5%
     const count=performances.length;
     const credibility=clamp(count/5,0,1);
-    const recent=65+(inMoney-65)*credibility;
+    const displayedRecent=Number.isFinite(+h?.speed)?+h.speed:NaN;
+    const recentBase=Number.isFinite(displayedRecent)?displayedRecent:inMoney;
+    const recent=65+(recentBase-65)*credibility;
     const stable=65+(consistency-65)*credibility;
     const reliability=65+35*credibility;
     return clamp(recent*.35+stable*.25+balance*.20+closing*.10+ai*.05+reliability*.05,25,99);
