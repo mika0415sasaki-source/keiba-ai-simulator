@@ -4,7 +4,7 @@
 
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
   const AI_WEIGHT=.70, MARKET_WEIGHT=.30, T=5.0;
-  const PLACE_MODEL_WEIGHT=.85, PLACE_MARKET_WEIGHT=.15, PLACE_T=6.5;
+  const PLACE_MODEL_WEIGHT=.90, PLACE_MARKET_WEIGHT=.10, PLACE_T=6.5;
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tenth=v=>Math.round(v*10)/10;
@@ -72,6 +72,10 @@
 
   // 3着内率は「勝ち切る強度」と分離し、近走の複勝圏実績・着順の安定度・
   // 評価軸の弱点を使う。取得済みデータだけを参照し、欠損は中立扱いにする。
+  // 3着内率は「勝ち切る強度」から明確に分離する。
+  // 直近の複勝圏実績・安定度を最優先し、コース/距離/馬場/上がり適性を補助、
+  // AI指数は最後の補助情報とする。脚質・展開の専用データは現行データ経路に
+  // 安定して存在しないため、未取得を推測値で埋めず今回は加点しない。
   function placeProfile(h){
     const src=horseSource(h),history=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
     let inMoneyN=0,inMoneyD=0;const performances=[];
@@ -92,14 +96,22 @@
       const variance=performances.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
       consistency=clamp(100-Math.sqrt(variance)*1.8,35,100);
     }
-    const axes=[h?.speed,h?.course,h?.distance,h?.gradeScore];
+    const axes=[h?.course,h?.distance,h?.going];
     if((+h?.closingSamples||0)>0)axes.push(h?.last3f);
     const validAxes=axes.map(Number).filter(Number.isFinite);
     const balance=validAxes.length
-      ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.65+Math.min(...validAxes)*.35
+      ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.60+Math.min(...validAxes)*.40
       : 65;
+    const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
     const ai=Number.isFinite(+h?.score)?+h.score:65;
-    return clamp(ai*.50+inMoney*.30+consistency*.12+balance*.08,25,99);
+    // 近走35% / 複勝圏安定度25% / コース・距離・馬場20% /
+    // 上がり10% / AI指数5% / データ信頼度5%
+    const count=performances.length;
+    const credibility=clamp(count/5,0,1);
+    const recent=65+(inMoney-65)*credibility;
+    const stable=65+(consistency-65)*credibility;
+    const reliability=65+35*credibility;
+    return clamp(recent*.35+stable*.25+balance*.20+closing*.10+ai*.05+reliability*.05,25,99);
   }
 
   function placeShares(rows){
@@ -142,7 +154,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性85%+単勝市場15%':'1着AI100%／3着内安定性100%';
+      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性90%+単勝市場10%':'1着AI100%／3着内安定性100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -150,7 +162,7 @@
     probOrder.forEach((h,i)=>h.probabilityRankV337=i+1);
     placeOrder.forEach((h,i)=>h.placeProbabilityRankV337=i+1);
     document.documentElement.dataset.rankingModel='ai-ability-only-v337';
-    document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability85-market15-v337';
+    document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability90-market10-v337';
     document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
     return true;
   }
@@ -170,7 +182,7 @@
           note.style.cssText='margin:-2px 0 10px;line-height:1.55;color:#9fb0cf';
           ranking.parentNode.insertBefore(note,ranking);
         }
-        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝人気30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝安定性モデル${market?'85%＋単勝人気15%':'100%（市場未取得）'}`;
+        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝人気30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝安定性モデル${market?'90%＋単勝人気10%':'100%（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
       cards.forEach((card,i)=>{
@@ -204,7 +216,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・評価軸の弱点を加えた別モデルで算出します。`;
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績35%・着順安定度25%・コース/距離/馬場20%・上がり10%・AI指数5%・データ信頼度5%で作る別モデルで算出します。`;
     }
   }
 
