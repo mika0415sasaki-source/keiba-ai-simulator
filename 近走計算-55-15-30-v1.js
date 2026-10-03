@@ -55,18 +55,32 @@
   }
 
   // 予想対象レースと同日以降の結果は、予想時点では存在しないため近走から除外する。
-  // 日付を解釈できない行は、既存データを壊さないため残す。
+  // 対象日が取れている場合、日付を解釈できない行も近走には入れない。
+  // 近走の実走数を水増ししないため、同一レースの重複行もここで1走に統合する。
   function historyBeforeTarget(rows){
     if(!Array.isArray(rows)||!rows.length)return [];
     const target=targetDateKey(),year=target?+target.slice(0,4):0;
     const list=rows.map((r,i)=>({r,i,d:rowDateKey(r,year)}));
-    const filtered=target?list.filter(x=>!x.d||x.d<target):list;
-    return filtered.sort((a,b)=>{
+    const filtered=target?list.filter(x=>x.d&&x.d<target):list;
+    const seen=new Set(),unique=[];
+    filtered.sort((a,b)=>{
       if(a.d&&b.d)return b.d.localeCompare(a.d);
-      if(a.d&&!b.d)return -1;
-      if(!a.d&&b.d)return 1;
       return a.i-b.i;
-    }).map(x=>x.r);
+    });
+    for(const item of filtered){
+      const r=item.r;
+      const key=[
+        item.d||'',
+        String(r?.venue||''),
+        String(r?.surface||''),
+        Number(r?.distance)||0,
+        Number(r?.rank)||0
+      ].join('|');
+      if(seen.has(key))continue;
+      seen.add(key);
+      unique.push(r);
+    }
+    return unique;
   }
 
   const completed=rows=>historyBeforeTarget(rows)
