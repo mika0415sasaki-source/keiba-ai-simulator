@@ -112,14 +112,12 @@
     const recentBase=Number.isFinite(displayedRecent)?displayedRecent:inMoney;
     const recent=65+(recentBase-65)*credibility;
     const stable=65+(consistency-65)*credibility;
+    const components=[recent,stable,balance,closing,ai].map(v=>clamp(Number(v)||65,25,99));
+    const geometric=Math.exp(components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length);
     const reliability=65+35*credibility;
     return clamp(
-      recent*.35+
-      stable*.25+
-      balance*.20+
-      closing*.10+
-      ai*.05+
-      reliability*.05,
+      geometric*credibility+65*(1-credibility)+
+      (reliability-65)*.08,
       25,99
     );
   }
