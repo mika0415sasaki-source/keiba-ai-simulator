@@ -205,9 +205,11 @@
         // ranking-summary-main直下の重複する順位行だけを除去する。
         const summaryMain=card.querySelector('.ranking-summary-main');
         if(summaryMain){
-          const rankRows=[...summaryMain.children].filter(node=>{
+          // 他の描画経路が順位バッジを後から内側へ追加しても、1段だけ残す。
+          // 直下だけでなく配下の順位行も対象にし、同じ内容の重複表示を防ぐ。
+          const rankRows=[...summaryMain.querySelectorAll('*')].filter(node=>{
             const t=String(node.textContent||'');
-            return /1着率/.test(t)&&/3着内率/.test(t);
+            return /1着率/.test(t)&&/3着内率/.test(t)&&node.children.length>=2;
           });
           const preferred=rankRows.find(node=>/AI順位/.test(String(node.textContent||'')))||rankRows[0];
           rankRows.forEach(node=>{if(node!==preferred)node.remove()});
@@ -236,7 +238,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績35%・着順安定度25%・コース/距離/馬場20%・上がり10%・AI指数5%・データ信頼度5%の安定性モデルに、単勝人気を15%だけ補助的に加味して算出します。`;
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・AI指数を幾何平均で統合し、走数が少ない場合は中立値へ縮小する安定性モデルに、単勝市場を15%だけ補助的に加味して算出します。`;
     }
   }
 
