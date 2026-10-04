@@ -4,7 +4,7 @@
 
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
   const AI_WEIGHT=.70, MARKET_WEIGHT=.30, T=5.0;
-  const PLACE_MODEL_WEIGHT=.90, PLACE_MARKET_WEIGHT=.10, PLACE_T=6.5;
+  const PLACE_MODEL_WEIGHT=.85, PLACE_MARKET_WEIGHT=.15, PLACE_T=6.5;
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tenth=v=>Math.round(v*10)/10;
@@ -104,10 +104,8 @@
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
     const ai=Number.isFinite(+h?.score)?+h.score:65;
-    // 固定の35%/25%/20%…という任意配分は使わない。
-    // 3着内は「どれか1軸だけ突出」よりも、複数の評価軸が揃っている馬を
-    // 安定馬として評価するため、取得済み各軸の調和平均でまとめる。
-    // 直近5走が少ない場合だけ、中立値65へ寄せてデータ不足を抑える。
+    // 3着内率は直近5走35% / 安定度25% / コース・距離・馬場20% /
+    // 上がり10% / AI指数5% / データ信頼度5% の別モデルで算出する。
     const count=performances.length;
     const credibility=clamp(count/5,0,1);
     const displayedRecent=Number.isFinite(+h?.speed)?+h.speed:NaN;
@@ -115,13 +113,15 @@
     const recent=65+(recentBase-65)*credibility;
     const stable=65+(consistency-65)*credibility;
     const reliability=65+35*credibility;
-    const axesForPlace=[recent,stable,balance,closing,ai,reliability]
-      .map(Number)
-      .filter(Number.isFinite);
-    if(!axesForPlace.length)return 65;
-    const harmonicDen=axesForPlace.reduce((s,v)=>s+1/Math.max(1,v),0);
-    const harmonic=axesForPlace.length/harmonicDen;
-    return clamp(harmonic,25,99);
+    return clamp(
+      recent*.35+
+      stable*.25+
+      balance*.20+
+      closing*.10+
+      ai*.05+
+      reliability*.05,
+      25,99
+    );
   }
 
   function placeShares(rows){
@@ -164,7 +164,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性90%+単勝市場10%':'1着AI100%／3着内安定性100%';
+      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性85%+単勝市場15%':'1着AI100%／3着内安定性100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -226,7 +226,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績35%・着順安定度25%・コース/距離/馬場20%・上がり10%・AI指数5%・データ信頼度5%で作る別モデルで算出します。`;
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績35%・着順安定度25%・コース/距離/馬場20%・上がり10%・AI指数5%・データ信頼度5%の安定性モデルに、単勝人気を15%だけ補助的に加味して算出します。`;
     }
   }
 
