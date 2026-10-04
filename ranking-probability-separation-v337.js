@@ -202,6 +202,18 @@
           const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||i+1)-1]||'';
           rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
         }
+        // 順位バッジは1段だけ残す。旧表示処理とv345系の両方が走った場合に
+        // 「AI順位・1着率・3着内率」と「1着率・3着内率」が二重表示されるため、
+        // ranking-summary-main直下の重複する順位行だけを除去する。
+        const summaryMain=card.querySelector('.ranking-summary-main');
+        if(summaryMain){
+          const rankRows=[...summaryMain.children].filter(node=>{
+            const t=String(node.textContent||'');
+            return /1着率/.test(t)&&/3着内率/.test(t);
+          });
+          const preferred=rankRows.find(node=>/AI順位/.test(String(node.textContent||'')))||rankRows[0];
+          rankRows.forEach(node=>{if(node!==preferred)node.remove()});
+        }
         const details=card.querySelector('.ranking-card-details');
         if(details){
           const metrics=[...details.querySelectorAll('.metric')];
