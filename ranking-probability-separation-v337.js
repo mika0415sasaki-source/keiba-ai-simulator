@@ -172,7 +172,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性85%+単勝市場15%':'1着AI100%／3着内安定性100%';
+      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内モデル85%+単勝市場15%':'1着AI100%／3着内モデル100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -180,7 +180,7 @@
     probOrder.forEach((h,i)=>h.probabilityRankV337=i+1);
     placeOrder.forEach((h,i)=>h.placeProbabilityRankV337=i+1);
     document.documentElement.dataset.rankingModel='ai-ability-only-v337';
-    document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability90-market10-v337';
+    document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability85-market15-v337';
     document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
     return true;
   }
@@ -200,7 +200,7 @@
           note.style.cssText='margin:-2px 0 10px;line-height:1.55;color:#9fb0cf';
           ranking.parentNode.insertBefore(note,ranking);
         }
-        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝人気30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝安定性モデル${market?'90%＋単勝人気10%':'100%（市場未取得）'}`;
+        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝市場30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
       cards.forEach((card,i)=>{
@@ -248,7 +248,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を幾何平均で統合し、走数が少ない場合は中立値へ縮小する安定性モデルに、単勝市場を15%だけ補助的に加味して算出します。`;
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を幾何平均で統合し、走数が少ない場合は中立値へ縮小する別モデルです。単勝市場が取得できる場合のみ15%を補助的に加味します。`;
     }
   }
 
