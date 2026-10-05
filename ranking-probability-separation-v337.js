@@ -22,6 +22,20 @@
     if(/未勝利/.test(s))return'未勝利';if(/新馬/.test(s))return'新馬';return'';
   };
   const gradeScore=r=>GRADE[gradeOf(r)]||68;
+  const raceRating=r=>{
+    const v=Number(r?.rating??r?.rt??r?.race_rating??r?.horse_rating);
+    return Number.isFinite(v)&&v>=70&&v<=130?v:null;
+  };
+  const performanceStrength=(r,field=16)=>{
+    const rank=+r?.rank;if(!Number.isFinite(rank)||rank<=0)return 65;
+    const fs=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:field);
+    const pct=(rank-1)/Math.max(1,fs-1);
+    const finish=clamp(100-pct*75,25,100);
+    const grade=gradeScore(r);
+    const rt=raceRating(r);
+    const ratingScore=rt==null?68:clamp(50+(rt-90)*2.0,30,100);
+    return clamp(finish*.55+grade*.25+ratingScore*.20,25,100);
+  };
   const activeRows=arr=>(Array.isArray(arr)?arr:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')));
 
   // 同じレースを実際に走った現出走馬同士の直接比較。
@@ -139,11 +153,10 @@
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
       const field=Math.max(rank,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,2);
       const percentile=(rank-1)/Math.max(1,field-1);
-      const rankPerformance=clamp(100-percentile*75,25,100);
       const grade=gradeScore(r);
-      const performance=clamp(rankPerformance*.70+grade*.20+headToHead*.10,25,100);
+      const performance=clamp(performanceStrength(r,field)*.90+headToHead*.10,25,100);
       const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
-      const inMoney=clamp(rankInMoney*.70+grade*.20+headToHead*.10,25,100);
+      const inMoney=clamp(performanceStrength(r,field)*.85+headToHead*.15,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
     });
