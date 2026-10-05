@@ -143,7 +143,7 @@
           <span class="v350-chip">ワイド <b>${d.wideN}点</b></span>
           <span class="v350-chip">3連複 <b>${d.trioN}点</b></span>
         </div>
-        <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55">AI順位は能力・適性のみ。1着率はAI70%＋単勝市場30%。3着内率は近走・着順安定度・コース/距離/馬場・上がり・騎手相性を使う別モデルで、単勝市場が取得できる場合のみ15%を補助。netkeiba5走を主評価し、JRA4走は空欄のみ補完。残る欠損は該当評価軸から除外。騎手は現騎手×当馬のJRA前4走コンビ成績を反映。馬場補正ON。</div></details>
+        <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55">【現行仕様】AI順位は能力・適性のみ。1着率はAI70%＋単勝市場30%。3着内率は近走・着順安定度・コース/距離/馬場・上がり・騎手相性を使う別モデルで、単勝市場が取得できる場合のみ15%を補助。netkeiba5走を主評価し、JRA4走は空欄のみ補完。残る欠損は該当評価軸から除外。騎手は現騎手×当馬のJRA前4走コンビ成績を反映。馬場補正ON。</div></details>
       </div>`;
     document.documentElement.dataset.uiSummaryStable='v350';
   }
