@@ -104,14 +104,22 @@
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
     // 3着内率は勝ち切り能力を直接流用せず、近5走の複勝圏実績と
-    // 着順安定度を中心に、コース/距離/馬場・上がり適性を補助する。
-    // h.speed は既に加工済みの「近走」表示値なので二重計上を避け、ここでは
-    // 元の履歴から算出した inMoney を使う。AI指数も直接は加算しない。
+    // 着順安定度を中心に、コース/距離/馬場・上がり適性・騎手相性を補助する。
+    // h.speed は既に加工済みの「近走」表示値なので二重計上を避け、元の履歴から
+    // inMoney を使う。AI指数は直接は加算しない。
+    // 騎手相性は既存の jockeyComboScore をそのまま利用し、取得不能時は中立65。
+    const jockey=(()=>{
+      try{
+        const fn=window.jockeyComboScore;
+        const v=typeof fn==='function'?fn(h):Number(h?.jockey_combo);
+        return Number.isFinite(+v)?+v:65;
+      }catch(_){return 65}
+    })();
     const count=performances.length;
     const credibility=clamp(count/5,0,1);
     const recent=65+(inMoney-65)*credibility;
     const stable=65+(consistency-65)*credibility;
-    const components=[recent,stable,balance,closing]
+    const components=[recent,stable,balance,closing,jockey]
       .map(v=>clamp(Number(v)||65,25,99));
     const geometric=Math.exp(
       components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length
@@ -240,7 +248,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・AI指数を幾何平均で統合し、走数が少ない場合は中立値へ縮小する安定性モデルに、単勝市場を15%だけ補助的に加味して算出します。`;
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を幾何平均で統合し、走数が少ない場合は中立値へ縮小する安定性モデルに、単勝市場を15%だけ補助的に加味して算出します。`;
     }
   }
 
