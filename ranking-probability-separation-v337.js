@@ -24,6 +24,42 @@
   const gradeScore=r=>GRADE[gradeOf(r)]||68;
   const activeRows=arr=>(Array.isArray(arr)?arr:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')));
 
+  // 同じレースを実際に走った現出走馬同士の直接比較。
+  // 特定の馬名を固定せず、履歴に同一レースが存在する組み合わせだけを使う。
+  const raceKey=r=>{
+    const date=String(r?.date||r?.race_date||r?.raceDate||'').replace(/[^0-9]/g,'');
+    const name=String(r?.race_name||r?.raceName||r?.name||r?.title||'').normalize('NFKC').trim();
+    const course=String(r?.course_name||r?.track||r?.venue||'').normalize('NFKC').trim();
+    const dist=String(r?.distance||r?.dist||'').replace(/[^0-9]/g,'');
+    return [date,name,course,dist].filter(Boolean).join('|');
+  };
+  const headToHeadScore=(h,allRows)=>{
+    const src=horseSource(h);
+    const hist=Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[]);
+    const out=[];
+    (Array.isArray(allRows)?allRows:[]).forEach(other=>{
+      if(other===h)return;
+      const oh=horseSource(other);
+      const ohist=Array.isArray(oh?.history)&&oh.history.length?oh.history:(Array.isArray(oh?.jra_history)?oh.jra_history:[]);
+      hist.forEach(r=>{
+        const myRank=+r?.rank;
+        if(!Number.isFinite(myRank)||myRank<=0)return;
+        const key=raceKey(r);if(!key)return;
+        const mate=ohist.find(x=>raceKey(x)===key);
+        const oppRank=+mate?.rank;
+        if(!Number.isFinite(oppRank)||oppRank<=0)return;
+        const field=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:(Number.isFinite(+mate?.field_size)&&+mate.field_size>=2?+mate.field_size:Math.max(myRank,oppRank,16)));
+        const diff=(oppRank-myRank)/Math.max(1,field-1);
+        const grade=Math.max(54,gradeScore(r));
+        const w=(RECENCY[hist.indexOf(r)]||.4)*(grade/100);
+        out.push({score:clamp(50+diff*30,25,75),weight:w});
+      });
+    });
+    if(!out.length)return 65;
+    const den=out.reduce((s,x)=>s+x.weight,0)||1;
+    return clamp(out.reduce((s,x)=>s+x.score*x.weight,0)/den,25,75);
+  };
+
   function marketAdjustment(h){
     const o=Number(h?.winOdds);
     if(!Number.isFinite(o)||o<=1)return 0;
@@ -90,8 +126,9 @@
   // 直近の複勝圏実績・安定度を最優先し、コース/距離/馬場/上がり適性を補助、
   // AI指数は最後の補助情報とする。脚質・展開の専用データは現行データ経路に
   // 安定して存在しないため、未取得を推測値で埋めず今回は加点しない。
-  function placeProfile(h){
+  function placeProfile(h,allRows){
     const src=horseSource(h),history=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
+    const headToHead=headToHeadScore(h,allRows);
     let inMoneyN=0,inMoneyD=0;const performances=[];
     history.forEach((r,i)=>{
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
@@ -99,9 +136,9 @@
       const percentile=(rank-1)/Math.max(1,field-1);
       const rankPerformance=clamp(100-percentile*75,25,100);
       const grade=gradeScore(r);
-      const performance=clamp(rankPerformance*.75+grade*.25,25,100);
+      const performance=clamp(rankPerformance*.70+grade*.20+headToHead*.10,25,100);
       const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
-      const inMoney=clamp(rankInMoney*.75+grade*.25,25,100);
+      const inMoney=clamp(rankInMoney*.70+grade*.20+headToHead*.10,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
     });
@@ -149,7 +186,7 @@
   }
 
   function placeShares(rows){
-    const scores=rows.map(placeProfile),max=scores.length?Math.max(...scores):0;
+    const scores=rows.map(h=>placeProfile(h,rows)),max=scores.length?Math.max(...scores):0;
     const raw=scores.map(v=>Math.exp((v-max)/PLACE_T)),sum=raw.reduce((a,b)=>a+b,0)||1;
     rows.forEach((h,i)=>h.placeModelScoreV337=tenth(scores[i]));
     return raw.map(v=>v/sum);
