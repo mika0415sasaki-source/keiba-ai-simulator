@@ -103,17 +103,19 @@
       ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.60+Math.min(...validAxes)*.40
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
-    const ai=Number.isFinite(+h?.score)?+h.score:65;
-    // 3着内率は直近5走35% / 安定度25% / コース・距離・馬場20% /
-    // 上がり10% / AI指数5% / データ信頼度5% の別モデルで算出する。
+    // 3着内率は勝ち切り能力を直接流用せず、近5走の複勝圏実績と
+    // 着順安定度を中心に、コース/距離/馬場・上がり適性を補助する。
+    // h.speed は既に加工済みの「近走」表示値なので二重計上を避け、ここでは
+    // 元の履歴から算出した inMoney を使う。AI指数も直接は加算しない。
     const count=performances.length;
     const credibility=clamp(count/5,0,1);
-    const displayedRecent=Number.isFinite(+h?.speed)?+h.speed:NaN;
-    const recentBase=Number.isFinite(displayedRecent)?displayedRecent:inMoney;
-    const recent=65+(recentBase-65)*credibility;
+    const recent=65+(inMoney-65)*credibility;
     const stable=65+(consistency-65)*credibility;
-    const components=[recent,stable,balance,closing,ai].map(v=>clamp(Number(v)||65,25,99));
-    const geometric=Math.exp(components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length);
+    const components=[recent,stable,balance,closing]
+      .map(v=>clamp(Number(v)||65,25,99));
+    const geometric=Math.exp(
+      components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length
+    );
     const reliability=65+35*credibility;
     return clamp(
       geometric*credibility+65*(1-credibility)+
