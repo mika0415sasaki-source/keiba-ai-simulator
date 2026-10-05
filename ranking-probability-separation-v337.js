@@ -97,7 +97,6 @@
       consistency=clamp(100-Math.sqrt(variance)*1.8,35,100);
     }
     const axes=[h?.course,h?.distance,h?.going];
-    if((+h?.closingSamples||0)>0)axes.push(h?.last3f);
     const validAxes=axes.map(Number).filter(Number.isFinite);
     const balance=validAxes.length
       ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.60+Math.min(...validAxes)*.40
