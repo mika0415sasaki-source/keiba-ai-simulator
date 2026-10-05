@@ -38,6 +38,24 @@
   };
   const activeRows=arr=>(Array.isArray(arr)?arr:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')));
 
+  // AI順位側にも、近走の「実績レース強度」を限定的に反映する。
+  // 近走表示値そのものは変更せず、着順×レース格×取得済みレーティングから別軸を作る。
+  // 欠損は中立値にし、特定馬名には依存しない。
+  function recentRaceStrength(h){
+    const src=horseSource(h);
+    const hist=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
+    let n=0,d=0;
+    hist.forEach((r,i)=>{
+      const rank=+r?.rank;
+      if(!Number.isFinite(rank)||rank<=0)return;
+      const field=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,rank);
+      const value=performanceStrength(r,field);
+      const w=RECENCY[i]||.4;
+      n+=value*w;d+=w;
+    });
+    return d?clamp(n/d,25,99):65;
+  }
+
   // 同じレースを実際に走った現出走馬同士の直接比較。
   // 特定の馬名を固定せず、履歴に同一レースが存在する組み合わせだけを使う。
   const raceKey=r=>{
@@ -96,7 +114,11 @@
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
         h.marketScoreAdjustmentV337=adj;
-        h.score=tenth(clamp(before-adj,0,100));
+        const raceStrength=recentRaceStrength(h);
+        // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
+        // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
+        h.raceStrengthV337=tenth(raceStrength);
+        h.score=tenth(clamp(before*.85+raceStrength*.15-adj,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
