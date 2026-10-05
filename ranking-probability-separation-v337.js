@@ -27,15 +27,20 @@
   // 同じレースを実際に走った現出走馬同士の直接比較。
   // 特定の馬名を固定せず、履歴に同一レースが存在する組み合わせだけを使う。
   const raceKey=r=>{
+    const id=String(r?.race_id||r?.raceId||r?.race_key||'').trim();
     const date=String(r?.date||r?.race_date||r?.raceDate||'').replace(/[^0-9]/g,'');
-    const name=String(r?.race_name||r?.raceName||r?.name||r?.title||'').normalize('NFKC').trim();
+    const name=String(r?.race_name||r?.raceName||r?.title||'').normalize('NFKC').trim();
     const course=String(r?.course_name||r?.track||r?.venue||'').normalize('NFKC').trim();
     const dist=String(r?.distance||r?.dist||'').replace(/[^0-9]/g,'');
-    return [date,name,course,dist].filter(Boolean).join('|');
+    if(id)return 'id|'+id;
+    if(!date)return '';
+    if(name)return [date,name,course,dist].join('|');
+    if(course&&dist)return [date,course,dist].join('|');
+    return '';
   };
   const headToHeadScore=(h,allRows)=>{
     const src=horseSource(h);
-    const hist=Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[]);
+    const hist=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
     const out=[];
     (Array.isArray(allRows)?allRows:[]).forEach(other=>{
       if(other===h)return;
