@@ -8,6 +8,20 @@
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tenth=v=>Math.round(v*10)/10;
+  // 近走の着順だけでなく、実際に走ったレース格も3着内率へ反映する。
+  // 格そのものを別加点せず、着順評価へ25%だけ混ぜて低級条件の好走と重賞好走を区別する。
+  const GRADE={G1:100,G2:94,G3:88,L:82,OP:78,'3勝':72,'2勝':66,'1勝':60,'未勝利':56,'新馬':54};
+  const gradeOf=r=>{
+    const s=String(r?.grade||r?.race_grade||r?.class_name||r?.race_class||r?.class||r?.race_name||r?.raceName||r?.title||r?.race||'').normalize('NFKC').toUpperCase().replace(/\\s+/g,'');
+    if(/G3|GIII|JPN3|JPNIII/.test(s))return'G3';
+    if(/G2|GII|JPN2|JPNII(?!I)/.test(s))return'G2';
+    if(/G1|GI|JPN1|JPNI(?!I)/.test(s))return'G1';
+    if(/リステッド|(^|[^A-Z])L([^A-Z]|$)/.test(s))return'L';
+    if(/オープン|OPEN|OP/.test(s))return'OP';
+    if(/3勝/.test(s))return'3勝';if(/2勝/.test(s))return'2勝';if(/1勝/.test(s))return'1勝';
+    if(/未勝利/.test(s))return'未勝利';if(/新馬/.test(s))return'新馬';return'';
+  };
+  const gradeScore=r=>GRADE[gradeOf(r)]||68;
   const activeRows=arr=>(Array.isArray(arr)?arr:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')));
 
   function marketAdjustment(h){
@@ -83,8 +97,11 @@
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
       const field=Math.max(rank,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,2);
       const percentile=(rank-1)/Math.max(1,field-1);
-      const performance=clamp(100-percentile*75,25,100);
-      const inMoney=rank<=3?100:clamp(72-percentile*45,25,72);
+      const rankPerformance=clamp(100-percentile*75,25,100);
+      const grade=gradeScore(r);
+      const performance=clamp(rankPerformance*.75+grade*.25,25,100);
+      const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
+      const inMoney=clamp(rankInMoney*.75+grade*.25,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
     });
