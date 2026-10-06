@@ -178,7 +178,9 @@
       const grade=gradeScore(r);
       const performance=clamp(performanceStrength(r,field)*.90+headToHead*.10,25,100);
       const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
-      const inMoney=clamp(performanceStrength(r,field)*.85+headToHead*.15,25,100);
+      // 3着内率の主軸は実際の複勝圏実績。従来はrankInMoneyを計算するだけで未使用だったため、
+      // 近走5走の着順が3着以内だった事実がplaceProfileへ反映されず、AI順位寄りに同順化しやすかった。
+      const inMoney=clamp(rankInMoney*.70+performanceStrength(r,field)*.30,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
     });
