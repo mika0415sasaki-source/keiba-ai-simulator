@@ -168,7 +168,7 @@
   // AI指数は最後の補助情報とする。脚質・展開の専用データは現行データ経路に
   // 安定して存在しないため、未取得を推測値で埋めず今回は加点しない。
   function placeProfile(h,allRows){
-    const src=horseSource(h),history=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
+    const src=horseSource(h),history=(Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)&&h.jra_history.length?h.jra_history:(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])))).slice(0,5);
     const headToHead=headToHeadScore(h,allRows);
     let inMoneyN=0,inMoneyD=0;const performances=[];
     history.forEach((r,i)=>{
