@@ -170,39 +170,34 @@
   function placeProfile(h,allRows){
     const src=horseSource(h),history=(Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)&&h.jra_history.length?h.jra_history:(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])))).slice(0,5);
     const headToHead=headToHeadScore(h,allRows);
-    let inMoneyN=0,inMoneyD=0;const performances=[];
+    let inMoneyN=0,inMoneyD=0;const finishValues=[];
     history.forEach((r,i)=>{
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
       const field=Math.max(rank,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,2);
       const percentile=(rank-1)/Math.max(1,field-1);
-      const grade=gradeScore(r);
-      const performance=clamp(performanceStrength(r,field)*.90+headToHead*.10,25,100);
+      // 3着内率の主軸は「実際に3着以内へ入ったか」。
+      // AI側のレース強度・レーティングはここでは混ぜず、着順事実を優先する。
       const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
-      // 3着内率の主軸は実際の複勝圏実績。従来はrankInMoneyを計算するだけで未使用だったため、
-      // 近走5走の着順が3着以内だった事実がplaceProfileへ反映されず、AI順位寄りに同順化しやすかった。
-      const inMoney=clamp(rankInMoney*.70+performanceStrength(r,field)*.30,25,100);
+      const finishScore=clamp(rankInMoney*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
-      inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
+      inMoneyN+=rankInMoney*w;inMoneyD+=w;
+      finishValues.push({value:finishScore,weight:w});
     });
     const inMoney=inMoneyD?inMoneyN/inMoneyD:65;
     let consistency=65;
-    if(performances.length>=2){
-      const wd=performances.reduce((s,x)=>s+x.weight,0)||1;
-      const mean=performances.reduce((s,x)=>s+x.value*x.weight,0)/wd;
-      const variance=performances.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
-      consistency=clamp(100-Math.sqrt(variance)*1.8,35,100);
+    if(finishValues.length>=2){
+      const wd=finishValues.reduce((s,x)=>s+x.weight,0)||1;
+      const mean=finishValues.reduce((s,x)=>s+x.value*x.weight,0)/wd;
+      const variance=finishValues.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
+      // 着順のブレが小さい馬ほど3着内率を高くする。
+      consistency=clamp(100-Math.sqrt(variance)*2.2,35,100);
     }
     const axes=[h?.course,h?.distance,h?.going];
     const validAxes=axes.map(Number).filter(Number.isFinite);
     const balance=validAxes.length
       ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.60+Math.min(...validAxes)*.40
       : 65;
-    const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h?.last3f)?+h.last3f:65;
-    // 3着内率は勝ち切り能力を直接流用せず、近5走の複勝圏実績と
-    // 着順安定度を中心に、コース/距離/馬場・上がり適性・騎手相性を補助する。
-    // h.speed は既に加工済みの「近走」表示値なので二重計上を避け、元の履歴から
-    // inMoney を使う。AI指数は直接は加算しない。
-    // 騎手相性は既存の jockeyComboScore をそのまま利用し、取得不能時は中立65。
+    const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65;
     const jockey=(()=>{
       try{
         const fn=window.jockeyComboScore;
@@ -210,12 +205,14 @@
         return Number.isFinite(+v)?+v:65;
       }catch(_){return 65}
     })();
-    const count=performances.length;
+    const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
     const recent=65+(inMoney-65)*credibility;
     const stable=65+(consistency-65)*credibility;
     const components=[recent,stable,balance,closing,jockey]
       .map(v=>clamp(Number(v)||65,25,99));
+    // 3着内率はAI指数を直接再利用せず、複勝圏実績・安定度を中心に
+    // 適性4軸を補助として統合する。
     const geometric=Math.exp(
       components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length
     );
@@ -226,7 +223,6 @@
       25,99
     );
   }
-
   function placeShares(rows){
     const scores=rows.map(h=>placeProfile(h,rows)),max=scores.length?Math.max(...scores):0;
     const raw=scores.map(v=>Math.exp((v-max)/PLACE_T)),sum=raw.reduce((a,b)=>a+b,0)||1;
