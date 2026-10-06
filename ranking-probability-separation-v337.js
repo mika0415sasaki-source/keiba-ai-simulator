@@ -167,8 +167,21 @@
   // 直近の複勝圏実績・安定度を最優先し、コース/距離/馬場/上がり適性を補助、
   // AI指数は最後の補助情報とする。脚質・展開の専用データは現行データ経路に
   // 安定して存在しないため、未取得を推測値で埋めず今回は加点しない。
+  function placeHistory(h){
+    const src=horseSource(h);
+    const direct=Array.isArray(h?.history)&&h.history.length?h.history:Array.isArray(h?.jra_history)&&h.jra_history.length?h.jra_history:[];
+    if(direct.length)return direct.slice(0,5);
+    const srcRows=Array.isArray(src?.history)&&src.history.length?src.history:Array.isArray(src?.jra_history)?src.jra_history:[];
+    if(srcRows.length)return srcRows.slice(0,5);
+    try{
+      const pool=Array.isArray(window.horses)?window.horses:[];
+      const alt=pool.find(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''));
+      const rows=Array.isArray(alt?.history)&&alt.history.length?alt.history:(Array.isArray(alt?.jra_history)?alt.jra_history:[]);
+      return rows.slice(0,5);
+    }catch(_){return []}
+  }
   function placeProfile(h,allRows){
-    const src=horseSource(h),history=(Array.isArray(h?.history)&&h.history.length?h.history:(Array.isArray(h?.jra_history)&&h.jra_history.length?h.jra_history:(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])))).slice(0,5);
+    const src=horseSource(h),history=placeHistory(h);
     const headToHead=headToHeadScore(h,allRows);
     let inMoneyN=0,inMoneyD=0;const finishValues=[];
     history.forEach((r,i)=>{
@@ -207,8 +220,10 @@
     })();
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
-    const recent=65+(inMoney-65)*credibility;
-    const stable=65+(consistency-65)*credibility;
+    // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
+    // これにより「履歴があるのに全馬同じ→AI順位へフォールバック」という経路を防ぐ。
+    const recent=history.length?clamp(inMoney,25,99):65;
+    const stable=history.length?clamp(consistency,35,99):65;
     const components=[recent,stable,balance,closing,jockey]
       .map(v=>clamp(Number(v)||65,25,99));
     // 3着内率はAI指数を直接再利用せず、複勝圏実績・安定度を中心に
