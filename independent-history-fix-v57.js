@@ -675,7 +675,7 @@
           const count=names.filter(name=>targets.some(h=>clean(h.name)===clean(name)&&netkeibaMarketFor(h))).length;
           forecastMeta={status:'ready',raceKey,oddsType,count,officialDatetime:value.official_datetime||null,snapshotCount:Number(value.snapshot_count)||0,error:''};
           forecastAutoRetryKey='';
-          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
+          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length){rerenderBodyAwareRanking();try{if(typeof window.__refreshRankingProbabilityV337==='function')window.__refreshRankingProbabilityV337()}catch(_){} }
           scheduleOddsFix();
           return forecastMeta;
         }catch(error){
@@ -687,7 +687,7 @@
               if(currentId===raceId)loadNetkeibaForecast(horses,raceUrl()).catch(()=>{});
             },3000);
           }
-          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length)rerenderBodyAwareRanking();
+          if(typeof evaluated!=='undefined'&&Array.isArray(evaluated)&&evaluated.length){rerenderBodyAwareRanking();try{if(typeof window.__refreshRankingProbabilityV337==='function')window.__refreshRankingProbabilityV337()}catch(_){} }
           scheduleOddsFix();
           return forecastMeta;
         }finally{
