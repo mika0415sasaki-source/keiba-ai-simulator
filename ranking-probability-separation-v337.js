@@ -212,7 +212,7 @@
     const balance=sourceAxes.length
       ? sourceAxes.reduce((s,v)=>s+v,0)/sourceAxes.length*.60+Math.min(...sourceAxes)*.40
       : 65;
-    const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65;
+    const closing=Number.isFinite(+h?.placeModelLast3f)?+h.placeModelLast3f:((+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65);
     const jockey=(()=>{
       try{
         const fn=window.jockeyComboScore;
