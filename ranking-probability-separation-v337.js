@@ -114,11 +114,11 @@
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
         h.marketScoreAdjustmentV337=adj;
-        const raceStrength=recentRaceStrength(h);
-        // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
-        // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
-        h.raceStrengthV337=tenth(raceStrength);
-        h.score=tenth(clamp(before*.85+raceStrength*.15-adj,0,100));
+        // AI順位は能力・適性の既存スコアをそのまま使う。
+        // 近走レース強度や単勝市場をAI指数へ二重加算しない。
+        // 1着率だけが後段で「AI 70%＋単勝市場30%」になる。
+        h.raceStrengthV337=tenth(recentRaceStrength(h));
+        h.score=tenth(clamp(before,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
