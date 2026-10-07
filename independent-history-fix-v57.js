@@ -970,8 +970,28 @@
       };
     }
 
+    // 既存のコース・距離補正チェーンを後段で上書きしない。
+    // v57は近走・上がり等を担当し、既存チェーンが算出した course/distance/going を維持する。
+    const priorScoreLocalHistory=typeof scoreLocalHistory==='function'?scoreLocalHistory:null;
     scoreLocalHistory=function(rows){
-      return scoreBalancedHistory(rows);
+      const base=scoreBalancedHistory(rows)||{};
+      if(typeof priorScoreLocalHistory!=='function')return base;
+      const enriched=priorScoreLocalHistory(rows)||{};
+      return {
+        ...base,
+        ...enriched,
+        speed:base.speed,
+        last3f:base.last3f,
+        form:base.form,
+        closing:base.closing,
+        grade:base.grade,
+        gradeSamples:base.gradeSamples,
+        course:enriched.course,
+        distance:enriched.distance,
+        going:enriched.going,
+        courseBasis:enriched.courseBasis||base.courseBasis,
+        samples:{...(base.samples||{}),...(enriched.samples||{})}
+      };
     };
 
     function bodyWeightFeature(h){
