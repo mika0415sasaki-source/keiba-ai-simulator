@@ -320,7 +320,7 @@
           note.style.cssText='margin:-2px 0 10px;line-height:1.55;color:#9fb0cf';
           ranking.parentNode.insertBefore(note,ranking);
         }
-        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝市場30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
+        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 60%＋騎手相性20%＋単勝市場20%':'AI 60%＋騎手相性20%＋中立20%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
       cards.forEach((card,i)=>{
