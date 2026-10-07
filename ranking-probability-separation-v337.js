@@ -205,10 +205,12 @@
       // 着順のブレが小さい馬ほど3着内率を高くする。
       consistency=clamp(100-Math.sqrt(variance)*2.2,35,100);
     }
-    const axes=[h?.course,h?.distance,h?.going];
+    const axes=[h?.placeModelCourse,h?.placeModelDistance,h?.placeModelGoing];
+    const fallbackAxes=[h?.course,h?.distance,h?.going];
     const validAxes=axes.map(Number).filter(Number.isFinite);
-    const balance=validAxes.length
-      ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.60+Math.min(...validAxes)*.40
+    const sourceAxes=validAxes.length?validAxes:fallbackAxes.map(Number).filter(Number.isFinite);
+    const balance=sourceAxes.length
+      ? sourceAxes.reduce((s,v)=>s+v,0)/sourceAxes.length*.60+Math.min(...sourceAxes)*.40
       : 65;
     const closing=(+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65;
     const jockey=(()=>{
