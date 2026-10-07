@@ -3,7 +3,7 @@
   window.__rankingProbabilitySeparationV337=true;
 
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
-  const AI_WEIGHT=.60, JOCKEY_WEIGHT=.20, MARKET_WEIGHT=.20, T=5.0;
+  const AI_WEIGHT=.70, MARKET_WEIGHT=.30, T=5.0;
   const PLACE_MODEL_WEIGHT=.85, PLACE_MARKET_WEIGHT=.15, PLACE_T=6.5;
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -269,19 +269,7 @@
   function recalcProbabilities(rows){
     if(rows.length<2)return false;
     const ai=aiShares(rows),market=marketShares(rows,ai);
-    // 1着率は「絶対的な勝ち切る力」。AIを主軸に、現騎手との相性と単勝市場を加味する。
-    const jockeyRaw=rows.map(h=>{
-      try{
-        const fn=window.jockeyComboScore;
-        const v=typeof fn==='function'?fn(h):Number(h?.jockey_combo);
-        return Number.isFinite(+v)?clamp(+v,25,99):65;
-      }catch(_){return 65}
-    }).map(v=>Math.exp((v-65)/12));
-    const jockeyDen=jockeyRaw.reduce((a,b)=>a+b,0)||1;
-    const jockeyShares=jockeyRaw.map(v=>v/jockeyDen);
-    const winStrength=market
-      ?ai.map((v,i)=>v*AI_WEIGHT+jockeyShares[i]*JOCKEY_WEIGHT+market[i]*MARKET_WEIGHT)
-      :ai.map((v,i)=>v*AI_WEIGHT+jockeyShares[i]*JOCKEY_WEIGHT+(1-AI_WEIGHT-JOCKEY_WEIGHT)/rows.length);
+    const winStrength=market?ai.map((v,i)=>v*AI_WEIGHT+market[i]*MARKET_WEIGHT):ai;
     const winSum=winStrength.reduce((a,b)=>a+b,0)||1,winNormalized=winStrength.map(v=>v/winSum);
     const placeAi=placeShares(rows);
     const placeStrength=market?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+market[i]*PLACE_MARKET_WEIGHT):placeAi;
@@ -292,7 +280,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI60%＋騎手相性20%＋単勝市場20%／3着内モデル85%＋単勝市場15%':'1着AI60%＋騎手相性20%＋中立20%／3着内モデル100%';
+      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内モデル85%+単勝市場15%':'1着AI100%／3着内モデル100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -300,7 +288,7 @@
     probOrder.forEach((h,i)=>h.probabilityRankV337=i+1);
     placeOrder.forEach((h,i)=>h.placeProbabilityRankV337=i+1);
     document.documentElement.dataset.rankingModel='ai-ability-only-v337';
-    document.documentElement.dataset.probabilityModel='win-ai60-jockey20-market20-place-stability85-market15-v337';
+    document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability85-market15-v337';
     document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
     return true;
   }
@@ -320,7 +308,7 @@
           note.style.cssText='margin:-2px 0 10px;line-height:1.55;color:#9fb0cf';
           ranking.parentNode.insertBefore(note,ranking);
         }
-        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 60%＋騎手相性20%＋単勝市場20%':'AI 60%＋騎手相性20%＋中立20%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
+        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝市場30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
       cards.forEach((card,i)=>{
