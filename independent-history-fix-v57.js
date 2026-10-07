@@ -1161,79 +1161,13 @@
         improveHorseHistoryPresentation();
         return;
       }
-      const ranking=document.getElementById('ranking');
-      if(ranking){
-        const winRanks=new Map([...evaluated].sort((a,b)=>b.win-a.win).map((h,i)=>[String(h.no),i+1]));
-        const placeRanks=new Map([...evaluated].sort((a,b)=>b.place-a.place).map((h,i)=>[String(h.no),i+1]));
-        ranking.innerHTML=evaluated.slice(0,6).map((h,index)=>{
-          const market=netkeibaMarketFor(h);
-          const actual=currentRaceActualOdds(h);
-          const actualPopularity=currentRaceActualPopularity(h);
-          let odds='netkeiba予想オッズ未取得';
-          if(actual){
-            const popularity=actualPopularity?` / ${actualPopularity}番人気`:'';
-            odds=`${actual.toFixed(1)}倍 / 実オッズ${popularity}`;
-          }else if(market?.type==='forecast'){
-            const popularity=market.popularity?` / netkeiba予想${market.popularity}番人気`:'';
-            const snapshot=market.snapshot?'（直近取得）':'';
-            odds=`${market.odds.toFixed(1)}倍${popularity}${snapshot} / 実オッズ未発表`;
-          }else if(forecastMeta.status==='loading'){
-            odds='netkeiba予想オッズ取得中';
-          }
-          const value=actual&&h.valueIndex?` / 妙味${h.valueIndex>=1.18?'あり':h.valueIndex<=.82?'薄め':'中立'}`:'';
-          const source=typeof horses!=='undefined'&&Array.isArray(horses)?(horses.find(x=>+x?.no===+h?.no||clean(x?.name)===clean(h?.name))||h):h;
-          const sourcePopularity=[source?.popularity,source?.forecast_popularity,source?.netkeiba_forecast_popularity,source?.netkeiba_actual_popularity,market?.popularity,actualPopularity].map(Number).find(v=>Number.isInteger(v)&&v>0)||null;
-          const summaryMarket=actual
-            ? '単勝'+actual.toFixed(1)+'倍'+(sourcePopularity?' ／ '+sourcePopularity+'番人気':'')
-            :market?.type==='forecast'
-              ? '単勝'+market.odds.toFixed(1)+'倍'+(sourcePopularity?' ／ 予想'+sourcePopularity+'番人気':'')
-              :sourcePopularity ? '単勝オッズ未取得 ／ '+sourcePopularity+'番人気' : '単勝オッズ未取得';
-          const bodyMetric=h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel;
-          const closingMetric=h.closingSamples?`${(+h.last3f).toFixed(1)}`:'—（掲載なし・残り軸へ再配分）';
-          return `<details class="card ranking-card"><summary aria-label="AI ${index+1}位 ${h.name}の詳細を開く"><div class="ranking-summary-main"><div class="rank">AI ${index+1}位　${['◎','○','▲','△','☆','注'][index]||''} ${h.no} ${h.name}</div><div class="summary-market">${summaryMarket}</div></div><div class="score">${h.score.toFixed(1)}</div><span class="accordion-chevron" aria-hidden="true">▼</span></summary><div class="ranking-card-details"><div class="metric"><span>近走</span><b>${(+h.speed).toFixed(1)}</b></div><div class="metric"><span>上がり</span><b>${closingMetric}</b></div><div class="metric"><span>コース</span><b>${(+h.course).toFixed(1)}</b></div><div class="metric"><span>レース格</span><b>${h.gradeScore.toFixed(1)}</b></div><div class="metric"><span>馬体重</span><b>${bodyMetric}</b></div><div class="metric"><span>1着率</span><b>${h.win.toFixed(1)}%</b></div><div class="metric"><span>3着内率</span><b>${h.place.toFixed(1)}%</b></div><div class="small" style="margin-top:7px">単勝 ${odds}${value}</div></div></details>`;
-        }).join('');
-      }
-      const rows=document.getElementById('rows');
-      if(rows){
-        const winRanks=new Map([...evaluated].sort((a,b)=>b.win-a.win).map((h,i)=>[String(h.no),i+1]));
-        const placeRanks=new Map([...evaluated].sort((a,b)=>b.place-a.place).map((h,i)=>[String(h.no),i+1]));
-        const table=rows.closest?.('table');
-        table?.classList.add('comparison-table');
-        table?.parentElement?.classList.add('comparison-wrap');
-        const head=table?.querySelector('thead tr');
-        if(head)head.innerHTML='<th>馬</th><th>AI指数</th><th>近走</th><th>上がり</th><th>レース格</th><th>馬体重</th><th>距離</th><th>コース</th><th>単勝オッズ・人気</th><th>1着率</th><th>3着内率</th>';
-        rows.innerHTML=evaluated.map((h,index)=>{
-          const market=netkeibaMarketFor(h);
-          const actual=currentRaceActualOdds(h);
-          const actualPopularity=currentRaceActualPopularity(h);
-          let odds='netkeiba予想オッズ未取得';
-          if(actual){
-            const popularity=actualPopularity?`・${actualPopularity}番人気`:'';
-            odds=`${actual.toFixed(1)}倍（実オッズ${popularity}）`;
-          }else if(market?.type==='forecast'){
-            const popularity=market.popularity?`・${market.popularity}番人気`:'';
-            const snapshot=market.snapshot?'・直近取得':'';
-            odds=`${market.odds.toFixed(1)}倍（netkeiba予想${popularity}${snapshot}）`;
-          }else if(forecastMeta.status==='loading'){
-            odds='netkeiba予想オッズ取得中';
-          }
-          const summaryMarket=actual
-            ?`単勝${actual.toFixed(1)}倍${actualPopularity?` ／ ${actualPopularity}番人気`:''}`
-            :market?.type==='forecast'
-              ?`単勝${market.odds.toFixed(1)}倍${market.popularity?` ／ 予想${market.popularity}番人気`:''}`
-              :'単勝オッズ未取得';
-          const probabilityRanks=`<span style="display:block;margin-top:6px"><span class="badge">1着率 ${winRanks.get(String(h.no))}位</span><span class="badge">3着内率 ${placeRanks.get(String(h.no))}位</span></span>`;
-          return `<tr><td data-label="馬"><button type="button" class="comparison-toggle" aria-expanded="false"><span class="comparison-main"><span><b class="comparison-rank">AI ${index+1}位</b>${h.no} ${h.name}</span><span class="comparison-market">${summaryMarket}</span>${probabilityRanks}</span><span class="comparison-chevron" aria-hidden="true">▼</span></button></td><td data-label="AI指数">${h.score.toFixed(1)}</td><td data-label="近走">${(+h.speed).toFixed(1)}</td><td data-label="上がり">${h.closingSamples?(+h.last3f).toFixed(1):'—（残り軸へ再配分）'}</td><td data-label="レース格">${h.gradeScore.toFixed(1)}</td><td data-label="馬体重">${h.bodyWeightPublished?`${h.bodyWeightLabel} / ${h.bodyWeightScore.toFixed(1)}`:h.bodyWeightLabel}</td><td data-label="距離">${(+h.distance).toFixed(1)}</td><td data-label="コース">${(+h.course).toFixed(1)}</td><td data-label="単勝オッズ・人気">${odds}</td><td data-label="1着率">${h.win.toFixed(1)}%</td><td data-label="3着内率">${h.place.toFixed(1)}%</td></tr>`;
-        }).join('');
-        rows.onclick=event=>{
-          const button=event.target?.closest?.('.comparison-toggle');
-          if(!button)return;
-          const row=button.closest('tr');
-          const open=row?.classList.toggle('is-open');
-          button.setAttribute('aria-expanded',open?'true':'false');
-        };
-      }
+      // v345が未初期化でも旧UIへ戻さず、part0の最終レンダラーを使う。
+      try{if(typeof renderAnalysis==='function')renderAnalysis()}catch(e){console.warn('v57 fallback render failed',e)}
       bodyWeightEvidence();
+      addAnalysisEvidence();
+      improveHorseHistoryPresentation();
+      return;
+
       addAnalysisEvidence();
       improveHorseHistoryPresentation();
       const raceStatus=document.getElementById('raceStatus');
