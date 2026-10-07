@@ -808,7 +808,7 @@ function renderAnalysis(){
    }
  }
 }
-{const out=[];const rec=(st,p)=>{if(p.length===k){out.push(p);return}for(let i=st;i<arr.length;i++)rec(i+1,[...p,arr[i]])};rec(0,[]);return out}
+function combos(arr,k){const out=[];const rec=(st,p)=>{if(p.length===k){out.push(p);return}for(let i=st;i<arr.length;i++)rec(i+1,[...p,arr[i]])};rec(0,[]);return out}
 function ticketScore(c){return c.reduce((s,h)=>s+h.score,0)+(c.reduce((s,h)=>s+h.place,0)*.15)}
 document.getElementById("importRace").onclick=async()=>{
   try{
