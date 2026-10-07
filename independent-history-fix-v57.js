@@ -1150,6 +1150,17 @@
         const place=Math.max(4,Math.min(88,win*2.35+(h.score-70)*.55));
         return {...h,win,place};
       });
+      // v345を表示の唯一の最終レンダラーにする。v57旧描画を残すと、後から#ranking/#rowsを上書きして表示が巻き戻る。
+      if(typeof window.__renderRankingV345==='function'){
+        try{
+          window.__renderRankingV345(Array.isArray(evaluated)?evaluated:[]);
+          if(typeof window.__renderComparisonV345==='function')window.__renderComparisonV345(Array.isArray(evaluated)?evaluated:[]);
+        }catch(e){console.warn('v57 delegated render failed',e)}
+        bodyWeightEvidence();
+        addAnalysisEvidence();
+        improveHorseHistoryPresentation();
+        return;
+      }
       const ranking=document.getElementById('ranking');
       if(ranking){
         const winRanks=new Map([...evaluated].sort((a,b)=>b.win-a.win).map((h,i)=>[String(h.no),i+1]));
