@@ -354,7 +354,8 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を幾何平均で統合し、走数が少ない場合は中立値へ縮小する別モデルです。単勝市場が取得できる場合のみ15%を補助的に加味します。`;
+      const diag=[...rows].sort((a,b)=>(Number(b?.placeModelScoreV337)||0)-(Number(a?.placeModelScoreV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${tenth(Number(h.placeModelScoreV337)||0)}→${h.placeProbabilityRankV337}位`).join('　');
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を別モデルで統合。単勝市場が取得できる場合のみ15%を補助的に加味。<br><small>内部3着内モデル：${diag}</small>`;
     }
   }
 
