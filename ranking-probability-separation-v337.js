@@ -226,17 +226,17 @@
     // これにより「履歴があるのに全馬同じ→AI順位へフォールバック」という経路を防ぐ。
     const recent=history.length?clamp(inMoney,25,99):65;
     const stable=history.length?clamp(consistency,35,99):65;
-    const components=[recent,stable,balance,closing,jockey]
-      .map(v=>clamp(Number(v)||65,25,99));
-    // 3着内率はAI指数を直接再利用せず、複勝圏実績・安定度を中心に
-    // 適性4軸を補助として統合する。
-    const geometric=Math.exp(
-      components.reduce((s,v)=>s+Math.log(Math.max(1,v)),0)/components.length
-    );
+    // 3着内率は1着率・AI指数とは別の序列を作る。
+    // 「複勝圏実績」と「着順安定度」を主軸にし、コース/距離/馬場・上がり・騎手相性は補助。
+    const recentV=clamp(Number(recent)||65,25,99);
+    const stableV=clamp(Number(stable)||65,25,99);
+    const balanceV=clamp(Number(balance)||65,25,99);
+    const closingV=clamp(Number(closing)||65,25,99);
+    const jockeyV=clamp(Number(jockey)||65,25,99);
+    const direct=recentV*.35+stableV*.25+balanceV*.15+closingV*.10+jockeyV*.15;
     const reliability=65+35*credibility;
     return clamp(
-      geometric*credibility+65*(1-credibility)+
-      (reliability-65)*.08,
+      direct*credibility+65*(1-credibility)+(reliability-65)*.08,
       25,99
     );
   }
