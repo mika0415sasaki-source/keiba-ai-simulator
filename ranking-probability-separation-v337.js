@@ -118,7 +118,7 @@
         // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
         // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
         h.raceStrengthV337=tenth(raceStrength);
-        h.score=tenth(clamp(before*.85+raceStrength*.15-adj,0,100));
+        h.score=tenth(clamp(before*.85+raceStrength*.15-adj*.16,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
