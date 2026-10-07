@@ -970,8 +970,11 @@
       };
     }
 
+    const preservedCourseScoreLocalHistory=scoreLocalHistory;
     scoreLocalHistory=function(rows){
-      return scoreBalancedHistory(rows);
+      return typeof preservedCourseScoreLocalHistory==='function'
+        ? preservedCourseScoreLocalHistory(rows)
+        : scoreBalancedHistory(rows);
     };
 
     function bodyWeightFeature(h){
