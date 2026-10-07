@@ -1286,6 +1286,14 @@
             e.course=+recent.course;
             e.going=+recent.going;
             e.histScores=recent;
+            // 3着内モデル専用の適性値。AI指数の course/distance/going は変更しない。
+            try{
+              const placeFeatures=scoreBalancedHistory(source?.history?.length?source.history:(source?.jra_history||[]))||{};
+              e.placeModelCourse=Number(placeFeatures.course);
+              e.placeModelDistance=Number(placeFeatures.distance);
+              e.placeModelGoing=Number(placeFeatures.going);
+              e.placeModelLast3f=Number(placeFeatures.last3f);
+            }catch(_){}
           }
         }
         rerenderBodyAwareRanking();
