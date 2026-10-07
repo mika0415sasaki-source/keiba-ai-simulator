@@ -1168,8 +1168,6 @@
       improveHorseHistoryPresentation();
       return;
 
-      addAnalysisEvidence();
-      improveHorseHistoryPresentation();
       const raceStatus=document.getElementById('raceStatus');
       if(raceStatus&&/最新オッズを取得してAI分析中/.test(raceStatus.textContent||'')){
         const oddsState=forecastMeta.status==='ready'
