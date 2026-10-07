@@ -1146,13 +1146,12 @@
         const baseScore=Math.max(40,Math.min(99,adjustedBase*.84+grade.score*.10+body.score*.06));
         return {...h,__rawScore:rawScore,__rawBaseScore:rawBase,score,baseScore,gradeScore:grade.score,gradeLabel:grade.label,bodyWeightScore:body.score,bodyWeightLabel:body.label,bodyWeightPublished:body.published,closingSamples};
       }).sort((a,b)=>b.score-a.score);
-      const ex=evaluated.map(h=>Math.exp((h.score-75)/7));
-      const total=ex.reduce((sum,value)=>sum+value,0)||1;
-      evaluated=evaluated.map((h,index)=>{
-        const win=ex[index]/total*100;
-        const place=Math.max(4,Math.min(88,win*2.35+(h.score-70)*.55));
-        return {...h,win,place};
-      });
+      // 確率は v337 の分離モデルを唯一の最終計算元にする。
+      // ここで旧「AI指数→1着率→3着内率」式を再計算すると、
+      // v337 の独立した3着内モデルが後段で上書きされるため実行しない。
+      if(typeof window.__refreshRankingProbabilityV337==='function'){
+        try{window.__refreshRankingProbabilityV337()}catch(e){console.warn('v57 probability refresh',e)}
+      }
       // v345を表示の唯一の最終レンダラーにする。v57旧描画を残すと、後から#ranking/#rowsを上書きして表示が巻き戻る。
       if(typeof window.__renderRankingV345==='function'){
         try{
