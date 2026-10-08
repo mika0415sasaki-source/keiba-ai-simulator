@@ -474,6 +474,30 @@
       if(exactItems.length){
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
       }
+      // Enrich only missing field sizes from the completed-history endpoint.
+      // Keep the existing v3 history as authoritative for all other fields.
+      if(exactItems.length&&exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!(Number(r.field_size)>=2)))){
+        try{
+          const names=exactItems.map(x=>x.name),horse_ids={};
+          for(const item of exactItems)horse_ids[item.name]=item.id;
+          const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
+          const enriched=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',
+            {names,horse_ids,race_date,race_url:raceUrl()},18000);
+          const dateKey=v=>String(v||'').replace(/\\D/g,'').slice(0,8);
+          const key=r=>[dateKey(r.date),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const byName=new Map(enriched.map(x=>[clean(x.name),x]));
+          for(const row of exactResults){
+            const other=byName.get(clean(row.name));
+            if(!other||!Array.isArray(row.history)||!Array.isArray(other.history))continue;
+            const sizes=new Map(other.history.filter(r=>Number(r.field_size)>=2).map(r=>[key(r),Number(r.field_size)]));
+            row.history=row.history.map(run=>{
+              if(Number(run.field_size)>=2)return run;
+              const size=sizes.get(key(run));
+              return size?{...run,field_size:size,field_size_source:'completed-history-enrichment'}:run;
+            });
+          }
+        }catch(error){console.warn('field-size enrichment skipped',error)}
+      }
       const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
       if(!remaining.length)return exactResults;
