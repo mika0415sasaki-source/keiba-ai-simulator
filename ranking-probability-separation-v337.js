@@ -196,8 +196,14 @@
       // 1着・2着・3着を段階評価する。安定して上位に来る馬を高く評価する。
       const finishBase=clamp(100-percentile*75,25,100);
       const finishScore=clamp(finishBase*.80+headToHead*.20,25,100);
+      const grade=gradeScore(r);
+      const rt=raceRating(r);
+      const ratingScore=rt==null?68:clamp(50+(rt-90)*2.0,30,100);
+      // 近走の実績は「頭数だけ」ではなく、レース格と取得済みレーティングも含めて評価する。
+      // 例：G1 1着と2勝クラス1着を同じ1着点として扱わない。
+      const raceQuality=clamp(finishScore*.65+grade*.25+ratingScore*.10,25,100);
       const w=RECENCY[i]||.4;
-      inMoneyN+=rankInMoney*w;inMoneyD+=w;
+      inMoneyN+=raceQuality*w;inMoneyD+=w;
       finishValues.push({value:finishScore,weight:w});
     });
     const inMoney=inMoneyD?inMoneyN/inMoneyD:65;
