@@ -1,7 +1,7 @@
 (()=>{
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
-  const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-v3';
+  const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1';
   const FORECAST_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-forecast-v2';
 
   const wait=()=>{
