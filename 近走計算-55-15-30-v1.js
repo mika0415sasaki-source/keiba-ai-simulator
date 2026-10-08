@@ -93,6 +93,26 @@
     if(t.surface&&r.surface&&String(r.surface)!==t.surface)d=Math.min(d,55);
     return d;
   };
+  // 過去走は「何頭中何着か」で評価する。
+  // 取得元によって頭数のキーや表示形式が異なるため、field_sizeだけに依存しない。
+  function fieldSizeOf(r){
+    const direct=[
+      r?.field_size,r?.fieldSize,r?.field,r?.runners,r?.runner_count,
+      r?.horse_count,r?.head_count,r?.entry_count,r?.entries,r?.total_horses
+    ];
+    for(const v of direct){
+      const n=Number(String(v??'').replace(/[^0-9]/g,''));
+      if(Number.isFinite(n)&&n>=2&&n<=30)return n;
+    }
+    const text=[r?.field_text,r?.field_size_text,r?.race_field,r?.race_info,r?.title,r?.race_name]
+      .map(v=>String(v??'')).join(' ');
+    const m=text.match(/(?:18|17|16|15|14|13|12|11|10|9|8|7|6|5|4|3|2)頭/);
+    if(m){
+      const n=Number(m[0].replace(/[^0-9]/g,''));
+      if(n>=2&&n<=30)return n;
+    }
+    return null;
+  }
   window.__recentScoreAuthoritative=finalRecentScore;
   const recentScore=rows=>finalRecentScore(rows);
 
@@ -102,7 +122,7 @@
   if(!rr.length)return 50;
   let n=0,d=0;
   rr.forEach((r,i)=>{
-    const rank=+r.rank,field=Math.max(rank,Number.isFinite(+r.field_size)&&+r.field_size>=2?+r.field_size:16);
+    const rank=+r.rank,actualField=fieldSizeOf(r),field=Math.max(rank,actualField||16);
     const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
     const g=GRADE[gradeOf(r)]||68,rel=relevance(r,target());
     const run=.55*pos+.15*g+.30*rel,w=REC[i]||.4;
