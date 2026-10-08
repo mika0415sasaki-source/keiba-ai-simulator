@@ -235,7 +235,10 @@
     const balanceV=clamp(Number(balance)||65,25,99);
     const closingV=clamp(Number(closing)||65,25,99);
     const jockeyV=clamp(Number(jockey)||65,25,99);
-    const direct=recentV*.35+stableV*.25+balanceV*.15+closingV*.10+jockeyV*.15;
+    // 3着内率は「勝ち切る力」ではなく「安定して馬券内に来る力」を最優先。
+    // 近走の複勝圏実績40%＋着順安定度35%を主軸にし、
+    // コース/距離/馬場・上がり・騎手相性は補助として使う。
+    const direct=recentV*.40+stableV*.35+balanceV*.10+closingV*.05+jockeyV*.10;
     const reliability=65+35*credibility;
     return clamp(
       direct*credibility+65*(1-credibility)+(reliability-65)*.08,
