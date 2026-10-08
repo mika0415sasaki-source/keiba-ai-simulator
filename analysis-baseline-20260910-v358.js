@@ -126,12 +126,18 @@
             // independent-history-fix-v57 has already composed grade 10% and body weight 6%.
             // Do not add grade a second time. Carry only the 16% of the legacy market
             // adjustment lost in that 84% blend so v337 can remove the full adjustment.
-            let score=alreadyComposed
-              ?clamp(raw+marketAdj*.16,0,100)
-              :clamp(raw*.90+gf.score*.10,0,100);
-            let baseScore=alreadyComposed
-              ?clamp((+e.baseScore||raw)+marketAdj*.16,0,100)
-              :clamp((+e.baseScore||raw)*.90+gf.score*.10,0,100);
+            // AI順位は馬自身の能力・適性のみ。旧AI指数に含まれていた騎手10%をここで除外し、
+// 残りの能力・適性軸を100%へ再正規化する。1着率側で騎手を別途反映する。
+const jockeyV=Number.isFinite(+e.jockey)?+e.jockey:55;
+const jockeyWeight=Number.isFinite(+weights?.jockey)?+weights.jockey:.10;
+const rawNoJockey=clamp((raw-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),0,100);
+const baseNoJockey=clamp(((+e.baseScore||raw)-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),0,100);
+let score=alreadyComposed
+              ?clamp(rawNoJockey+marketAdj*.16,0,100)
+              :clamp(rawNoJockey*.90+gf.score*.10,0,100);
+let baseScore=alreadyComposed
+              ?clamp(baseNoJockey+marketAdj*.16,0,100)
+              :clamp(baseNoJockey*.90+gf.score*.10,0,100);
             const newQ=historicalQuality(src),oldQ=Number.isFinite(+e.quality)?+e.quality:newQ;
             if(Number.isFinite(newQ)&&oldQ!==newQ){
               const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.jockey||0)*(weights?.jockey??.10)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
