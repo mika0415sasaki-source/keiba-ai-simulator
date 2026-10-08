@@ -192,8 +192,10 @@
       const percentile=(rank-1)/Math.max(1,field-1);
       // 3着内率の主軸は「実際に3着以内へ入ったか」。
       // AI側のレース強度・レーティングはここでは混ぜず、着順事実を優先する。
-      const rankInMoney=rank<=3?100:clamp(72-percentile*45,25,72);
-      const finishScore=clamp(rankInMoney*.80+headToHead*.20,25,100);
+      // 3着内率では「3着以内なら全部100点」とせず、
+      // 1着・2着・3着を段階評価する。安定して上位に来る馬を高く評価する。
+      const finishBase=rank===1?100:rank===2?94:rank===3?88:clamp(72-percentile*45,25,72);
+      const finishScore=clamp(finishBase*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=rankInMoney*w;inMoneyD+=w;
       finishValues.push({value:finishScore,weight:w});
