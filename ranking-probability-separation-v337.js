@@ -3,7 +3,9 @@
   window.__rankingProbabilitySeparationV337=true;
 
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
-  const AI_WEIGHT=.70, MARKET_WEIGHT=.30, T=5.0;
+  // 1着率は「絶対的な勝ち切る力」。
+  // AIを主軸に、現騎手との相性と単勝市場を専用で加味する。
+  const AI_WEIGHT=.60, JOCKEY_WEIGHT=.20, MARKET_WEIGHT=.20, T=5.0;
   const PLACE_MODEL_WEIGHT=.85, PLACE_MARKET_WEIGHT=.15, PLACE_T=6.5;
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -269,7 +271,18 @@
   function recalcProbabilities(rows){
     if(rows.length<2)return false;
     const ai=aiShares(rows),market=marketShares(rows,ai);
-    const winStrength=market?ai.map((v,i)=>v*AI_WEIGHT+market[i]*MARKET_WEIGHT):ai;
+    const jockeyRaw=rows.map(h=>{
+      try{
+        const fn=window.jockeyComboScore;
+        const v=typeof fn==='function'?fn(h):Number(h?.jockey_combo);
+        return Number.isFinite(+v)?clamp(+v,25,99):65;
+      }catch(_){return 65}
+    }).map(v=>Math.exp((v-65)/12));
+    const jockeyDen=jockeyRaw.reduce((a,b)=>a+b,0)||1;
+    const jockeyShares=jockeyRaw.map(v=>v/jockeyDen);
+    const winStrength=market
+      ?ai.map((v,i)=>v*AI_WEIGHT+jockeyShares[i]*JOCKEY_WEIGHT+market[i]*MARKET_WEIGHT)
+      :ai.map((v,i)=>v*AI_WEIGHT+jockeyShares[i]*JOCKEY_WEIGHT+(1-AI_WEIGHT-JOCKEY_WEIGHT)/rows.length);
     const winSum=winStrength.reduce((a,b)=>a+b,0)||1,winNormalized=winStrength.map(v=>v/winSum);
     const placeAi=placeShares(rows);
     const placeStrength=market?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+market[i]*PLACE_MARKET_WEIGHT):placeAi;
