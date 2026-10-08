@@ -1064,7 +1064,10 @@
           const spans=row.querySelectorAll('span');
           if(!run||spans.length<3)return;
           const grade=normalizeGrade(run.grade||run.race_name);
-          spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得'].join(' ');
+          const field=Number(run.field_size);
+          const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?`${field}頭中${run.rank}着`:'頭数未取得';
+          spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得',finishText].join(' ');
+
           if(run.race_name)spans[1].textContent=`${run.venue||'—'}・${run.race_name}`;
         });
         card.querySelector?.('[data-grade-summary]')?.remove();
