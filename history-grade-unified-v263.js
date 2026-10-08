@@ -209,6 +209,10 @@
         const grade=normalizeGrade(gradeSourceText(match));
         if(raceName&&(!run.race_name||/未取得|不明/.test(String(run.race_name)))){run.race_name=raceName;changed=true}
         if(grade&&normalizeGrade(run.grade)!==grade){run.grade=grade;changed=true}
+        // 過去走評価では「何頭中何着か」が重要。履歴側に欠けている場合は、
+        // 同一レースの取得元から実出走頭数を補完する。推定値は作らない。
+        const fs=Number(match.field_size||match.fieldSize||match.runners||match.field||0);
+        if(fs>=2&&(!Number.isFinite(+run.field_size)||+run.field_size<2)){run.field_size=fs;changed=true}
       }
       h.history=hist.slice(0,5);
       mergeJraMissing(h);
