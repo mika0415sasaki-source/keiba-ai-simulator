@@ -235,24 +235,8 @@
         ? row.passage.map(Number).filter(Number.isFinite)
         : String(row.corners||row.passage||'').split(/[-‐－→]/).map(Number).filter(Number.isFinite);
       const rawBody=[row.body_weight,row.horse_weight,row.bodyWeight,row.weight].map(Number).find(x=>Number.isFinite(x)&&x>=300&&x<=700);
-      const raceName=String(row.race_name||row.raceName||row.title||row.race||'').replace(/["']\)+$/,'').trim();
+      const raceName=String(row.race_name||row.raceName||row.title||row.race||'').replace(/[\"']\)+$/,'').trim();
       const grade=normalizeGrade(row.grade||row.race_grade||row.class_name||row.race_class||row.class||raceName);
-      // Headcount can arrive as a number, "18頭", or race metadata text.
-      // Normalize it once here so scoring and the history display use the same value.
-      const fieldCandidates=[
-        row.field_size,row.fieldSize,row.field,row.runners,row.runner_count,
-        row.horse_count,row.head_count,row.entry_count,row.entries,row.total_horses,
-        row.field_text,row.field_size_text,row.race_field,row.race_info
-      ];
-      let fieldSize=null;
-      for(const candidate of fieldCandidates){
-        const raw=String(candidate??'').normalize('NFKC').trim();
-        if(!raw)continue;
-        const match=raw.match(/(?:^|\D)(\d{1,2})\s*頭/);
-        const numeric=raw.match(/^\d{1,2}$/);
-        const value=match?Number(match[1]):numeric?Number(raw):NaN;
-        if(Number.isFinite(value)&&value>=2&&value<=30){fieldSize=value;break}
-      }
       const run={
         date:row.date||'',
         venue:row.venue||row.course||'',
@@ -262,17 +246,13 @@
         rank:+(row.rank??row.pos)||0,
         jockey:row.jockey||'',
         passage,
-        field_size:fieldSize,
+        field_size:+(row.field_size||row.fieldSize||0)||null,
         body_weight:rawBody||null,
         race_name:raceName,
         grade,
         popularity:+(row.popularity||row.popular||0)||null,
         rating:+(row.rating||row.rt||0)||null,
-        source:row.source||'netkeiba-history',
-        // Preserve identifiers and enrichment provenance through normalizeHistory/applyHistory.
-        race_id:String(row.race_id||row.raceId||row.raceid||''),
-        field_size_source:String(row.field_size_source||row.fieldSizeSource||''),
-        field_size_debug:row.field_size_debug??row.field_debug??null
+        source:row.source||'netkeiba-history'
       };
       const last3f=validLast3f(row.last3f??row.last3);
       if(last3f!==undefined)run.last3f=last3f;
@@ -493,45 +473,6 @@
       let exactResults=[];
       if(exactItems.length){
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
-      }
-      // Enrich only missing field sizes from the completed-history endpoint.
-      // Keep the existing v3 history as authoritative for all other fields.
-      if(exactItems.length&&exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!(Number(r.field_size)>=2)))){
-        try{
-          const names=exactItems.map(x=>x.name),horse_ids={};
-          for(const item of exactItems)horse_ids[item.name]=item.id;
-          const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
-          // This endpoint's deployed contract accepts {items:[{name,id}]};
-          // {names,horse_ids,...} belongs to the fallback API and returns no rows here.
-          const enriched=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',
-            {items:exactItems},18000);
-          const dateKey=v=>String(v||'').replace(/\\D/g,'').slice(0,8);
-          const baseKey=r=>[dateKey(r.date),Number(r.distance)||0,Number(r.rank)||0].join('|');
-          const cleanVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
-          const byName=new Map(enriched.map(x=>[clean(x.name),x]));
-          for(const row of exactResults){
-            const other=byName.get(clean(row.name));
-            if(!other||!Array.isArray(row.history)||!Array.isArray(other.history))continue;
-            // Venue labels differ between netkeiba history parsers (e.g. "京都" vs "京都競馬場").
-            // Match within the same horse by date + distance + finish, then prefer venue/surface agreement.
-            const sizes=new Map();
-            for(const candidate of other.history.filter(r=>Number(r.field_size)>=2)){
-              const key=baseKey(candidate);
-              if(!sizes.has(key))sizes.set(key,[]);
-              sizes.get(key).push(candidate);
-            }
-            row.history=row.history.map(run=>{
-              if(Number(run.field_size)>=2)return run;
-              const candidates=sizes.get(baseKey(run))||[];
-              const matched=candidates.find(candidate=>
-                (!cleanVenue(run.venue)||!cleanVenue(candidate.venue)||cleanVenue(run.venue)===cleanVenue(candidate.venue))&&
-                (!clean(run.surface)||!clean(candidate.surface)||clean(run.surface)===clean(candidate.surface)
-              )||candidates[0];
-              const size=Number(matched?.field_size);
-              return size>=2?{...run,field_size:size,field_size_source:'completed-history-enrichment'}:run;
-            });
-          }
-        }catch(error){console.warn('field-size enrichment skipped',error)}
       }
       const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
@@ -1111,17 +1052,12 @@
     }
 
     function improveHorseHistoryPresentation(){
-      // Do not depend on the optional .rank node containing the horse name:
-      // renderer variants may put only the numeric rank there, which silently
-      // skips race-name, grade and field-size presentation for the entire card.
       const cards=[...document.querySelectorAll('#horses .card')];
       cards.forEach(card=>{
-        const cardText=card.textContent||'';
-        const h=(horses||[]).find(x=>x?.name&&cardText.includes(String(x.name)));
+        const title=card.querySelector('.rank')?.textContent||'';
+        const h=(horses||[]).find(x=>title.includes(x.name));
         if(!h)return;
-        const primary=Array.isArray(h.history)?h.history:[];
-        const jra=Array.isArray(h.jra_history)?h.jra_history:[];
-        const runs=(h.histScores?.available&&primary.length?primary:(primary.length?primary:jra)).slice(0,5);
+        const runs=(h.histScores?.available?(h.history||[]):((h.jra_history||[]))).slice(0,5);
         const histRows=[...card.querySelectorAll('.hist-row')];
         histRows.forEach((row,index)=>{
           const run=runs[index];
@@ -1129,8 +1065,9 @@
           if(!run||spans.length<3)return;
           const grade=normalizeGrade(run.grade||run.race_name);
           const field=Number(run.field_size);
-          const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?String.raw`${field}頭中${run.rank}着`:'頭数未取得';
+          const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?`${field}頭中${run.rank}着`:'頭数未取得';
           spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得',finishText].join(' ');
+
           if(run.race_name)spans[1].textContent=`${run.venue||'—'}・${run.race_name}`;
         });
         card.querySelector?.('[data-grade-summary]')?.remove();
