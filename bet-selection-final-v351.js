@@ -6,7 +6,7 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const keyNums=arr=>(arr||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const combos=(arr,n)=>{const out=[];const rec=(st,p)=>{if(p.length===n){out.push(p);return}for(let i=st;i<arr.length;i++)rec(i+1,[...p,arr[i]])};rec(0,[]);return out};
-  const hs=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}};
+  const hs=()=>{try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.winP)||0)-(Number(x?.winP)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}};
   const trioOdds=c=>{try{const o=Number(trioOddsFor(c));return Number.isFinite(o)&&o>0?o:null}catch(_){return null}};
 
   function shape(){
@@ -119,7 +119,7 @@
     const a=hs();if(a.length<3)return [];
     const d=decide();
     if(d.mode!=='form')return null;
-    const betRows=[...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
+    const betRows=[...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.winP)||0)-(Number(x?.winP)||0)||(+x?.no||999)-(+y?.no||999));
 
     const pool=combos(betRows,3).map(c=>item(c,betRows,d.cap));
     const ordered=scenarioOrder(pool);
