@@ -486,16 +486,29 @@
           const enriched=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',
             {items:exactItems},18000);
           const dateKey=v=>String(v||'').replace(/\\D/g,'').slice(0,8);
-          const key=r=>[dateKey(r.date),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const baseKey=r=>[dateKey(r.date),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const cleanVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
           const byName=new Map(enriched.map(x=>[clean(x.name),x]));
           for(const row of exactResults){
             const other=byName.get(clean(row.name));
             if(!other||!Array.isArray(row.history)||!Array.isArray(other.history))continue;
-            const sizes=new Map(other.history.filter(r=>Number(r.field_size)>=2).map(r=>[key(r),Number(r.field_size)]));
+            // Venue labels differ between netkeiba history parsers (e.g. "京都" vs "京都競馬場").
+            // Match within the same horse by date + distance + finish, then prefer venue/surface agreement.
+            const sizes=new Map();
+            for(const candidate of other.history.filter(r=>Number(r.field_size)>=2)){
+              const key=baseKey(candidate);
+              if(!sizes.has(key))sizes.set(key,[]);
+              sizes.get(key).push(candidate);
+            }
             row.history=row.history.map(run=>{
               if(Number(run.field_size)>=2)return run;
-              const size=sizes.get(key(run));
-              return size?{...run,field_size:size,field_size_source:'completed-history-enrichment'}:run;
+              const candidates=sizes.get(baseKey(run))||[];
+              const matched=candidates.find(candidate=>
+                (!cleanVenue(run.venue)||!cleanVenue(candidate.venue)||cleanVenue(run.venue)===cleanVenue(candidate.venue))&&
+                (!clean(run.surface)||!clean(candidate.surface)||clean(run.surface)===clean(candidate.surface)
+              )||candidates[0];
+              const size=Number(matched?.field_size);
+              return size>=2?{...run,field_size:size,field_size_source:'completed-history-enrichment'}:run;
             });
           }
         }catch(error){console.warn('field-size enrichment skipped',error)}
