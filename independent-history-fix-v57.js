@@ -1111,12 +1111,17 @@
     }
 
     function improveHorseHistoryPresentation(){
+      // Do not depend on the optional .rank node containing the horse name:
+      // renderer variants may put only the numeric rank there, which silently
+      // skips race-name, grade and field-size presentation for the entire card.
       const cards=[...document.querySelectorAll('#horses .card')];
       cards.forEach(card=>{
-        const title=card.querySelector('.rank')?.textContent||'';
-        const h=(horses||[]).find(x=>title.includes(x.name));
+        const cardText=card.textContent||'';
+        const h=(horses||[]).find(x=>x?.name&&cardText.includes(String(x.name)));
         if(!h)return;
-        const runs=(h.histScores?.available?(h.history||[]):((h.jra_history||[]))).slice(0,5);
+        const primary=Array.isArray(h.history)?h.history:[];
+        const jra=Array.isArray(h.jra_history)?h.jra_history:[];
+        const runs=(h.histScores?.available&&primary.length?primary:(primary.length?primary:jra)).slice(0,5);
         const histRows=[...card.querySelectorAll('.hist-row')];
         histRows.forEach((row,index)=>{
           const run=runs[index];
@@ -1124,9 +1129,8 @@
           if(!run||spans.length<3)return;
           const grade=normalizeGrade(run.grade||run.race_name);
           const field=Number(run.field_size);
-          const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?`${field}頭中${run.rank}着`:'頭数未取得';
+          const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?String.raw`${field}頭中${run.rank}着`:'頭数未取得';
           spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得',finishText].join(' ');
-
           if(run.race_name)spans[1].textContent=`${run.venue||'—'}・${run.race_name}`;
         });
         card.querySelector?.('[data-grade-summary]')?.remove();
