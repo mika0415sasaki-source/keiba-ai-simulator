@@ -481,8 +481,10 @@
           const names=exactItems.map(x=>x.name),horse_ids={};
           for(const item of exactItems)horse_ids[item.name]=item.id;
           const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
+          // This endpoint's deployed contract accepts {items:[{name,id}]};
+          // {names,horse_ids,...} belongs to the fallback API and returns no rows here.
           const enriched=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',
-            {names,horse_ids,race_date,race_url:raceUrl()},18000);
+            {items:exactItems},18000);
           const dateKey=v=>String(v||'').replace(/\\D/g,'').slice(0,8);
           const key=r=>[dateKey(r.date),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
           const byName=new Map(enriched.map(x=>[clean(x.name),x]));
