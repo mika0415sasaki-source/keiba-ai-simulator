@@ -474,6 +474,34 @@
       if(exactItems.length){
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
       }
+      // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
+      if(exactItems.length&&exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>Number(r.field_size)<2))){
+        try{
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
+          const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
+          const key=r=>[normDate(r.date),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
+          for(const item of exactResults){
+            const more=extraByName.get(clean(item.name));
+            if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
+            const byRun=new Map();
+            for(const run of more.history){
+              if(Number(run.field_size)<2)continue;
+              const k=key(run);
+              if(!byRun.has(k))byRun.set(k,[]);
+              byRun.get(k).push(run);
+            }
+            item.history=item.history.map(run=>{
+              if(Number(run.field_size)>=2)return run;
+              const matches=byRun.get(key(run))||[];
+              const match=matches.find(v=>(!normVenue(run.venue)||!normVenue(v.venue)||normVenue(run.venue)===normVenue(v.venue))&&(!clean(run.surface)||!clean(v.surface)||clean(run.surface)===clean(v.surface)));
+              const n=Number(match?.field_size);
+              return n>=2&&n<=30?{...run,field_size:n}:run;
+            });
+          }
+        }catch(error){console.warn('headcount enrichment skipped',error)}
+      }
       const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
       if(!remaining.length)return exactResults;
