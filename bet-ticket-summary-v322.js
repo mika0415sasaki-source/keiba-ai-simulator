@@ -77,6 +77,9 @@
         :s.boxMode
           ?`3連複${s.boxCount}頭BOX・AI自動選定`
           :'3連複フォーメーション・AI自動選定';
+    const markOrder=[...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
+    const markByNo=new Map(markOrder.map((h,i)=>[+h.no,['◎','○','▲','△','☆','注'][i]||'']));
+    const markedCombo=nums=>(nums||[]).map(Number).sort((x,y)=>x-y).map(n=>`${markByNo.get(n)||''}${n}`).join('－');
     const pickMap=new Map(picks.map(p=>[comboKey(p.numbers),p]));
 
     const rows=candidates.map(c=>{
@@ -86,10 +89,10 @@
         const meta=ret==null
           ? '<span class="small" style="margin-left:8px;color:var(--w)">オッズ未取得</span>'
           : `<span class="small" style="margin-left:8px">${od.toFixed(1)}倍 / 払戻 ${money(ret)}円 / <b style="color:${net<0?'var(--d)':'var(--a)'}">${net<0?'−':'＋'}${money(Math.abs(net))}円</b></span>`;
-        return `<div style="padding:8px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>${k}</b>${meta}</span><b>${money(st)}円</b></div></div>`;
+        return `<div style="padding:8px 0;border-bottom:1px solid #2b4168"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>${markedCombo(c.numbers)}</b>${meta}</span><b>${money(st)}円</b></div></div>`;
       }
       const meta=od?`<span class="small" style="margin-left:8px">${od.toFixed(1)}倍</span>`:'<span class="small" style="margin-left:8px;color:var(--w)">オッズ未取得</span>';
-      return `<div style="padding:8px 0;border-bottom:1px solid #243858;opacity:.88"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>${k}</b>${meta}</span><b class="small">候補</b></div></div>`;
+      return `<div style="padding:8px 0;border-bottom:1px solid #243858;opacity:.88"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><span><b>${markedCombo(c.numbers)}</b>${meta}</span><b class="small">候補</b></div></div>`;
     }).join('');
 
     writing=true;
