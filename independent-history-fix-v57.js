@@ -1425,12 +1425,21 @@
 
     renderHorses();
     let attempts=0;
+    // Do not reload full history just because field_size is missing.
+    const historyNeedsAutoRecovery=h=>{
+      const rows=h?.history||[];
+      const bodies=rows.filter(run=>Number.isFinite(+run.body_weight)&&+run.body_weight>=300).length;
+      const grades=rows.filter(run=>normalizeGrade(run.grade||run.race_name)).length;
+      const domestic=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
+      const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f;
+    };
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      const incomplete=hasHorses&&horses.some(historyNeedsRefresh);
+      const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
       if(hasHorses&&isNetkeiba()&&incomplete){
-        loadNetkeibaHistories({silent:false}).catch(()=>{});
+        loadNetkeibaHistories({silent:true}).catch(()=>{});
         return;
       }
       if(!hasHorses&&attempts<20)setTimeout(autoRecover,500);
