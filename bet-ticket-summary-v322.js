@@ -6,7 +6,7 @@
   const money=v=>Math.round(Number(v)||0).toLocaleString('ja-JP');
   const payout=(odds,stake)=>odds?Math.round((+odds)*stake/10)*10:null;
   const comboKey=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
-  const getEval=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,6):[]}catch(_){return[]}};
+  const getEval=()=>{try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.winP)||0)-(Number(x?.winP)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,6):[]}catch(_){return[]}};
   const getPlan=()=>{try{return lastBetPlan||window.lastBetPlan||null}catch(_){return window.lastBetPlan||null}};
   const nC3=n=>n>=3?n*(n-1)*(n-2)/6:0;
 
