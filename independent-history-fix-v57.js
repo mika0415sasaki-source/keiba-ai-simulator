@@ -481,9 +481,10 @@
           const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
           const key=r=>[normDate(r.date),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const extraById=new Map(extra.filter(x=>/^\\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
           const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
           for(const item of exactResults){
-            const more=extraByName.get(clean(item.name));
+            const more=extraById.get(String(item.id||''))||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
             const byRun=new Map();
             for(const run of more.history){
