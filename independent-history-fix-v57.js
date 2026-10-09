@@ -475,7 +475,7 @@
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
       }
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
-      if(exactItems.length&&exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>Number(r.field_size)<2))){
+      if(exactItems.length&&exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!(Number(r.field_size)>=2)))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
