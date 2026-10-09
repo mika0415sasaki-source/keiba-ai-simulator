@@ -235,8 +235,24 @@
         ? row.passage.map(Number).filter(Number.isFinite)
         : String(row.corners||row.passage||'').split(/[-‐－→]/).map(Number).filter(Number.isFinite);
       const rawBody=[row.body_weight,row.horse_weight,row.bodyWeight,row.weight].map(Number).find(x=>Number.isFinite(x)&&x>=300&&x<=700);
-      const raceName=String(row.race_name||row.raceName||row.title||row.race||'').replace(/[\"']\)+$/,'').trim();
+      const raceName=String(row.race_name||row.raceName||row.title||row.race||'').replace(/["']\)+$/,'').trim();
       const grade=normalizeGrade(row.grade||row.race_grade||row.class_name||row.race_class||row.class||raceName);
+      // Headcount can arrive as a number, "18頭", or race metadata text.
+      // Normalize it once here so scoring and the history display use the same value.
+      const fieldCandidates=[
+        row.field_size,row.fieldSize,row.field,row.runners,row.runner_count,
+        row.horse_count,row.head_count,row.entry_count,row.entries,row.total_horses,
+        row.field_text,row.field_size_text,row.race_field,row.race_info
+      ];
+      let fieldSize=null;
+      for(const candidate of fieldCandidates){
+        const raw=String(candidate??'').normalize('NFKC').trim();
+        if(!raw)continue;
+        const match=raw.match(/(?:^|\D)(\d{1,2})\s*頭/);
+        const numeric=raw.match(/^\d{1,2}$/);
+        const value=match?Number(match[1]):numeric?Number(raw):NaN;
+        if(Number.isFinite(value)&&value>=2&&value<=30){fieldSize=value;break}
+      }
       const run={
         date:row.date||'',
         venue:row.venue||row.course||'',
@@ -246,7 +262,7 @@
         rank:+(row.rank??row.pos)||0,
         jockey:row.jockey||'',
         passage,
-        field_size:+(row.field_size||row.fieldSize||0)||null,
+        field_size:fieldSize,
         body_weight:rawBody||null,
         race_name:raceName,
         grade,
