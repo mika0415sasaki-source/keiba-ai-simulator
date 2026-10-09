@@ -8,7 +8,7 @@
   const keyNums=arr=>arr.map(Number).sort((a,b)=>a-b).join('-');
   const keyH=arr=>keyNums(arr.map(h=>+h.no));
 
-  function hs(){try{return Array.isArray(evaluated)?evaluated.slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}}
+  function hs(){try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.winP)||0)-(Number(x?.winP)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}}
   function combos(arr,n){const out=[];const rec=(st,p)=>{if(p.length===n){out.push(p);return}for(let i=st;i<arr.length;i++)rec(i+1,[...p,arr[i]])};rec(0,[]);return out}
   function wideOdds(c){try{return num(wideOddsFor(c))}catch(_){return null}}
   function trioOdds(c){try{return num(trioOddsFor(c))}catch(_){return null}}
@@ -196,7 +196,7 @@
     const a=hs();if(a.length<3)return [];
     const d=decide();
     const betRows=(d.mode==='axis'||d.mode==='form')
-      ? [...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999))
+      ? [...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.winP)||0)-(Number(x?.winP)||0)||(+x?.no||999)-(+y?.no||999))
       : a;
     let candidates=[],ordered=[];
     if(d.mode==='wide'){
