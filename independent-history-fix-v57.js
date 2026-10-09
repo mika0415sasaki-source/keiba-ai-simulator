@@ -268,7 +268,11 @@
         grade,
         popularity:+(row.popularity||row.popular||0)||null,
         rating:+(row.rating||row.rt||0)||null,
-        source:row.source||'netkeiba-history'
+        source:row.source||'netkeiba-history',
+        // Preserve identifiers and enrichment provenance through normalizeHistory/applyHistory.
+        race_id:String(row.race_id||row.raceId||row.raceid||''),
+        field_size_source:String(row.field_size_source||row.fieldSizeSource||''),
+        field_size_debug:row.field_size_debug??row.field_debug??null
       };
       const last3f=validLast3f(row.last3f??row.last3);
       if(last3f!==undefined)run.last3f=last3f;
