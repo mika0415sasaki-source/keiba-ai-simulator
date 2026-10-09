@@ -768,7 +768,8 @@
       const grades=rows.filter(run=>normalizeGrade(run.grade||run.race_name)).length;
       const domestic=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
       const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
-      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f;
+      const missingFieldSize=rows.some(run=>!(Number(run.field_size)>=2));
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f||missingFieldSize;
     }
 
     function applyCurrentRoster(list=horses||[],url=raceUrl()){
