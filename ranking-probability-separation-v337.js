@@ -308,7 +308,27 @@
     return true;
   }
 
-  // 履歴再取得後にv57側がscoreを再計算するため、その直後からも順位・確率分離を再適用できる入口を公開する。\n  // 既存の分析式や市場補正は変更せず、最新scoreを入力として同じv337モデルを再計算する。\n  function refreshAfterHistory(){\n    try{\n      if(Array.isArray(evaluated))evaluated.forEach(h=>{try{delete h.rankingProbabilitySeparationV337}catch(_){} });\n      const rows=apply();\n      // v57の履歴再計算後に残る旧win値を使わず、v337が算出した1着率を最終値にする。\n      if(Array.isArray(rows))rows.forEach(h=>{\n        if(Number.isFinite(+h?.winP))h.win=+h.winP;\n        if(Number.isFinite(+h?.place))h.place=+h.place;\n      });\n      if(rows.length){try{if(typeof renderAnalysis==='function')renderAnalysis()}catch(_){};annotateUi()}\n      return rows;\n    }catch(e){console.warn('v337 history refresh',e);return []}\n  }\n  window.__refreshRankingProbabilityV337=refreshAfterHistory;\n\n  function annotateUi(){
+  // 履歴再取得後にv57側がscoreを再計算するため、その直後からも順位・確率分離を再適用できる入口を公開する。
+  // 既存の分析式や市場補正は変更せず、最新scoreを入力として同じv337モデルを再計算する。
+  function refreshAfterHistory(){
+    try{
+      if(Array.isArray(evaluated))evaluated.forEach(h=>{try{delete h.rankingProbabilitySeparationV337}catch(_){}});
+      const ok=apply();
+      const rows=Array.isArray(evaluated)?activeRows(evaluated):[];
+      if(ok&&rows.length){
+        rows.forEach(h=>{
+          if(Number.isFinite(+h?.winP))h.win=+h.winP;
+          if(Number.isFinite(+h?.place))h.place=+h.place;
+        });
+        try{if(typeof renderAnalysis==='function')renderAnalysis()}catch(_){}
+        annotateUi();
+      }
+      return rows;
+    }catch(e){console.warn('v337 history refresh',e);return []}
+  }
+  window.__refreshRankingProbabilityV337=refreshAfterHistory;
+
+  function annotateUi(){
     let rows=[];try{rows=activeRows(evaluated)}catch(_){return}
     if(!rows.length)return;
     const market=document.documentElement.dataset.probabilityMarketBlend==='30';
