@@ -1313,7 +1313,9 @@
         // h.histScores の信頼度補正が画面上で消えてしまうため、ここを最終値とする。
         if(Array.isArray(evaluated)){
           for(const e of evaluated){
-            const source=(horses||[]).find(h=>+h?.no===+e?.no||clean(h?.name)===clean(e?.name));
+            const source=clean(e?.name)
+              ?(horses||[]).find(h=>clean(h?.name)===clean(e?.name))
+              :(horses||[]).find(h=>Number.isFinite(+e?.no)&&+h?.no===+e?.no);
             const recent=source?.histScores;
             if(!recent?.available)continue;
             e.speed=+recent.speed;
