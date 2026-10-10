@@ -228,7 +228,13 @@
     const credibility=clamp(count/5,0,1);
     // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
     // これにより「履歴があるのに全馬同じ→AI順位へフォールバック」という経路を防ぐ。
-    const recent=history.length?clamp(inMoney,25,99):65;
+    const finishDen=finishValues.reduce((s,x)=>s+x.weight,0)||1;
+    const finishMean=finishValues.length
+      ?finishValues.reduce((s,x)=>s+x.value*x.weight,0)/finishDen
+      :65;
+    // 複勝圏に入った割合だけでなく、1〜5着以下の連続的な着順評価も反映する。
+    // finishMeanは着順そのもの、inMoneyは3着内に入った実績を表す別指標。
+    const recent=history.length?clamp(finishMean*.60+inMoney*.40,25,99):65;
     const stable=history.length?clamp(consistency,35,99):65;
     // 3着内率は1着率・AI指数とは別の序列を作る。
     // 「複勝圏実績」と「着順安定度」を主軸にし、コース/距離/馬場・上がり・騎手相性は補助。
