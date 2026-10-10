@@ -1088,7 +1088,7 @@
         const title=card.querySelector('.rank')?.textContent||'';
         const h=(horses||[]).find(x=>title.includes(x.name));
         if(!h)return;
-        const runs=(h.histScores?.available?(h.history||[]):((h.jra_history||[]))).slice(0,5);
+        const runs=((h.history||[]).length?(h.history||[]):(h.jra_history||[])).slice(0,5);
         const histRows=[...card.querySelectorAll('.hist-row')];
         histRows.forEach((row,index)=>{
           const run=runs[index];
