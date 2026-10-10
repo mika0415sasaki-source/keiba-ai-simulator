@@ -480,7 +480,6 @@
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
-          const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
           const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
