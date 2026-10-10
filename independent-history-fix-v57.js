@@ -481,7 +481,9 @@
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'');
-          const key=r=>[normDate(r.date),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
+          const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
+          const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
           const extraById=new Map(extra.filter(x=>/^\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
           const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
           for(const item of exactResults){
@@ -497,7 +499,8 @@
             item.history=item.history.map(run=>{
               if(Number(run.field_size)>=2)return run;
               const matches=byRun.get(key(run))||[];
-              const match=matches.find(v=>(!normVenue(run.venue)||!normVenue(v.venue)||normVenue(run.venue)===normVenue(v.venue))&&(!clean(run.surface)||!clean(v.surface)||clean(run.surface)===clean(v.surface)));
+              // Ambiguous or incomplete keys must not be used to infer a field size.
+              const match=matches.length===1&&normVenue(run.venue)&&normSurface(run.surface)?matches[0]:null;
               const n=Number(match?.field_size);
               return n>=2&&n<=30?{...run,field_size:n}:run;
             });
