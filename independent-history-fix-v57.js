@@ -239,6 +239,7 @@
       const grade=normalizeGrade(row.grade||row.race_grade||row.class_name||row.race_class||row.class||raceName);
       const run={
         date:row.date||'',
+        race_id:String(row.race_id||row.raceId||row.race_key||'').replace(/\D/g,'').match(/^20\d{10}$/)?.[0]||'',
         venue:row.venue||row.course||'',
         surface:row.surface||'',
         distance:+(row.distance??row.dist)||0,
