@@ -290,7 +290,19 @@
         const dateDigits=String(run.date||'').replace(/\D/g,'');
         const dateKey=dateDigits.length>=4?dateDigits.slice(-4):dateDigits;
         const key=[dateKey,run.venue,run.surface,run.distance,run.rank].join('|');
-        if(seen.has(key))continue;
+        if(seen.has(key)){
+          // A fresh history row can omit field_size while a previously verified duplicate has it.
+          // Preserve only the verified headcount; do not let a blank refresh erase it.
+          const existing=unique.find(x=>{
+            const d=String(x.date||'').replace(/\D/g,'');
+            const dk=d.length>=4?d.slice(-4):d;
+            return [dk,x.venue,x.surface,x.distance,x.rank].join('|')===key;
+          });
+          if(existing&&!(Number(existing.field_size)>=2)&&Number(run.field_size)>=2&&Number(run.field_size)<=30){
+            existing.field_size=Number(run.field_size);
+          }
+          continue;
+        }
         seen.add(key);
         unique.push(run);
         if(unique.length>=5)break;
