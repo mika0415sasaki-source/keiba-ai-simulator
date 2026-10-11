@@ -346,13 +346,15 @@
         note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝市場30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
-      cards.forEach((card,i)=>{
-        const h=rows[i];if(!h)return;
+      cards.forEach(card=>{
         const rank=card.querySelector('.rank');
-        if(rank){
-          const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||i+1)-1]||'';
-          rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
-        }
+        const label=String(rank?.textContent||'');
+        // v345 displays cards in 3着内率 order, not evaluated's AI-score order.
+        // Resolve the row by its displayed horse name instead of the card's array index.
+        const h=rows.find(x=>String(x?.name||'')&&label.includes(String(x.name)));
+        if(!h)return;
+        const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||1)-1]||'';
+        if(rank)rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
         // 順位バッジは1段だけ残す。旧表示処理とv345系の両方が走った場合に
         // 「AI順位・1着率・3着内率」と「1着率・3着内率」が二重表示されるため、
         // ranking-summary-main直下の重複する順位行だけを除去する。
@@ -378,8 +380,11 @@
 
     const tbody=document.getElementById('rows');
     if(tbody){
-      [...tbody.querySelectorAll('tr')].forEach((tr,i)=>{
-        const h=rows[i];if(!h)return;
+      [...tbody.querySelectorAll('tr')].forEach(tr=>{
+        const label=String(tr.querySelector('td:first-child')?.textContent||'');
+        // Comparison rows can be sorted independently; match by horse identity, not row index.
+        const h=rows.find(x=>String(x?.name||'')&&label.includes(String(x.name)));
+        if(!h)return;
         const rr=tr.querySelector('.comparison-rank');if(rr)rr.textContent=`AI ${h.aiRankV337}位`;
         const cells=[...tr.querySelectorAll('td')];
         const winCell=cells.find(td=>String(td.dataset?.label||'').includes('1着率'));
