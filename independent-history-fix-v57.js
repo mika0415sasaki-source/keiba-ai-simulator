@@ -397,7 +397,8 @@
     function decorateKnownRaceGrades(){
       for(const h of horses||[]){
         const detail=CURRENT_LATEST_GRADES[clean(h.name)];
-        if(!detail)continue;        const [date,raceName,grade]=detail;
+        if(!detail)continue;
+        const [date,raceName,grade]=detail;
         const run=(h.history||[]).find(r=>String(r.date||'').replace(/\D/g,'')===date)||(h.history||[])[0];
         if(run){run.race_name=run.race_name||raceName;run.grade=run.grade||grade}
       }
@@ -796,7 +797,8 @@
       }
       if(/netkeiba\.com/i.test(String(url||''))&&window.__preentryMode){
         const date=raceDateNumber();
-        const year=date?Math.floor(date/10000):0;        const month=date?Math.floor(date/100)%100:0;
+        const year=date?Math.floor(date/10000):0;
+        const month=date?Math.floor(date/100)%100:0;
         const day=date?date%100:0;
         const releaseAt=date?Date.UTC(year,month-1,day,5,0,0):Infinity;
         if(Date.now()<releaseAt){
@@ -1195,7 +1197,8 @@
       // 確率は v337 の分離モデルを唯一の最終計算元にする。
       // ここで旧「AI指数→1着率→3着内率」式を再計算すると、
       // v337 の独立した3着内モデルが後段で上書きされるため実行しない。
-      if(typeof window.__refreshRankingProbabilityV337==='function'){        try{window.__refreshRankingProbabilityV337()}catch(e){console.warn('v57 probability refresh',e)}
+      if(typeof window.__refreshRankingProbabilityV337==='function'){
+        try{window.__refreshRankingProbabilityV337()}catch(e){console.warn('v57 probability refresh',e)}
       }
       // v345を表示の唯一の最終レンダラーにする。v57旧描画を残すと、後から#ranking/#rowsを上書きして表示が巻き戻る。
       if(typeof window.__renderRankingV345==='function'){
