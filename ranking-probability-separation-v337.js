@@ -354,7 +354,7 @@
         const h=rows.find(x=>String(x?.name||'')&&label.includes(String(x.name)));
         if(!h)return;
         const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||1)-1]||'';
-        if(rank)rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
+        // v345 owns the final visible card identity and rank labels; avoid overwriting them from this async annotation pass.
         // 順位バッジは1段だけ残す。旧表示処理とv345系の両方が走った場合に
         // 「AI順位・1着率・3着内率」と「1着率・3着内率」が二重表示されるため、
         // ranking-summary-main直下の重複する順位行だけを除去する。
@@ -373,7 +373,7 @@
         if(details){
           const metrics=[...details.querySelectorAll('.metric')];
           const winMetric=metrics.find(x=>/1着率/.test(x.textContent||''));
-          if(winMetric){const label=winMetric.querySelector('span');if(label)label.textContent=`1着率（確率${h.probabilityRankV337}位）`}
+          // v345 already renders the correct win-probability rank for this row.
         }
       });
     }
