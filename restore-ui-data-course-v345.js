@@ -10,7 +10,12 @@
   let stabilizing=false,evalBusy=false,timer=0;
   const activeRows=()=>{try{return(Array.isArray(evaluated)?evaluated:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')))}catch(_){return[]}};
   const allHorses=()=>{try{return Array.isArray(horses)?horses:[]}catch(_){return[]}};
-  const sourceHorse=h=>allHorses().find(x=>+x?.no===+h?.no||norm(x?.name)===norm(h?.name))||h;
+  const sourceHorse=h=>{
+    const list=allHorses();
+    const name=norm(h?.name);
+    if(name){const byName=list.find(x=>norm(x?.name)===name);if(byName)return byName;}
+    return Number.isFinite(+h?.no)?(list.find(x=>+x?.no===+h?.no)||h):h;
+  };
   function injectedStyle(){
     if(el('restoreUiDataCourseV345Style'))return;
     const s=document.createElement('style');s.id='restoreUiDataCourseV345Style';s.textContent=`
