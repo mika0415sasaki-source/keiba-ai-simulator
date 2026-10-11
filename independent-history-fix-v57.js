@@ -397,8 +397,7 @@
     function decorateKnownRaceGrades(){
       for(const h of horses||[]){
         const detail=CURRENT_LATEST_GRADES[clean(h.name)];
-        if(!detail)continue;
-        const [date,raceName,grade]=detail;
+        if(!detail)continue;        const [date,raceName,grade]=detail;
         const run=(h.history||[]).find(r=>String(r.date||'').replace(/\D/g,'')===date)||(h.history||[])[0];
         if(run){run.race_name=run.race_name||raceName;run.grade=run.grade||grade}
       }
@@ -797,8 +796,7 @@
       }
       if(/netkeiba\.com/i.test(String(url||''))&&window.__preentryMode){
         const date=raceDateNumber();
-        const year=date?Math.floor(date/10000):0;
-        const month=date?Math.floor(date/100)%100:0;
+        const year=date?Math.floor(date/10000):0;        const month=date?Math.floor(date/100)%100:0;
         const day=date?date%100:0;
         const releaseAt=date?Date.UTC(year,month-1,day,5,0,0):Infinity;
         if(Date.now()<releaseAt){
@@ -1197,8 +1195,7 @@
       // 確率は v337 の分離モデルを唯一の最終計算元にする。
       // ここで旧「AI指数→1着率→3着内率」式を再計算すると、
       // v337 の独立した3着内モデルが後段で上書きされるため実行しない。
-      if(typeof window.__refreshRankingProbabilityV337==='function'){
-        try{window.__refreshRankingProbabilityV337()}catch(e){console.warn('v57 probability refresh',e)}
+      if(typeof window.__refreshRankingProbabilityV337==='function'){        try{window.__refreshRankingProbabilityV337()}catch(e){console.warn('v57 probability refresh',e)}
       }
       // v345を表示の唯一の最終レンダラーにする。v57旧描画を残すと、後から#ranking/#rowsを上書きして表示が巻き戻る。
       if(typeof window.__renderRankingV345==='function'){
@@ -1442,6 +1439,55 @@
 
     renderHorses();
     let attempts=0;
+    // Recover only missing past-race field sizes; do not re-fetch or redraw all history.
+    async function recoverMissingFieldSizes(){
+      if(!isNetkeiba())return;
+      const targets=(horses||[]).filter(h=>
+        /^\d{10}$/.test(horseId(h))&&
+        (h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
+      );
+      if(!targets.length)return;
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),18000);
+      try{
+        const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{
+          method:'POST',cache:'no-store',signal:controller.signal,
+          headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
+          body:JSON.stringify({items:targets.map(h=>({name:h.name,id:horseId(h)}))})
+        });
+        const payload=await response.json().catch(()=>({}));
+        if(!response.ok||!Array.isArray(payload.results))throw new Error(payload.error||('HTTP '+response.status));
+        const dateKey=v=>String(v||'').replace(/\D/g,'').slice(0,8);
+        const venueKey=v=>clean(v).replace(/競馬場|競馬/g,'');
+        const surfaceKey=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
+        let changed=0;
+        for(const result of payload.results){
+          const h=targets.find(x=>horseId(x)===String(result.id||'')&&clean(x.name)===clean(result.name));
+          if(!h||!Array.isArray(result.history))continue;
+          for(const run of h.history||[]){
+            if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
+            const matches=result.history.filter(candidate=>
+              dateKey(candidate.date)===dateKey(run.date)&&
+              venueKey(candidate.venue)===venueKey(run.venue)&&
+              surfaceKey(candidate.surface)===surfaceKey(run.surface)&&
+              Number(candidate.distance)===Number(run.distance)&&
+              Number(candidate.rank)===Number(run.rank)&&
+              Number(candidate.field_size)>=2&&Number(candidate.field_size)<=30
+            );
+            if(matches.length!==1)continue;
+            run.field_size=Number(matches[0].field_size);
+            changed++;
+          }
+        }
+        if(changed){
+          try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
+          fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
+          console.info('verified past-race field sizes recovered:',changed);
+        }
+      }catch(error){console.warn('targeted headcount recovery failed',error)}
+      finally{clearTimeout(timer)}
+    }
+
     // Do not reload full history just because field_size is missing.
     const historyNeedsAutoRecovery=h=>{
       const rows=h?.history||[];
@@ -1455,6 +1501,7 @@
       attempts++;
       const hasHorses=(horses||[]).length>0;
       const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
+      if(hasHorses&&isNetkeiba())recoverMissingFieldSizes().catch(()=>{});
       if(hasHorses&&isNetkeiba()&&incomplete){
         loadNetkeibaHistories({silent:true}).catch(()=>{});
         return;
