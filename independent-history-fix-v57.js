@@ -1443,12 +1443,24 @@
     renderHorses();
     let attempts=0;
     // Recover only missing past-race field sizes; do not re-fetch or redraw all history.
+    function showHeadcountDiagnostic(message){
+      let box=document.getElementById('headcount-recovery-diagnostic');
+      if(!box){
+        box=document.createElement('div');
+        box.id='headcount-recovery-diagnostic';
+        box.style.cssText='position:fixed;z-index:99999;left:10px;right:10px;bottom:10px;padding:12px 14px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:10px;font:13px/1.55 -apple-system,BlinkMacSystemFont,sans-serif;white-space:pre-wrap;box-shadow:0 4px 20px #0008';
+        document.body.appendChild(box);
+      }
+      box.textContent=message;
+    }
     async function recoverMissingFieldSizes(){
       const targets=(horses||[]).filter(h=>
-        /^\d{10}$/.test(horseId(h))&&
+        /^\\d{10}$/.test(horseId(h))&&
         (h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
       );
       if(!targets.length)return;
+      const targetRuns=targets.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
+      showHeadcountDiagnostic('過去走の頭数取得を診断中…\\n対象馬 '+targets.length+'頭 / 未取得 '+targetRuns+'走');
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),18000);
       try{
@@ -1459,18 +1471,20 @@
         });
         const payload=await response.json().catch(()=>({}));
         if(!response.ok||!Array.isArray(payload.results))throw new Error(payload.error||('HTTP '+response.status));
-        const dateKey=v=>{const s=String(v||'').normalize('NFKC').trim();let m=s.match(/(20\d{2})\D?(\d{1,2})\D?(\d{1,2})/);if(m)return {full:m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0'),md:String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0')};m=s.match(/(?:^|\D)(\d{1,2})[\/.\-](\d{1,2})(?:$|\D)/);if(m)return {full:'',md:String(+m[1]).padStart(2,'0')+String(+m[2]).padStart(2,'0')};const d=s.replace(/\D/g,'');return d.length>=8?{full:d.slice(0,8),md:d.slice(4,8)}:{full:'',md:d.length===4?d:''}};
+        const dateKey=v=>{const s=String(v||'').normalize('NFKC').trim();let m=s.match(/(20\\d{2})\\D?(\\d{1,2})\\D?(\\d{1,2})/);if(m)return {full:m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0'),md:String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0')};m=s.match(/(?:^|\\D)(\\d{1,2})[\\/.\\-](\\d{1,2})(?:$|\\D)/);if(m)return {full:'',md:String(+m[1]).padStart(2,'0')+String(+m[2]).padStart(2,'0')};const d=s.replace(/\\D/g,'');return d.length>=8?{full:d.slice(0,8),md:d.slice(4,8)}:{full:'',md:d.length===4?d:''}};
         const sameDate=(a,b)=>{const x=dateKey(a),y=dateKey(b);return !!(x.full&&y.full?x.full===y.full:x.md&&y.md&&x.md===y.md)};
-        const rankKey=v=>{const s=clean(v).normalize('NFKC');if(/取消|除外|中止|失格/.test(s))return s.match(/取消|除外|中止|失格/)[0];const m=s.match(/\d+/);return m?String(+m[0]):s};
-        const venueKey=v=>{const s=clean(v).replace(/[・･\s　]/g,'').replace(/競馬場|競馬/g,'');const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
+        const rankKey=v=>{const s=clean(v).normalize('NFKC');if(/取消|除外|中止|失格/.test(s))return s.match(/取消|除外|中止|失格/)[0];const m=s.match(/\\d+/);return m?String(+m[0]):s};
+        const venueKey=v=>{const s=clean(v).replace(/[・･\\s　]/g,'').replace(/競馬場|競馬/g,'');const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
         const surfaceKey=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
-        let changed=0;
+        let changed=0, missingCandidates=0, ambiguous=0, validReturned=0;
+        const returned=(payload.results||[]).reduce((n,result)=>n+(Array.isArray(result.history)?result.history.filter(c=>Number(c.field_size)>=2&&Number(c.field_size)<=30).length:0),0);
+        validReturned=returned;
         for(const result of payload.results){
           const h=targets.find(x=>horseId(x)===String(result.id||'')&&clean(x.name)===clean(result.name));
           if(!h||!Array.isArray(result.history))continue;
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
-            const matches=result.history.filter(candidate=>
+            const candidates=result.history.filter(candidate=>
               sameDate(candidate.date,run.date)&&
               venueKey(candidate.venue)===venueKey(run.venue)&&
               surfaceKey(candidate.surface)===surfaceKey(run.surface)&&
@@ -1478,20 +1492,24 @@
               rankKey(candidate.rank)===rankKey(run.rank)&&
               Number(candidate.field_size)>=2&&Number(candidate.field_size)<=30
             );
-            if(matches.length!==1)continue;
-            run.field_size=Number(matches[0].field_size);
+            if(candidates.length!==1){if(candidates.length===0)missingCandidates++;else ambiguous++;continue}
+            run.field_size=Number(candidates[0].field_size);
             changed++;
           }
         }
+        const apiOk=payload.results.filter(r=>r.available).length;
+        showHeadcountDiagnostic('頭数取得 診断結果\\nAPI応答: 正常 (HTTP '+response.status+') / 対象馬 '+targets.length+'頭\\n取得元が返した有効な頭数: '+validReturned+'件 / アプリ側で照合・反映: '+changed+'件\\n照合候補なし: '+missingCandidates+'件 / 複数候補: '+ambiguous+'件\\n'+(validReturned===0?'判定: 取得元から有効な頭数が返っていません。':changed===0?'判定: 頭数データは返っていますが、アプリ側で照合できていません。':missingCandidates||ambiguous?'判定: 一部は反映。未反映分は照合条件の確認が必要です。':'判定: 対象頭数を反映しました。')+'\\n取得元の履歴応答: '+apiOk+'/'+targets.length+'頭');
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
           console.info('verified past-race field sizes recovered:',changed);
         }
-      }catch(error){console.warn('targeted headcount recovery failed',error)}
+      }catch(error){
+        showHeadcountDiagnostic('頭数取得 診断失敗\\n'+String(error?.message||error)+'\\nAPI応答または通信で失敗しています。');
+        console.warn('targeted headcount recovery failed',error)
+      }
       finally{clearTimeout(timer)}
     }
-
     // Do not reload full history just because field_size is missing.
     const historyNeedsAutoRecovery=h=>{
       const rows=h?.history||[];
