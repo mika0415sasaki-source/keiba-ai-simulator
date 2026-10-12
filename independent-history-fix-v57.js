@@ -1460,7 +1460,7 @@
         const payload=await response.json().catch(()=>({}));
         if(!response.ok||!Array.isArray(payload.results))throw new Error(payload.error||('HTTP '+response.status));
         const dateKey=v=>String(v||'').replace(/\D/g,'').slice(0,8);
-        const venueKey=v=>clean(v).replace(/競馬場|競馬/g,'');
+        const venueKey=v=>{const s=clean(v).replace(/[・･\s　]/g,'').replace(/競馬場|競馬/g,'');const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
         const surfaceKey=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
         let changed=0;
         for(const result of payload.results){
