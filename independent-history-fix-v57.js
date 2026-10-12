@@ -1444,7 +1444,6 @@
     let attempts=0;
     // Recover only missing past-race field sizes; do not re-fetch or redraw all history.
     async function recoverMissingFieldSizes(){
-      if(!isNetkeiba())return;
       const targets=(horses||[]).filter(h=>
         /^\d{10}$/.test(horseId(h))&&
         (h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
@@ -1504,7 +1503,7 @@
       attempts++;
       const hasHorses=(horses||[]).length>0;
       const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
-      if(hasHorses&&isNetkeiba())recoverMissingFieldSizes().catch(()=>{});
+      if(hasHorses)recoverMissingFieldSizes().catch(()=>{});
       if(hasHorses&&isNetkeiba()&&incomplete){
         loadNetkeibaHistories({silent:true}).catch(()=>{});
         return;
