@@ -1503,11 +1503,11 @@
       attempts++;
       const hasHorses=(horses||[]).length>0;
       const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
-      if(hasHorses)recoverMissingFieldSizes().catch(()=>{});
-      if(hasHorses&&isNetkeiba()&&incomplete){
-        loadNetkeibaHistories({silent:true}).catch(()=>{});
+      if(hasHorses&&incomplete){
+        loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{});
         return;
       }
+      if(hasHorses)recoverMissingFieldSizes().catch(()=>{});
       if(!hasHorses&&attempts<20)setTimeout(autoRecover,500);
     };
     setTimeout(autoRecover,900);
