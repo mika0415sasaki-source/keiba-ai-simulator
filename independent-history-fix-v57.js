@@ -1523,10 +1523,10 @@
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      // Diagnose the currently loaded rows first. Do not let a separate full-history
-      // refresh hold the diagnostic panel on its startup message indefinitely.
+      // Diagnose the currently loaded rows first; never leave the startup message indefinitely.
       if(hasHorses){recoverMissingFieldSizes().catch(error=>showHeadcountDiagnostic('頭数取得 診断失敗\\n'+String(error?.message||error)));return;}
-      if(attempts<20)setTimeout(autoRecover,500);
+      if(attempts<20){setTimeout(autoRecover,500);return;}
+      showHeadcountDiagnostic('頭数取得 診断結果\\n出走馬データが見つかりません。出馬表を取り込んだ後に、診断版を再読み込みしてください。');
     };
     setTimeout(autoRecover,900);
   };
