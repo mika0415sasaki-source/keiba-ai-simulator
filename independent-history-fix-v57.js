@@ -1455,11 +1455,17 @@
     }
     showHeadcountDiagnostic('頭数取得 診断コード起動済み\n出走馬データと未取得行を確認しています…');
     async function recoverMissingFieldSizes(){
-      const targets=(horses||[]).filter(h=>
-        /^\d{10}$/.test(horseId(h))&&
-        (h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
-      );
-      if(!targets.length){showHeadcountDiagnostic('頭数取得 診断結果\n診断コードは起動しました。\n対象馬が0頭です。馬データ未読込、または馬IDが対象形式ではない可能性があります。');return;}
+      const roster=Array.isArray(horses)?horses:[];
+      const needsSize=h=>(h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30));
+      const missingRoster=roster.filter(needsSize);
+      const targets=missingRoster.filter(h=>/^\\d{10}$/.test(horseId(h)));
+      if(!targets.length){
+        const withHistory=roster.filter(h=>(h.history||[]).length);
+        const idSamples=missingRoster.slice(0,3).map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、'));
+        const missingRuns=missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
+        showHeadcountDiagnostic('頭数取得 診断結果\\n出走馬データは '+roster.length+'頭 / 過去走あり '+withHistory.length+'頭\\n頭数未取得の過去走: '+missingRuns+'走 / その馬: '+missingRoster.length+'頭\\n10桁の馬IDで照会可能: '+targets.length+'頭\\nID確認例: '+(idSamples.join(' / ')||'頭数未取得行なし')+'\\n判定: 頭数未取得行と馬IDの対応を確認する必要があります。');
+        return;
+      }
       const targetRuns=targets.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
       showHeadcountDiagnostic('過去走の頭数取得を診断中…\\n対象馬 '+targets.length+'頭 / 未取得 '+targetRuns+'走');
       const controller=new AbortController();
