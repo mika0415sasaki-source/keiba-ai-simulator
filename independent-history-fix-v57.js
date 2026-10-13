@@ -1523,13 +1523,10 @@
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
-      if(hasHorses&&incomplete){
-        loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{});
-        return;
-      }
-      if(hasHorses)recoverMissingFieldSizes().catch(()=>{});
-      if(!hasHorses&&attempts<20)setTimeout(autoRecover,500);
+      // Diagnose the currently loaded rows first. Do not let a separate full-history
+      // refresh hold the diagnostic panel on its startup message indefinitely.
+      if(hasHorses){recoverMissingFieldSizes().catch(error=>showHeadcountDiagnostic('頭数取得 診断失敗\\n'+String(error?.message||error)));return;}
+      if(attempts<20)setTimeout(autoRecover,500);
     };
     setTimeout(autoRecover,900);
   };
