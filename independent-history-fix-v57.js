@@ -1442,12 +1442,24 @@
 
     renderHorses();
     let attempts=0;
+    // Diagnostic overlay only: leave history loading, matching, and rendering logic unchanged.
+    function showHeadcountDiagnostic(message){
+      let box=document.getElementById('headcount-recovery-diagnostic');
+      if(!box){
+        box=document.createElement('div');
+        box.id='headcount-recovery-diagnostic';
+        box.style.cssText='position:fixed;z-index:99999;left:10px;right:10px;bottom:10px;padding:12px 14px;background:#111827;color:#fff;border:1px solid #64748b;border-radius:10px;font:13px/1.55 -apple-system,BlinkMacSystemFont,sans-serif;white-space:pre-wrap;box-shadow:0 4px 20px #0008';
+        document.body.appendChild(box);
+      }
+      box.textContent=message;
+    }
     // Recover only missing past-race field sizes; do not re-fetch or redraw all history.
     async function recoverMissingFieldSizes(){
-      const targets=(horses||[]).filter(h=>
-        /^\d{10}$/.test(horseId(h))&&
-        (h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
-      );
+      const roster=Array.isArray(horses)?horses:[];
+      const needsSize=h=>(h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30));
+      const missingRoster=roster.filter(needsSize);
+      const targets=missingRoster.filter(h=>/^\d{10}$/.test(horseId(h)));
+      showHeadcountDiagnostic('頭数取得 診断結果\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\n頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走 / 対象馬: '+missingRoster.length+'頭\n10桁の馬IDで照会可能: '+targets.length+'頭\nID確認例: '+(missingRoster.slice(0,3).map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'頭数未取得行なし'));
       if(!targets.length)return;
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),18000);
@@ -1483,6 +1495,7 @@
             changed++;
           }
         }
+        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n反映: '+changed+'件\n取得元の履歴応答: '+payload.results.filter(r=>r.available).length+'/'+targets.length+'頭');
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
