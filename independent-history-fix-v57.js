@@ -1495,7 +1495,9 @@
             changed++;
           }
         }
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n反映: '+changed+'件\n取得元の履歴応答: '+payload.results.filter(r=>r.available).length+'/'+targets.length+'頭');
+        const availableCount=payload.results.filter(r=>r.available).length;
+        const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')).join('\\n');
+        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n反映: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n\n未取得理由（最大5頭）:\n'+(reasons||'未取得なし'));
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
