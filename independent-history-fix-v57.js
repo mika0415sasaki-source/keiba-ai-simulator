@@ -247,7 +247,7 @@
         rank:+(row.rank??row.pos)||0,
         jockey:row.jockey||'',
         passage,
-        field_size:+(row.field_size||row.fieldSize||0)||null,
+        field_size:+(row.field_size??row.fieldSize??row.num_horses??row.horse_count??row.fieldSizeCount??0)||null,
         body_weight:rawBody||null,
         race_name:raceName,
         grade,
