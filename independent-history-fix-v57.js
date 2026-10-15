@@ -1497,14 +1497,14 @@
           if(!h||!Array.isArray(result.history))continue;
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
-            const matches=result.history.filter(candidate=>
-              sameDate(candidate.date,run.date)&&
-              venueKey(candidate.venue)===venueKey(run.venue)&&
-              surfaceKey(candidate.surface)===surfaceKey(run.surface)&&
-              Number(candidate.distance)===Number(run.distance)&&
-              rankKey(candidate.rank)===rankKey(run.rank)&&
-              Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count)>=2&&Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count)<=30
-            );
+            const matches=result.history.filter(candidate=>{
+              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\\D/g,'');
+              const runRaceId=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+              const exactRaceId=/^20\\d{10}$/.test(candidateRaceId)&&/^20\\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
+              const sameRaceDetails=sameDate(candidate.date,run.date)&&venueKey(candidate.venue)===venueKey(run.venue)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
+              return (exactRaceId||sameRaceDetails)&&size>=2&&size<=30;
+            });
             if(matches.length!==1)continue;
             run.field_size=Number(matches[0].field_size??matches[0].fieldSize??matches[0].num_horses??matches[0].horse_count);
             changed++;
