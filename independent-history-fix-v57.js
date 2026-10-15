@@ -1503,17 +1503,18 @@
               surfaceKey(candidate.surface)===surfaceKey(run.surface)&&
               Number(candidate.distance)===Number(run.distance)&&
               rankKey(candidate.rank)===rankKey(run.rank)&&
-              Number(candidate.field_size)>=2&&Number(candidate.field_size)<=30
+              Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count)>=2&&Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count)<=30
             );
             if(matches.length!==1)continue;
-            run.field_size=Number(matches[0].field_size);
+            run.field_size=Number(matches[0].field_size??matches[0].fieldSize??matches[0].num_horses??matches[0].horse_count);
             changed++;
           }
         }
         const availableCount=payload.results.filter(r=>r.available).length;
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n取得元の未取得理由（最大5頭）:\n'+(reasons||'取得元の履歴応答は全頭あり。未反映の走は照合条件を確認する必要があります。'));
+        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const candidates=result.history.filter(c=>sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank));unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → 同一条件候補'+candidates.length+'件');}}
+        showHeadcountDiagnostic('頭数取得 診断結果\\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\\n照合成功: '+changed+'件\\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\\n反映後も頭数未取得: '+remaining+'走\\n\\n未反映の走（最大8件）:\\n'+(unmatched.slice(0,8).join('\\n')||reasons||'未取得行なし'));
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
