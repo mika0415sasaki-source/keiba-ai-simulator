@@ -150,6 +150,31 @@
     }
     ensureResponsiveComparisonCss();
 
+    // Render the verified field size in the existing history row without replacing
+    // the underlying renderer or touching ranking/probability calculations.
+    const renderHorsesBeforeHeadcountLabel=renderHorses;
+    renderHorses=function(){
+      renderHorsesBeforeHeadcountLabel();
+      const root=document.getElementById('horses');
+      if(!root)return;
+      const byName=new Map((horses||[]).map(h=>[clean(h.name),h]));
+      for(const card of root.querySelectorAll(':scope > .card')){
+        const title=card.querySelector('.rank');
+        const h=title?byName.get(clean(title.textContent).replace(/^\d+\s*/,'')):null;
+        if(!h)continue;
+        const rows=[...card.querySelectorAll('.hist-row')];
+        rows.forEach((row,index)=>{
+          const run=(h.history||[])[index];
+          const venueCell=row.children[1];
+          if(!run||!venueCell)return;
+          const venue=String(run.venue||'—');
+          const count=Number(run.field_size);
+          venueCell.textContent=venue+(count>=2&&count<=30?'・'+count+'頭':'・頭数未取得');
+          venueCell.title=count>=2&&count<=30?'出走頭数 '+count+'頭':'出走頭数を照合できていません';
+        });
+      }
+    };
+
     const clean=v=>String(v||'').replace(/[\s　]+/g,'').trim();
     const num=v=>Number.isFinite(+v)?+v:null;
     const validLast3f=v=>{
