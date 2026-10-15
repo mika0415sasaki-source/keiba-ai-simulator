@@ -1531,17 +1531,30 @@
       const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
       return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f;
     };
+    let autoHistoryStarted=false;
     const autoRecover=()=>{
       attempts++;
       const hasHorses=(horses||[]).length>0;
-      const incomplete=hasHorses&&horses.some(historyNeedsAutoRecovery);
-      if(hasHorses&&incomplete){
-        loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{});
+      if(!hasHorses){
+        // The app can import the roster asynchronously after this script starts.
+        // Keep waiting for the roster instead of giving up after ten seconds.
+        if(attempts<120)setTimeout(autoRecover,500);
         return;
       }
-      if(hasHorses)recoverMissingFieldSizes().catch(()=>{});
-      if(!hasHorses&&attempts<20)setTimeout(autoRecover,500);
+      const incomplete=horses.some(historyNeedsAutoRecovery);
+      if(incomplete&&!autoHistoryStarted){
+        autoHistoryStarted=true;
+        loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{}).finally(()=>{
+          autoHistoryStarted=false;
+        });
+        return;
+      }
+      if(!incomplete)recoverMissingFieldSizes().catch(()=>{});
     };
+    // Re-check after the roster is imported as well as on initial page load.
+    window.addEventListener('keiba-data-updated',()=>{
+      if((horses||[]).length&&horses.some(historyNeedsAutoRecovery))autoRecover();
+    });
     setTimeout(autoRecover,900);
   };
   wait();
