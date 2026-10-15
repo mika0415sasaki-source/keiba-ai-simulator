@@ -1411,11 +1411,26 @@
               h.netkeibaError='同名の別馬を除外しました';
               continue;
             }
-            // A response whose horse ID matches the current entry is authoritative.
-            // Replace cached rows so an old same-name/incorrect-ID association cannot
-            // remain among the latest five races.
+            // Exact horse-ID response is authoritative for matching race rows, but a
+            // partial parser response must not erase valid cached past runs. Merge by
+            // full race identity; keep fetched fields where present and retain older
+            // verified rows only when the response contains fewer than five races.
+            const fetched=normalizeHistory(row.history);
+            const prior=normalizeHistory(h.history||[]);
+            const raceKey=r=>[String(r.date||'').replace(/\\D/g,''),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+            const merged=fetched.map(run=>({...run}));
+            const fetchedKeys=new Set(merged.map(raceKey));
+            if(merged.length<5){
+              for(const oldRun of prior){
+                const key=raceKey(oldRun);
+                if(!key.replace(/\\|/g,'')||fetchedKeys.has(key))continue;
+                merged.push({...oldRun});
+                fetchedKeys.add(key);
+              }
+            }
+            merged.sort((a,b)=>String(b.date||'').replace(/\\D/g,'').localeCompare(String(a.date||'').replace(/\\D/g,'')));
             h.history=[];
-            applyHistory(h,row.history,row.via||'netkeiba過去走',row.last_body_weight);
+            applyHistory(h,merged.slice(0,5),row.via||'netkeiba過去走',row.last_body_weight);
             if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
             h.netkeibaUrl=row.url||h.netkeibaUrl||null;
           }
