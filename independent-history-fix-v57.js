@@ -488,7 +488,7 @@
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
       }
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
-      if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!(Number(r.field_size)>=2)))||list.some(h=>Array.isArray(h.history)&&h.history.some(r=>!(Number(r.field_size)>=2))))){
+      if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
@@ -500,6 +500,21 @@
           for(const item of exactResults){
             const more=extraById.get(String(item.id||''))||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
+            // If the primary parser returned fewer than five runs, recover missing runs
+            // only from the same horse ID and deduplicate by full race identity.
+            if(String(item.id||'')===String(more.id||'')&&item.history.length<5){
+              const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+              const have=new Set(item.history.map(raceKey));
+              const merged=[...item.history];
+              for(const run of more.history){
+                const k=raceKey(run);
+                if(!normDate(run.date)||!normVenue(run.venue)||!normSurface(run.surface)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||have.has(k))continue;
+                have.add(k);
+                merged.push(run);
+              }
+              merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
+              item.history=merged.slice(0,5);
+            }
             const byRun=new Map();
             for(const run of more.history){
               if(Number(run.field_size)<2)continue;
