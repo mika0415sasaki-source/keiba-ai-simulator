@@ -1491,6 +1491,43 @@
       const targets=missingRoster.filter(h=>/^\d{10}$/.test(horseId(h)));
       showHeadcountDiagnostic('頭数取得 診断結果\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\n頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走 / 対象馬: '+missingRoster.length+'頭\n10桁の馬IDで照会可能: '+targets.length+'頭\nID確認例: '+(missingRoster.slice(0,3).map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'頭数未取得行なし'));
       if(!targets.length)return;
+      // Prefer exact race IDs so older races are not limited to the five-run history response.
+      const raceIdTargets=[];
+      for(const h of targets){
+        for(const run of h.history||[]){
+          if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
+          const rid=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+          if(/^20\d{10}$/.test(rid))raceIdTargets.push({h,run,rid});
+        }
+      }
+      const uniqueRaceIds=[...new Set(raceIdTargets.map(x=>x.rid))];
+      let directChanged=0;
+      for(let i=0;i<uniqueRaceIds.length;i+=3){
+        const batch=uniqueRaceIds.slice(i,i+3);
+        const settled=await Promise.allSettled(batch.map(async rid=>{
+          const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-horse-ids-v1?race_id='+encodeURIComponent(rid),{method:'GET',cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+          const payload=await response.json().catch(()=>({}));
+          if(!response.ok||payload.ok!==true||payload.complete!==true)return null;
+          const count=Number(payload.expected_count);
+          if(!Number.isInteger(count)||count<2||count>18||!Array.isArray(payload.rows)||payload.rows.length!==count)return null;
+          return {rid,count};
+        }));
+        for(const item of settled){
+          if(item.status!=='fulfilled'||!item.value)continue;
+          const {rid,count}=item.value;
+          for(const target of raceIdTargets){
+            if(target.rid===rid&&!(Number(target.run.field_size)>=2&&Number(target.run.field_size)<=30)){
+              target.run.field_size=count;
+              directChanged++;
+            }
+          }
+        }
+      }
+      if(directChanged){
+        try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
+        fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
+        console.info('exact race-ID field sizes recovered:',directChanged);
+      }
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),18000);
       try{
