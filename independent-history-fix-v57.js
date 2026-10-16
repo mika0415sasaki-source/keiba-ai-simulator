@@ -1513,9 +1513,9 @@
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
             const matches=result.history.filter(candidate=>{
-              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\\D/g,'');
-              const runRaceId=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
-              const exactRaceId=/^20\\d{10}$/.test(candidateRaceId)&&/^20\\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
+              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
+              const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+              const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
               const sameRaceDetails=sameDate(candidate.date,run.date)&&venueKey(candidate.venue)===venueKey(run.venue)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
               const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
               return (exactRaceId||sameRaceDetails)&&size>=2&&size<=30;
