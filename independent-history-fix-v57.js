@@ -1417,7 +1417,7 @@
             // verified rows only when the response contains fewer than five races.
             const fetched=normalizeHistory(row.history);
             const prior=normalizeHistory(h.history||[]);
-            const raceKey=r=>[String(r.date||'').replace(/\\D/g,''),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+            const raceKey=r=>[String(r.date||'').replace(/\D/g,''),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
             const merged=fetched.map(run=>({...run}));
             const fetchedKeys=new Set(merged.map(raceKey));
             if(merged.length<5){
@@ -1428,7 +1428,7 @@
                 fetchedKeys.add(key);
               }
             }
-            merged.sort((a,b)=>String(b.date||'').replace(/\\D/g,'').localeCompare(String(a.date||'').replace(/\\D/g,'')));
+            merged.sort((a,b)=>String(b.date||'').replace(/\D/g,'').localeCompare(String(a.date||'').replace(/\D/g,'')));
             h.history=[];
             applyHistory(h,merged.slice(0,5),row.via||'netkeiba過去走',row.last_body_weight);
             if(trustedForeign&&received){h.horse_id=received;h.netkeiba_horse_id=received}
@@ -1565,7 +1565,7 @@
         const availableCount=payload.results.filter(r=>r.available).length;
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
-        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\\D/g,'');const exactRaceId=/^20\\d{10}$/.test(candidateRid)&&/^20\\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
+        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
         showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
