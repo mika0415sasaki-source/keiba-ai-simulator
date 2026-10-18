@@ -1501,15 +1501,34 @@
         }
       }
       const uniqueRaceIds=[...new Set(raceIdTargets.map(x=>x.rid))];
+      const missingRaceIdRuns=[];
+      for(const h of targets){
+        for(const run of h.history||[]){
+          if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
+          const rawRid=String(run.race_id||run.raceId||'');
+          const normalizedRid=rawRid.replace(/\\D/g,'');
+          if(!/^20\\d{10}$/.test(normalizedRid)){
+            missingRaceIdRuns.push(String(h.name||'馬名不明')+' '+String(run.date||'日付不明')+' ['+(rawRid||'race_idなし')+']');
+          }
+        }
+      }
+      const directLookupResults=[];
       let directChanged=0;
       for(let i=0;i<uniqueRaceIds.length;i+=3){
         const batch=uniqueRaceIds.slice(i,i+3);
         const settled=await Promise.allSettled(batch.map(async rid=>{
           const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-horse-ids-v1?race_id='+encodeURIComponent(rid),{method:'GET',cache:'no-store',headers:{'Cache-Control':'no-cache'}});
           const payload=await response.json().catch(()=>({}));
-          if(!response.ok||payload.ok!==true||payload.complete!==true)return null;
+          if(!response.ok||payload.ok!==true||payload.complete!==true){
+            directLookupResults.push(rid+': 応答不完全（HTTP '+response.status+' / ok '+String(payload.ok)+' / complete '+String(payload.complete)+'）');
+            return null;
+          }
           const count=Number(payload.expected_count);
-          if(!Number.isInteger(count)||count<2||count>18||!Array.isArray(payload.rows)||payload.rows.length!==count)return null;
+          if(!Number.isInteger(count)||count<2||count>18||!Array.isArray(payload.rows)||payload.rows.length!==count){
+            directLookupResults.push(rid+': 頭数検証NG（expected '+String(payload.expected_count)+' / rows '+String(Array.isArray(payload.rows)?payload.rows.length:'なし')+'）');
+            return null;
+          }
+          directLookupResults.push(rid+': 取得成功 '+count+'頭');
           return {rid,count};
         }));
         for(const item of settled){
@@ -1566,7 +1585,7 @@
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
         const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
+        showHeadcountDiagnostic('頭数取得 診断結果\\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\\n照合成功: '+changed+'件\\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\\n反映後も頭数未取得: '+remaining+'走\\n\\n【レースID診断】\\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\\n'+(missingRaceIdRuns.slice(0,8).join('\\n')||'未取得走のID形式は正常')+'\\n直接取得結果:\\n'+(directLookupResults.slice(0,8).join('\\n')||'照会対象IDなし')+'\\n\\n未反映の走（最大8件）:\\n'+(unmatched.slice(0,8).join('\\n')||reasons||'未取得行なし'));
         if(changed){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
