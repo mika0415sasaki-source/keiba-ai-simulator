@@ -1506,8 +1506,8 @@
         for(const run of h.history||[]){
           if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
           const rawRid=String(run.race_id||run.raceId||'');
-          const normalizedRid=rawRid.replace(/\\D/g,'');
-          if(!/^20\\d{10}$/.test(normalizedRid)){
+          const normalizedRid=rawRid.replace(/\D/g,'');
+          if(!/^20\d{10}$/.test(normalizedRid)){
             missingRaceIdRuns.push(String(h.name||'馬名不明')+' '+String(run.date||'日付不明')+' ['+(rawRid||'race_idなし')+']');
           }
         }
