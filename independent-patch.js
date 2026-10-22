@@ -48,6 +48,7 @@
       if(!el||!preentry())return;
       let s=el.innerHTML;
       s=s.replace(/JRA実データ/g,'コース基礎データ');
+      s=s.replace(/履歴\s*(\d+)\/5走/g,'完走履歴 $1走（基準5走）');
       s=s.replace(/騎手相性\s*：\s*JRA前4走コンビ成績を反映/g,'騎手相性：netkeiba過去走の騎乗情報を参考');
       s=s.replace(/騎手\s*：\s*現騎手×当馬のJRA前4走コンビ成績を反映/g,'騎手：netkeiba過去走の騎乗情報を参考（JRA出馬表確定後に照合）');
       s=s.replace(/実オッズ\s*：\s*単勝\s*\d+\/\d+頭\s*・\s*3連複\s*\d+点/g,'予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）');
