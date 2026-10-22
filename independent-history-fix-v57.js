@@ -1382,6 +1382,10 @@
         if(!silent)showStatus('過去5走を取得中です。通常30秒以内で完了します…');
         const rejected=[];
         try{
+          // Keep the currently displayed history before saved-memory rows are applied.
+          // Otherwise a shorter memory response replaces five visible runs with four,
+          // and the later merge can no longer recover the fifth run.
+          const priorHistoryByHorse=new Map(horses.map(h=>[clean(h.name),normalizeHistory(h.history||[])]));
           const rows=await memoryRows();
           const byName=new Map(rows.map(x=>[clean(x.horse_name),x.memory_json||{}]));
           for(const h of horses){
@@ -1416,7 +1420,7 @@
             // full race identity; keep fetched fields where present and retain older
             // verified rows only when the response contains fewer than five races.
             const fetched=normalizeHistory(row.history);
-            const prior=normalizeHistory(h.history||[]);
+            const prior=priorHistoryByHorse.get(clean(h.name))||normalizeHistory(h.history||[]);
             const raceKey=r=>[String(r.date||'').replace(/\D/g,''),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
             const merged=fetched.map(run=>({...run}));
             const fetchedKeys=new Set(merged.map(raceKey));
