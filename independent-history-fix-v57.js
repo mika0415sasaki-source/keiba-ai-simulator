@@ -1626,7 +1626,9 @@
     };
     // Re-check after the roster is imported as well as on initial page load.
     window.addEventListener('keiba-data-updated',()=>{
-      if((horses||[]).length&&horses.some(historyNeedsAutoRecovery))autoRecover();
+      const roster=Array.isArray(horses)?horses:[];
+      const hasMissingHeadcount=roster.some(h=>(h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)));
+      if(roster.length&&(hasMissingHeadcount||roster.some(historyNeedsAutoRecovery)))autoRecover();
     });
     setTimeout(autoRecover,900);
   };
