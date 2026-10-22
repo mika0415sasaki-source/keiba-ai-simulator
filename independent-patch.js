@@ -49,6 +49,7 @@
       let s=el.innerHTML;
       s=s.replace(/JRA実データ/g,'コース基礎データ');
       s=s.replace(/履歴\s*[:：]?\s*(\d+)\/5走欠損/g,'履歴：基準5走中$1走を取得');
+      s=s.replace(/(履歴：基準5走中\d+走を取得)(?:\s*\1)+/g,'$1');
       s=s.replace(/履歴\s*(\d+)\/5走/g,'完走履歴 $1走（基準5走）');
       s=s.replace(/騎手相性\s*：\s*JRA前4走コンビ成績を反映/g,'騎手相性：netkeiba過去走の騎乗情報を参考');
       s=s.replace(/騎手\s*：\s*現騎手×当馬のJRA前4走コンビ成績を反映/g,'騎手：netkeiba過去走の騎乗情報を参考（JRA出馬表確定後に照合）');
