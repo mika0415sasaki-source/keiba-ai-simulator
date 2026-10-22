@@ -1423,7 +1423,7 @@
             if(merged.length<5){
               for(const oldRun of prior){
                 const key=raceKey(oldRun);
-                if(!key.replace(/\\|/g,'')||fetchedKeys.has(key))continue;
+                if(!key.replace(/\|/g,'')||fetchedKeys.has(key))continue;
                 merged.push({...oldRun});
                 fetchedKeys.add(key);
               }
