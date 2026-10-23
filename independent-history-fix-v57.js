@@ -539,7 +539,13 @@
       const names=remaining.map(h=>h.name),horse_ids={};
       for(const h of remaining){const id=horseId(h);if(id)horse_ids[h.name]=id}
       const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
-      const fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),race_date,horse_ids},18000);
+      let fallbackResults=[];
+      try{
+        fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),race_date,horse_ids},18000);
+      }catch(error){
+        // Do not discard already fetched exact horse-ID histories when fallback fails.
+        console.warn('history fallback unavailable; preserving exact-ID results',error);
+      }
       const resolved=new Set(fallbackResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const retryHorses=remaining.filter(h=>!resolved.has(clean(h.name)));
       if(retryHorses.length){
