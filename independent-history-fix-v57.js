@@ -565,6 +565,38 @@
           for(const row of retried)if(!fallbackResults.some(x=>clean(x.name)===clean(row.name)))fallbackResults.push(row);
         }catch(error){console.warn('history retry',error)}
       }
+      // Enrich fallback history records as well as exact-ID records. The initial
+      // fallback path can supply 5 runs without race_id/field_size; merge only
+      // when race attributes identify exactly one run for the same horse.
+      if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
+        try{
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const normDate=v=>String(v||'').replace(/\\D/g,'').slice(0,8);
+          const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
+          const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
+          const extraById=new Map(extra.filter(x=>/^\\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
+          const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
+          for(const item of fallbackResults){
+            const id=String(item.id||item.horse_id||'');
+            const more=extraById.get(id)||extraByName.get(clean(item.name));
+            if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
+            item.history=item.history.map(run=>{
+              const matches=more.history.filter(candidate=>{
+                if(normDate(run.date)!==normDate(candidate.date)||normSurface(run.surface)!==normSurface(candidate.surface)||Number(run.distance)!==Number(candidate.distance)||Number(run.rank)!==Number(candidate.rank))return false;
+                const a=normVenue(run.venue),b=normVenue(candidate.venue);
+                return !a||!b||a===b;
+              });
+              if(matches.length!==1)return run;
+              const candidate=matches[0],merged={...run};
+              const rid=String(candidate.race_id||candidate.raceId||'');
+              const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count);
+              if(!/^20\\d{10}$/.test(String(merged.race_id||''))&&/^20\\d{10}$/.test(rid))merged.race_id=rid;
+              if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&size>=2&&size<=30)merged.field_size=size;
+              return merged;
+            });
+          }
+        }catch(error){console.warn('fallback history identity enrichment skipped',error)}
+      }
       const byName=new Map(exactResults.map(x=>[clean(x.name),x]));
       for(const row of fallbackResults)if(!byName.get(clean(row.name))?.available)byName.set(clean(row.name),row);
       return [...byName.values()];
