@@ -515,20 +515,21 @@
               merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
               item.history=merged.slice(0,5);
             }
-            const byRun=new Map();
-            for(const run of more.history){
-              if(Number(run.field_size)<2)continue;
-              const k=key(run);
-              if(!byRun.has(k))byRun.set(k,[]);
-              byRun.get(k).push(run);
-            }
+            const sameRun=(a,b)=>{
+              if(normDate(a.date)!==normDate(b.date)||normSurface(a.surface)!==normSurface(b.surface)||Number(a.distance)!==Number(b.distance)||Number(a.rank)!==Number(b.rank))return false;
+              const av=normVenue(a.venue),bv=normVenue(b.venue);
+              // Venue may be absent in the primary parser for some regional races.
+              return !av||!bv||av===bv;
+            };
             item.history=item.history.map(run=>{
-              if(Number(run.field_size)>=2)return run;
-              const matches=byRun.get(key(run))||[];
-              // Ambiguous or incomplete keys must not be used to infer a field size.
-              const match=matches.length===1&&normVenue(run.venue)&&normSurface(run.surface)?matches[0]:null;
-              const n=Number(match?.field_size);
-              return n>=2&&n<=30?{...run,field_size:n}:run;
+              const matches=more.history.filter(candidate=>sameRun(run,candidate));
+              // Only enrich when the race identity resolves to exactly one candidate.
+              if(matches.length!==1)return run;
+              const match=matches[0],n=Number(match.field_size??match.fieldSize??match.num_horses??match.horse_count);
+              const merged={...run};
+              if(!merged.race_id&&/^20\\d{10}$/.test(String(match.race_id||match.raceId||'')))merged.race_id=String(match.race_id||match.raceId);
+              if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&n>=2&&n<=30)merged.field_size=n;
+              return merged;
             });
           }
         }catch(error){console.warn('headcount enrichment skipped',error)}
