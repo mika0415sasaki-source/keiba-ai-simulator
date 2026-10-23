@@ -541,7 +541,11 @@
       const race_date=typeof raceMeta==='object'?(raceMeta?.race_date||raceMeta?.date||raceMeta?.raceDate||''):'';
       let fallbackResults=[];
       try{
-        fallbackResults=await postHistory(FALLBACK_API,{names,race_url:raceUrl(),race_date,horse_ids},18000);
+        const chunks=[];
+        for(let i=0;i<names.length;i+=4){const batchNames=names.slice(i,i+4);const batchIds=Object.fromEntries(Object.entries(horse_ids).filter(([name])=>batchNames.includes(name)));chunks.push({names:batchNames,horse_ids:batchIds});}
+        const settled=await Promise.allSettled(chunks.map(chunk=>postHistory(FALLBACK_API,{...chunk,race_url:raceUrl(),race_date},18000)));
+        for(const item of settled)if(item.status==='fulfilled')fallbackResults.push(...item.value);
+        if(!fallbackResults.length)throw new Error('予備取得の全バッチが失敗');
       }catch(error){
         // Do not discard already fetched exact horse-ID histories when fallback fails.
         console.warn('history fallback unavailable; preserving exact-ID results',error);
@@ -1582,7 +1586,7 @@
               const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
               const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-              const sameRaceDetails=sameDate(candidate.date,run.date)&&venueKey(candidate.venue)===venueKey(run.venue)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
               const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
               return (exactRaceId||sameRaceDetails)&&size>=2&&size<=30;
             });
