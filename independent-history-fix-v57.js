@@ -1619,9 +1619,11 @@
               const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
               const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;
+              const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const sameCoreDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
               const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
-              return (exactRaceId||sameRaceDetails)&&((size>=2&&size<=30)||/^20\d{10}$/.test(String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'')));
+              return (exactRaceId||sameRaceDetails||sameCoreDetails)&&((size>=2&&size<=30)||/^20\d{10}$/.test(candidateRaceId));
             });
             if(matches.length!==1)continue;
             const matched=matches[0];
