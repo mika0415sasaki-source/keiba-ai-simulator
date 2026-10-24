@@ -1624,8 +1624,12 @@
               return (exactRaceId||sameRaceDetails)&&((size>=2&&size<=30)||/^20\d{10}$/.test(String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'')));
             });
             if(matches.length!==1)continue;
-            run.field_size=Number(matches[0].field_size??matches[0].fieldSize??matches[0].num_horses??matches[0].horse_count);
-            changed++;
+            const matched=matches[0];
+            const matchedRaceId=String(matched.race_id||matched.raceId||'').replace(/\D/g,'');
+            const currentRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+            if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId))run.race_id=matchedRaceId;
+            const matchedSize=Number(matched.field_size??matched.fieldSize??matched.num_horses??matched.horse_count??matched.fieldSizeCount);
+            if(matchedSize>=2&&matchedSize<=30){run.field_size=matchedSize;changed++;}
           }
         }
         const availableCount=payload.results.filter(r=>r.available).length;
