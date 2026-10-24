@@ -222,6 +222,9 @@
 
   function install(){
     try{
+      // v351 is the final ticket selector. Do not let this retry loop overwrite it
+      // after the final selector has installed its wrapper.
+      if(window.__betSelectionFinalV351)return true;
       if(typeof generateTickets!=='function')return false;
       const wrapped=function(){try{return generate()}catch(e){console.warn('bet strategy v324',e);return []}};
       wrapped.__betStrategyV315=true;wrapped.__betStrategyV324=true;
