@@ -298,8 +298,16 @@
             const dk=d;
             return [dk,x.venue,x.surface,x.distance,x.rank].join('|')===key;
           });
-          if(existing&&!(Number(existing.field_size)>=2)&&Number(run.field_size)>=2&&Number(run.field_size)<=30){
-            existing.field_size=Number(run.field_size);
+          if(existing){
+            if(!/^20\d{10}$/.test(String(existing.race_id||''))&&/^20\d{10}$/.test(String(run.race_id||'')))existing.race_id=String(run.race_id);
+            if(!(Number(existing.field_size)>=2&&Number(existing.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)existing.field_size=Number(run.field_size);
+            if((!existing.venue||/不明|不詳|未取得/.test(String(existing.venue)))&&run.venue)existing.venue=run.venue;
+            if(!existing.race_name&&run.race_name)existing.race_name=run.race_name;
+            if(!existing.grade&&run.grade)existing.grade=run.grade;
+            if(!existing.jockey&&run.jockey)existing.jockey=run.jockey;
+            if(!existing.going&&run.going)existing.going=run.going;
+            if(!Array.isArray(existing.passage)||!existing.passage.length)if(Array.isArray(run.passage)&&run.passage.length)existing.passage=run.passage;
+            if(!(Number(existing.body_weight)>=300&&Number(existing.body_weight)<=700)&&Number(run.body_weight)>=300&&Number(run.body_weight)<=700){existing.body_weight=Number(run.body_weight);if(run.body_weight_change!=null)existing.body_weight_change=run.body_weight_change;}
           }
           continue;
         }
@@ -1467,13 +1475,13 @@
             const raceKey=r=>[String(r.date||'').replace(/\D/g,''),clean(r.venue),clean(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
             const merged=fetched.map(run=>({...run}));
             const fetchedKeys=new Set(merged.map(raceKey));
-            if(merged.length<5){
-              for(const oldRun of prior){
-                const key=raceKey(oldRun);
-                if(!key.replace(/\|/g,'')||fetchedKeys.has(key))continue;
-                merged.push({...oldRun});
-                fetchedKeys.add(key);
-              }
+            // Always retain non-duplicate verified prior runs before selecting the newest five.
+            // A refreshed response can report five rows while omitting a previously valid race.
+            for(const oldRun of prior){
+              const key=raceKey(oldRun);
+              if(!key.replace(/\|/g,'')||fetchedKeys.has(key))continue;
+              merged.push({...oldRun});
+              fetchedKeys.add(key);
             }
             merged.sort((a,b)=>String(b.date||'').replace(/\D/g,'').localeCompare(String(a.date||'').replace(/\D/g,'')));
             h.history=[];
