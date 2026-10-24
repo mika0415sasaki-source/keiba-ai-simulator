@@ -535,7 +535,7 @@
               if(matches.length!==1)return run;
               const match=matches[0],n=Number(match.field_size??match.fieldSize??match.num_horses??match.horse_count);
               const merged={...run};
-              if(!merged.race_id&&/^20\\d{10}$/.test(String(match.race_id||match.raceId||'')))merged.race_id=String(match.race_id||match.raceId);
+              if(!merged.race_id&&/^20\d{10}$/.test(String(match.race_id||match.raceId||'')))merged.race_id=String(match.race_id||match.raceId);
               if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&n>=2&&n<=30)merged.field_size=n;
               return merged;
             });
