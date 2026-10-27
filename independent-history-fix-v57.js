@@ -499,7 +499,13 @@
       if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
-          const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
+          const normDate=v=>{
+            const s=String(v||'').normalize('NFKC').trim();
+            const m=s.match(/(20\\d{2})\\s*[年./-]\\s*(\\d{1,2})\\s*[月./-]\\s*(\\d{1,2})/);
+            if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
+            const digits=s.replace(/\\D/g,'');
+            return digits.slice(0,8);
+          };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
           const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
@@ -579,7 +585,13 @@
       if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
-          const normDate=v=>String(v||'').replace(/\D/g,'').slice(0,8);
+          const normDate=v=>{
+            const s=String(v||'').normalize('NFKC').trim();
+            const m=s.match(/(20\\d{2})\\s*[年./-]\\s*(\\d{1,2})\\s*[月./-]\\s*(\\d{1,2})/);
+            if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
+            const digits=s.replace(/\\D/g,'');
+            return digits.slice(0,8);
+          };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
           const extraById=new Map(extra.filter(x=>/^\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
