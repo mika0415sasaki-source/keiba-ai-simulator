@@ -4,7 +4,7 @@
 
   const key=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const getPlan=()=>{try{return lastBetPlan||window.lastBetPlan||null}catch(_){return window.lastBetPlan||null}};
-  const getEval=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,6):[]}catch(_){return[]}};
+  const getEval=()=>{try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.winP)||0)-(Number(x?.winP)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,6):[]}catch(_){return[]}};
 
   function rankMap(){const m=new Map();getEval().forEach((h,i)=>m.set(+h.no,i));return m}
   function priority(c,type){
