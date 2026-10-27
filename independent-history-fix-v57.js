@@ -501,7 +501,7 @@
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
-            const m=s.match(/(20\\d{2})\\s*[年./-]\\s*(\\d{1,2})\\s*[月./-]\\s*(\\d{1,2})/);
+            const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
             if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
             const digits=s.replace(/\\D/g,'');
             return digits.slice(0,8);
@@ -587,7 +587,7 @@
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
-            const m=s.match(/(20\\d{2})\\s*[年./-]\\s*(\\d{1,2})\\s*[月./-]\\s*(\\d{1,2})/);
+            const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
             if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
             const digits=s.replace(/\\D/g,'');
             return digits.slice(0,8);
