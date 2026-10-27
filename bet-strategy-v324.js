@@ -233,7 +233,7 @@
   }
   // Install synchronously while the base generateTickets function is available,
   // so v351 wraps this winP-based generator instead of the legacy place-based one.
+  // The base generator exists when this patch is loaded. Install once here;
+  // delayed retries can overwrite the later v351 final selector and break ticket output.
   install();
-  let tries=0;const timer=setInterval(()=>{tries++;if(install()||tries>80)clearInterval(timer)},150);
-  addEventListener('keiba-patches-ready',()=>setTimeout(install,0),{once:true});
 })();
