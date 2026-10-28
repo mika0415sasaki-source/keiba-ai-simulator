@@ -1644,7 +1644,8 @@
               const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
               const sameCoreDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
               const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
-              return (exactRaceId||sameRaceDetails||sameCoreDetails)&&((size>=2&&size<=30)||/^20\d{10}$/.test(candidateRaceId));
+              // Match on race identity before requiring enrichment fields; otherwise valid rows with no size/ID are discarded.
+              return exactRaceId||sameRaceDetails||sameCoreDetails;
             });
             if(matches.length!==1)continue;
             const matched=matches[0];
@@ -1653,6 +1654,33 @@
             if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId))run.race_id=matchedRaceId;
             const matchedSize=Number(matched.field_size??matched.fieldSize??matched.num_horses??matched.horse_count??matched.fieldSizeCount);
             if(matchedSize>=2&&matchedSize<=30){run.field_size=matchedSize;changed++;}
+          }
+        }
+        // IDs recovered from matching history rows must be queried in this same pass.
+        // The previous order only queried IDs before enrichment, leaving newly recovered IDs unused.
+        const recoveredIds=[...new Set(targets.flatMap(h=>(h.history||[])
+          .filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
+          .map(run=>String(run.race_id||run.raceId||'').replace(/\\D/g,''))
+          .filter(rid=>/^20\\d{10}$/.test(rid))))];
+        for(let i=0;i<recoveredIds.length;i+=3){
+          const batch=recoveredIds.slice(i,i+3);
+          const settled=await Promise.allSettled(batch.map(async rid=>{
+            const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-race-horse-ids-v1?race_id='+encodeURIComponent(rid),{method:'GET',cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+            const payload=await response.json().catch(()=>({}));
+            const count=Number(payload.expected_count);
+            if(!response.ok||payload.ok!==true||payload.complete!==true||!Number.isInteger(count)||count<2||count>18||!Array.isArray(payload.rows)||payload.rows.length!==count)return null;
+            return {rid,count};
+          }));
+          for(const item of settled){
+            if(item.status!=='fulfilled'||!item.value)continue;
+            for(const h of targets)for(const run of h.history||[]){
+              const rid=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+              if(rid===item.value.rid&&!(Number(run.field_size)>=2&&Number(run.field_size)<=30)){
+                run.field_size=item.value.count;
+                changed++;
+                directLookupResults.push(rid+': 後続照会で取得成功 '+item.value.count+'頭');
+              }
+            }
           }
         }
         const availableCount=payload.results.filter(r=>r.available).length;
