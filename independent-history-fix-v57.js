@@ -1556,7 +1556,8 @@
       const needsSize=h=>(h.history||[]).some(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30));
       const missingRoster=roster.filter(needsSize);
       const targets=missingRoster.filter(h=>/^\d{10}$/.test(horseId(h)));
-      showHeadcountDiagnostic('頭数取得 診断結果\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\n頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走 / 対象馬: '+missingRoster.length+'頭\n10桁の馬IDで照会可能: '+targets.length+'頭\nID確認例: '+(missingRoster.slice(0,3).map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'頭数未取得行なし'));
+      const missingHorseId=missingRoster.filter(h=>!/^\d{10}$/.test(horseId(h)));
+      showHeadcountDiagnostic('頭数取得 診断結果\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\n頭数未取得の馬: '+missingRoster.length+'頭 / 頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走\n馬IDで照会可能: '+targets.length+'頭 / 馬IDなし・形式不正: '+missingHorseId.length+'頭\nIDなしの馬: '+(missingHorseId.map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'なし'));
       if(!targets.length)return;
       // Prefer exact race IDs so older races are not limited to the five-run history response.
       const raceIdTargets=[];
