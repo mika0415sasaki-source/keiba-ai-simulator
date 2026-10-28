@@ -1716,18 +1716,19 @@
         if(attempts<120)setTimeout(autoRecover,500);
         return;
       }
-      // Do not refresh history merely because field_size or another quality field is missing.
-      // A refresh can replace a valid five-run history with a shorter response.
-      // Only start a history fetch when the roster has no history at all; otherwise
-      // recover missing field sizes against the history already on screen.
+      // Missing headcount alone must not trigger a history refresh.
+      // Four-run histories are incomplete: refresh and merge with cached rows,
+      // then recover headcounts. Do not alter ranking/probability calculations.
       const hasAnyHistory=horses.some(h=>(h.history||[]).length>0||(h.jra_history||[]).length>0);
-      if(!hasAnyHistory&&!autoHistoryStarted){
+      const hasShortNetkeibaHistory=horses.some(h=>Array.isArray(h.history)&&h.history.length>0&&h.history.length<5);
+      if((!hasAnyHistory||hasShortNetkeibaHistory)&&!autoHistoryStarted){
         autoHistoryStarted=true;
         loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{}).finally(()=>{
           autoHistoryStarted=false;
         });
         return;
       }
+      if(autoHistoryStarted)return;
       recoverMissingFieldSizes().catch(()=>{});
     };
     // Re-check after the roster is imported as well as on initial page load.
