@@ -503,7 +503,7 @@
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
             if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
-            const digits=s.replace(/\\D/g,'');
+            const digits=s.replace(/\D/g,'');
             return digits.slice(0,8);
           };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
@@ -589,7 +589,7 @@
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
             if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
-            const digits=s.replace(/\\D/g,'');
+            const digits=s.replace(/\D/g,'');
             return digits.slice(0,8);
           };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
