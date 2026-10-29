@@ -1675,7 +1675,7 @@
           for(const item of settled){
             if(item.status!=='fulfilled'||!item.value)continue;
             for(const h of targets)for(const run of h.history||[]){
-              const rid=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+              const rid=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               if(rid===item.value.rid&&!(Number(run.field_size)>=2&&Number(run.field_size)<=30)){
                 run.field_size=item.value.count;
                 changed++;
