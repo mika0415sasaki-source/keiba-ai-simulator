@@ -1631,6 +1631,7 @@
         const venueKey=v=>{const s=clean(v).replace(/[・･\s　]/g,'').replace(/競馬場|競馬/g,'');const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
         const surfaceKey=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
         let changed=0;
+        let recoveredRaceIdChanged=false;
         for(const result of payload.results){
           const h=targets.find(x=>horseId(x)===String(result.id||'')&&clean(x.name)===clean(result.name));
           if(!h||!Array.isArray(result.history))continue;
@@ -1651,7 +1652,7 @@
             const matched=matches[0];
             const matchedRaceId=String(matched.race_id||matched.raceId||'').replace(/\D/g,'');
             const currentRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
-            if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId))run.race_id=matchedRaceId;
+            if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId)){run.race_id=matchedRaceId;recoveredRaceIdChanged=true;}
             const matchedSize=Number(matched.field_size??matched.fieldSize??matched.num_horses??matched.horse_count??matched.fieldSizeCount);
             if(matchedSize>=2&&matchedSize<=30){run.field_size=matchedSize;changed++;}
           }
@@ -1688,10 +1689,10 @@
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
         const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
         showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n【レースID診断】\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\n'+(missingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(directLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
-        if(changed){
+        if(changed||recoveredRaceIdChanged){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
-          console.info('verified past-race field sizes recovered:',changed);
+          console.info('past-race recovery saved:',{fieldSizes:changed,recoveredRaceIds:recoveredRaceIdChanged});
         }
       }catch(error){console.warn('targeted headcount recovery failed',error)}
       finally{clearTimeout(timer)}
