@@ -1637,23 +1637,17 @@
           if(!h||!Array.isArray(result.history))continue;
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
-            const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
-            const runVenue=venueKey(run.venue);
-            const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);
-            const sameVenue=candidate=>{
-              const candidateVenue=venueKey(candidate.venue);
-              return venueKnown?candidateVenue===runVenue:true;
-            };
-            const exactRaceId=candidate=>{
+            const matches=result.history.filter(candidate=>{
               const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
-              return /^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-            };
-            const sameRaceDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
-            const sameCoreDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
-            // Prefer exact race identity, then strict details, then a cautious fallback.
-            let matches=result.history.filter(exactRaceId);
-            if(matches.length===0)matches=result.history.filter(sameRaceDetails);
-            if(matches.length===0)matches=result.history.filter(sameCoreDetails);
+              const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+              const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
+              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;
+              const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const sameCoreDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
+              const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
+              // Match on race identity before requiring enrichment fields; otherwise valid rows with no size/ID are discarded.
+              return exactRaceId||sameRaceDetails||sameCoreDetails;
+            });
             if(matches.length!==1)continue;
             const matched=matches[0];
             const matchedRaceId=String(matched.race_id||matched.raceId||'').replace(/\D/g,'');
@@ -1667,8 +1661,8 @@
         // The previous order only queried IDs before enrichment, leaving newly recovered IDs unused.
         const recoveredIds=[...new Set(targets.flatMap(h=>(h.history||[])
           .filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
-          .map(run=>String(run.race_id||run.raceId||'').replace(/\D/g,''))
-          .filter(rid=>/^20\d{10}$/.test(rid))))];
+          .map(run=>String(run.race_id||run.raceId||'').replace(/\\D/g,''))
+          .filter(rid=>/^20\\d{10}$/.test(rid))))];
         for(let i=0;i<recoveredIds.length;i+=3){
           const batch=recoveredIds.slice(i,i+3);
           const settled=await Promise.allSettled(batch.map(async rid=>{
@@ -1681,7 +1675,7 @@
           for(const item of settled){
             if(item.status!=='fulfilled'||!item.value)continue;
             for(const h of targets)for(const run of h.history||[]){
-              const rid=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+              const rid=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
               if(rid===item.value.rid&&!(Number(run.field_size)>=2&&Number(run.field_size)<=30)){
                 run.field_size=item.value.count;
                 changed++;
