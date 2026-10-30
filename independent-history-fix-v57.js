@@ -1637,17 +1637,23 @@
           if(!h||!Array.isArray(result.history))continue;
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
-            const matches=result.history.filter(candidate=>{
-              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
-              const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
-              const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;
-              const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
-              const sameCoreDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
-              const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
-              // Match on race identity before requiring enrichment fields; otherwise valid rows with no size/ID are discarded.
-              return exactRaceId||sameRaceDetails||sameCoreDetails;
-            });
+            const runRaceId=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+            const runVenue=venueKey(run.venue);
+            const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);
+            const sameVenue=candidate=>{
+              const candidateVenue=venueKey(candidate.venue);
+              return venueKnown?candidateVenue===runVenue:true;
+            };
+            const exactRaceId=candidate=>{
+              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\\D/g,'');
+              return /^20\\d{10}$/.test(candidateRaceId)&&/^20\\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
+            };
+            const sameRaceDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+            const sameCoreDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
+            // Prefer exact race identity, then strict details, then a cautious fallback.
+            let matches=result.history.filter(exactRaceId);
+            if(matches.length===0)matches=result.history.filter(sameRaceDetails);
+            if(matches.length===0)matches=result.history.filter(sameCoreDetails);
             if(matches.length!==1)continue;
             const matched=matches[0];
             const matchedRaceId=String(matched.race_id||matched.raceId||'').replace(/\D/g,'');
