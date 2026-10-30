@@ -1661,8 +1661,8 @@
         // The previous order only queried IDs before enrichment, leaving newly recovered IDs unused.
         const recoveredIds=[...new Set(targets.flatMap(h=>(h.history||[])
           .filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30))
-          .map(run=>String(run.race_id||run.raceId||'').replace(/\\D/g,''))
-          .filter(rid=>/^20\\d{10}$/.test(rid))))];
+          .map(run=>String(run.race_id||run.raceId||'').replace(/\D/g,''))
+          .filter(rid=>/^20\d{10}$/.test(rid))))];
         for(let i=0;i<recoveredIds.length;i+=3){
           const batch=recoveredIds.slice(i,i+3);
           const settled=await Promise.allSettled(batch.map(async rid=>{
@@ -1675,7 +1675,7 @@
           for(const item of settled){
             if(item.status!=='fulfilled'||!item.value)continue;
             for(const h of targets)for(const run of h.history||[]){
-              const rid=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+              const rid=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               if(rid===item.value.rid&&!(Number(run.field_size)>=2&&Number(run.field_size)<=30)){
                 run.field_size=item.value.count;
                 changed++;
