@@ -1721,8 +1721,8 @@
       // Four-run histories are incomplete: refresh and merge with cached rows,
       // then recover headcounts. Do not alter ranking/probability calculations.
       const hasAnyHistory=horses.some(h=>(h.history||[]).length>0||(h.jra_history||[]).length>0);
-      const hasShortNetkeibaHistory=horses.some(h=>Array.isArray(h.history)&&h.history.length>0&&h.history.length<5);
-      if((!hasAnyHistory||hasShortNetkeibaHistory)&&!autoHistoryStarted){
+      const hasIncompleteNetkeibaHistory=horses.some(h=>!Array.isArray(h.history)||h.history.length<5);
+      if((!hasAnyHistory||hasIncompleteNetkeibaHistory)&&!autoHistoryStarted){
         autoHistoryStarted=true;
         loadNetkeibaHistories({silent:true}).then(()=>recoverMissingFieldSizes()).catch(()=>{}).finally(()=>{
           autoHistoryStarted=false;
