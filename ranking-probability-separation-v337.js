@@ -3,12 +3,101 @@
   window.__rankingProbabilitySeparationV337=true;
 
   const BAD=/取消|出走取消|競走除外|除外|競走中止|中止|失格/;
+  // 1着率は「絶対的な勝ち切る力」。
+  // AIを主軸に、現騎手との相性と単勝市場を専用で加味する。
   const AI_WEIGHT=.70, MARKET_WEIGHT=.30, T=5.0;
   const PLACE_MODEL_WEIGHT=.85, PLACE_MARKET_WEIGHT=.15, PLACE_T=6.5;
   const RECENCY=[1,.82,.68,.56,.46];
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const tenth=v=>Math.round(v*10)/10;
+  // 近走の着順だけでなく、実際に走ったレース格も3着内率へ反映する。
+  // 格そのものを別加点せず、着順評価へ25%だけ混ぜて低級条件の好走と重賞好走を区別する。
+  const GRADE={G1:100,G2:94,G3:88,L:82,OP:78,'3勝':72,'2勝':66,'1勝':60,'未勝利':56,'新馬':54};
+  const gradeOf=r=>{
+    const s=String(r?.grade||r?.race_grade||r?.class_name||r?.race_class||r?.class||r?.race_name||r?.raceName||r?.title||r?.race||'').normalize('NFKC').toUpperCase().replace(/\\s+/g,'');
+    if(/G3|GIII|JPN3|JPNIII/.test(s))return'G3';
+    if(/G2|GII|JPN2|JPNII(?!I)/.test(s))return'G2';
+    if(/G1|GI|JPN1|JPNI(?!I)/.test(s))return'G1';
+    if(/リステッド|(^|[^A-Z])L([^A-Z]|$)/.test(s))return'L';
+    if(/オープン|OPEN|OP/.test(s))return'OP';
+    if(/3勝/.test(s))return'3勝';if(/2勝/.test(s))return'2勝';if(/1勝/.test(s))return'1勝';
+    if(/未勝利/.test(s))return'未勝利';if(/新馬/.test(s))return'新馬';return'';
+  };
+  const gradeScore=r=>GRADE[gradeOf(r)]||68;
+  const raceRating=r=>{
+    const v=Number(r?.rating??r?.rt??r?.race_rating??r?.horse_rating);
+    return Number.isFinite(v)&&v>=70&&v<=130?v:null;
+  };
+  const performanceStrength=(r,field=16)=>{
+    const rank=+r?.rank;if(!Number.isFinite(rank)||rank<=0)return 65;
+    const fs=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:field);
+    const pct=(rank-1)/Math.max(1,fs-1);
+    const finish=clamp(100-pct*75,25,100);
+    const grade=gradeScore(r);
+    const rt=raceRating(r);
+    const ratingScore=rt==null?68:clamp(50+(rt-90)*2.0,30,100);
+    return clamp(finish*.55+grade*.25+ratingScore*.20,25,100);
+  };
   const activeRows=arr=>(Array.isArray(arr)?arr:[]).filter(h=>h&&!BAD.test(String(h?.status||h?.result_status||h?.rank_text||'')));
+
+  // AI順位側にも、近走の「実績レース強度」を限定的に反映する。
+  // 近走表示値そのものは変更せず、着順×レース格×取得済みレーティングから別軸を作る。
+  // 欠損は中立値にし、特定馬名には依存しない。
+  function recentRaceStrength(h){
+    const src=horseSource(h);
+    const hist=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
+    let n=0,d=0;
+    hist.forEach((r,i)=>{
+      const rank=+r?.rank;
+      if(!Number.isFinite(rank)||rank<=0)return;
+      const field=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,rank);
+      const value=performanceStrength(r,field);
+      const w=RECENCY[i]||.4;
+      n+=value*w;d+=w;
+    });
+    return d?clamp(n/d,25,99):65;
+  }
+
+  // 同じレースを実際に走った現出走馬同士の直接比較。
+  // 特定の馬名を固定せず、履歴に同一レースが存在する組み合わせだけを使う。
+  const raceKey=r=>{
+    const id=String(r?.race_id||r?.raceId||r?.race_key||'').trim();
+    const date=String(r?.date||r?.race_date||r?.raceDate||'').replace(/[^0-9]/g,'');
+    const name=String(r?.race_name||r?.raceName||r?.title||'').normalize('NFKC').trim();
+    const course=String(r?.course_name||r?.track||r?.venue||'').normalize('NFKC').trim();
+    const dist=String(r?.distance||r?.dist||'').replace(/[^0-9]/g,'');
+    if(id)return 'id|'+id;
+    if(!date)return '';
+    if(name)return [date,name,course,dist].join('|');
+    if(course&&dist)return [date,course,dist].join('|');
+    return '';
+  };
+  const headToHeadScore=(h,allRows)=>{
+    const src=horseSource(h);
+    const hist=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
+    const out=[];
+    (Array.isArray(allRows)?allRows:[]).forEach(other=>{
+      if(other===h)return;
+      const oh=horseSource(other);
+      const ohist=Array.isArray(oh?.history)&&oh.history.length?oh.history:(Array.isArray(oh?.jra_history)?oh.jra_history:[]);
+      hist.forEach(r=>{
+        const myRank=+r?.rank;
+        if(!Number.isFinite(myRank)||myRank<=0)return;
+        const key=raceKey(r);if(!key)return;
+        const mate=ohist.find(x=>raceKey(x)===key);
+        const oppRank=+mate?.rank;
+        if(!Number.isFinite(oppRank)||oppRank<=0)return;
+        const field=Math.max(2,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:(Number.isFinite(+mate?.field_size)&&+mate.field_size>=2?+mate.field_size:Math.max(myRank,oppRank,16)));
+        const diff=(oppRank-myRank)/Math.max(1,field-1);
+        const grade=Math.max(54,gradeScore(r));
+        const w=(RECENCY[hist.indexOf(r)]||.4)*(grade/100);
+        out.push({score:clamp(50+diff*30,25,75),weight:w});
+      });
+    });
+    if(!out.length)return 65;
+    const den=out.reduce((s,x)=>s+x.weight,0)||1;
+    return clamp(out.reduce((s,x)=>s+x.score*x.weight,0)/den,25,75);
+  };
 
   function marketAdjustment(h){
     const o=Number(h?.winOdds);
@@ -27,7 +116,11 @@
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
         h.marketScoreAdjustmentV337=adj;
-        h.score=tenth(clamp(before-adj,0,100));
+        const raceStrength=recentRaceStrength(h);
+        // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
+        // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
+        h.raceStrengthV337=tenth(raceStrength);
+        h.score=tenth(clamp(before*.85+raceStrength*.15-adj*.16,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
@@ -72,38 +165,96 @@
 
   // 3着内率は「勝ち切る強度」と分離し、近走の複勝圏実績・着順の安定度・
   // 評価軸の弱点を使う。取得済みデータだけを参照し、欠損は中立扱いにする。
-  function placeProfile(h){
-    const src=horseSource(h),history=(Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[])).slice(0,5);
-    let inMoneyN=0,inMoneyD=0;const performances=[];
+  // 3着内率は「勝ち切る強度」から明確に分離する。
+  // 直近の複勝圏実績・安定度を最優先し、コース/距離/馬場/上がり適性を補助、
+  // AI指数は最後の補助情報とする。脚質・展開の専用データは現行データ経路に
+  // 安定して存在しないため、未取得を推測値で埋めず今回は加点しない。
+  function placeHistory(h){
+    const src=horseSource(h);
+    const direct=Array.isArray(h?.history)&&h.history.length?h.history:Array.isArray(h?.jra_history)&&h.jra_history.length?h.jra_history:[];
+    if(direct.length)return direct.slice(0,5);
+    const srcRows=Array.isArray(src?.history)&&src.history.length?src.history:Array.isArray(src?.jra_history)?src.jra_history:[];
+    if(srcRows.length)return srcRows.slice(0,5);
+    try{
+      const pool=Array.isArray(window.horses)?window.horses:[];
+      const alt=pool.find(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''));
+      const rows=Array.isArray(alt?.history)&&alt.history.length?alt.history:(Array.isArray(alt?.jra_history)?alt.jra_history:[]);
+      return rows.slice(0,5);
+    }catch(_){return []}
+  }
+  function placeProfile(h,allRows){
+    const src=horseSource(h),history=placeHistory(h);
+    const headToHead=headToHeadScore(h,allRows);
+    let inMoneyN=0,inMoneyD=0;const finishValues=[];
     history.forEach((r,i)=>{
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
       const field=Math.max(rank,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,2);
       const percentile=(rank-1)/Math.max(1,field-1);
-      const performance=clamp(100-percentile*75,25,100);
-      const inMoney=rank<=3?100:clamp(72-percentile*45,25,72);
+      // 3着内率の主軸は「実際に3着以内へ入ったか」。
+      // AI側のレース強度・レーティングはここでは混ぜず、着順事実を優先する。
+      // 3着内率では「3着以内なら全部100点」とせず、
+      // 1着・2着・3着を段階評価する。安定して上位に来る馬を高く評価する。
+      const finishBase=clamp(100-percentile*75,25,100);
+      const finishScore=clamp(finishBase*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
-      inMoneyN+=inMoney*w;inMoneyD+=w;performances.push({value:performance,weight:w});
+      inMoneyN+=(rank<=3?100:0)*w;inMoneyD+=w;
+      finishValues.push({value:finishScore,weight:w});
     });
     const inMoney=inMoneyD?inMoneyN/inMoneyD:65;
     let consistency=65;
-    if(performances.length>=2){
-      const wd=performances.reduce((s,x)=>s+x.weight,0)||1;
-      const mean=performances.reduce((s,x)=>s+x.value*x.weight,0)/wd;
-      const variance=performances.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
-      consistency=clamp(100-Math.sqrt(variance)*1.8,35,100);
+    if(finishValues.length>=2){
+      const wd=finishValues.reduce((s,x)=>s+x.weight,0)||1;
+      const mean=finishValues.reduce((s,x)=>s+x.value*x.weight,0)/wd;
+      const variance=finishValues.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
+      // 着順のブレが小さい馬ほど3着内率を高くする。
+      consistency=clamp(100-Math.sqrt(variance)*2.2,35,100);
     }
-    const axes=[h?.speed,h?.course,h?.distance,h?.gradeScore];
-    if((+h?.closingSamples||0)>0)axes.push(h?.last3f);
+    const axes=[h?.placeModelCourse,h?.placeModelDistance,h?.placeModelGoing];
+    const fallbackAxes=[h?.course,h?.distance,h?.going];
     const validAxes=axes.map(Number).filter(Number.isFinite);
-    const balance=validAxes.length
-      ? validAxes.reduce((s,v)=>s+v,0)/validAxes.length*.65+Math.min(...validAxes)*.35
+    const sourceAxes=validAxes.length?validAxes:fallbackAxes.map(Number).filter(Number.isFinite);
+    const balance=sourceAxes.length
+      ? sourceAxes.reduce((s,v)=>s+v,0)/sourceAxes.length*.60+Math.min(...sourceAxes)*.40
       : 65;
-    const ai=Number.isFinite(+h?.score)?+h.score:65;
-    return clamp(ai*.50+inMoney*.30+consistency*.12+balance*.08,25,99);
+    const closing=Number.isFinite(+h?.placeModelLast3f)?+h.placeModelLast3f:((+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65);
+    const jockey=(()=>{
+      try{
+        const fn=window.jockeyComboScore;
+        const v=typeof fn==='function'?fn(h):Number(h?.jockey_combo);
+        return Number.isFinite(+v)?+v:65;
+      }catch(_){return 65}
+    })();
+    const count=finishValues.length;
+    const credibility=clamp(count/5,0,1);
+    // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
+    // これにより「履歴があるのに全馬同じ→AI順位へフォールバック」という経路を防ぐ。
+    const finishDen=finishValues.reduce((s,x)=>s+x.weight,0)||1;
+    const finishMean=finishValues.length
+      ?finishValues.reduce((s,x)=>s+x.value*x.weight,0)/finishDen
+      :65;
+    // 複勝圏に入った割合だけでなく、1〜5着以下の連続的な着順評価も反映する。
+    // finishMeanは着順そのもの、inMoneyは3着内に入った実績を表す別指標。
+    const recent=history.length?clamp(finishMean*.60+inMoney*.40,25,99):65;
+    const stable=history.length?clamp(consistency,35,99):65;
+    // 3着内率は1着率・AI指数とは別の序列を作る。
+    // 「複勝圏実績」と「着順安定度」を主軸にし、コース/距離/馬場・上がり・騎手相性は補助。
+    const recentV=clamp(Number(recent)||65,25,99);
+    const stableV=clamp(Number(stable)||65,25,99);
+    const balanceV=clamp(Number(balance)||65,25,99);
+    const closingV=clamp(Number(closing)||65,25,99);
+    const jockeyV=clamp(Number(jockey)||65,25,99);
+    // 3着内率は「勝ち切る力」ではなく「安定して馬券内に来る力」を最優先。
+    // 近走の複勝圏実績40%＋着順安定度35%を主軸にし、
+    // コース/距離/馬場・上がり・騎手相性は補助として使う。
+    const direct=recentV*.40+stableV*.35+balanceV*.10+closingV*.05+jockeyV*.10;
+    const reliability=65+35*credibility;
+    return clamp(
+      direct*credibility+65*(1-credibility)+(reliability-65)*.08,
+      25,99
+    );
   }
-
   function placeShares(rows){
-    const scores=rows.map(placeProfile),max=scores.length?Math.max(...scores):0;
+    const scores=rows.map(h=>placeProfile(h,rows)),max=scores.length?Math.max(...scores):0;
     const raw=scores.map(v=>Math.exp((v-max)/PLACE_T)),sum=raw.reduce((a,b)=>a+b,0)||1;
     rows.forEach((h,i)=>h.placeModelScoreV337=tenth(scores[i]));
     return raw.map(v=>v/sum);
@@ -131,7 +282,9 @@
   function recalcProbabilities(rows){
     if(rows.length<2)return false;
     const ai=aiShares(rows),market=marketShares(rows,ai);
-    const winStrength=market?ai.map((v,i)=>v*AI_WEIGHT+market[i]*MARKET_WEIGHT):ai;
+    const winStrength=market
+      ?ai.map((v,i)=>v*AI_WEIGHT+market[i]*MARKET_WEIGHT)
+      :ai;
     const winSum=winStrength.reduce((a,b)=>a+b,0)||1,winNormalized=winStrength.map(v=>v/winSum);
     const placeAi=placeShares(rows);
     const placeStrength=market?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+market[i]*PLACE_MARKET_WEIGHT):placeAi;
@@ -142,7 +295,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内安定性85%+単勝市場15%':'1着AI100%／3着内安定性100%';
+      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内モデル85%+単勝市場15%':'1着AI100%／3着内モデル100%';
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -154,6 +307,26 @@
     document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
     return true;
   }
+
+  // 履歴再取得後にv57側がscoreを再計算するため、その直後からも順位・確率分離を再適用できる入口を公開する。
+  // 既存の分析式や市場補正は変更せず、最新scoreを入力として同じv337モデルを再計算する。
+  function refreshAfterHistory(){
+    try{
+      if(Array.isArray(evaluated))evaluated.forEach(h=>{try{delete h.rankingProbabilitySeparationV337}catch(_){}});
+      const ok=apply();
+      const rows=Array.isArray(evaluated)?activeRows(evaluated):[];
+      if(ok&&rows.length){
+        rows.forEach(h=>{
+          if(Number.isFinite(+h?.winP))h.win=+h.winP;
+          if(Number.isFinite(+h?.place))h.place=+h.place;
+        });
+        try{if(typeof renderAnalysis==='function')renderAnalysis()}catch(_){}
+        annotateUi();
+      }
+      return rows;
+    }catch(e){console.warn('v337 history refresh',e);return []}
+  }
+  window.__refreshRankingProbabilityV337=refreshAfterHistory;
 
   function annotateUi(){
     let rows=[];try{rows=activeRows(evaluated)}catch(_){return}
@@ -170,29 +343,48 @@
           note.style.cssText='margin:-2px 0 10px;line-height:1.55;color:#9fb0cf';
           ranking.parentNode.insertBefore(note,ranking);
         }
-        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝人気30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝安定性モデル${market?'85%＋単勝人気15%':'100%（市場未取得）'}`;
+        note.innerHTML=`<b style="color:#eef3ff">AI順位</b>＝能力・適性　／　<b style="color:#eef3ff">1着率</b>＝${market?'AI 70%＋単勝市場30%':'AI 100%'}　／　<b style="color:#eef3ff">3着内率</b>＝近走・安定度・コース/距離/馬場・上がり・騎手相性の別モデル${market?'＋単勝市場15%':'（市場未取得）'}`;
       }
       const cards=[...ranking.querySelectorAll('.ranking-card')];
-      cards.forEach((card,i)=>{
-        const h=rows[i];if(!h)return;
+      cards.forEach(card=>{
         const rank=card.querySelector('.rank');
-        if(rank){
-          const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||i+1)-1]||'';
-          rank.textContent=`AI ${h.aiRankV337}位　${mark} ${h.no} ${h.name}`;
+        const label=String(rank?.textContent||'');
+        // v345 displays cards in 3着内率 order, not evaluated's AI-score order.
+        // Resolve the row by its displayed horse name instead of the card's array index.
+        const h=rows.find(x=>String(x?.name||'')&&label.includes(String(x.name)));
+        if(!h)return;
+        const mark=['◎','○','▲','△','☆','注'][(h.placeProbabilityRankV337||1)-1]||'';
+        // v345 owns the final visible card identity and rank labels; avoid overwriting them from this async annotation pass.
+        // 順位バッジは1段だけ残す。旧表示処理とv345系の両方が走った場合に
+        // 「AI順位・1着率・3着内率」と「1着率・3着内率」が二重表示されるため、
+        // ranking-summary-main直下の重複する順位行だけを除去する。
+        const summaryMain=card.querySelector('.ranking-summary-main');
+        if(summaryMain){
+          // 他の描画経路が順位バッジを後から内側へ追加しても、1段だけ残す。
+          // 直下だけでなく配下の順位行も対象にし、同じ内容の重複表示を防ぐ。
+          const rankRows=[...summaryMain.querySelectorAll('*')].filter(node=>{
+            const t=String(node.textContent||'');
+            return /1着率/.test(t)&&/3着内率/.test(t)&&node.children.length>=2;
+          });
+          const preferred=rankRows.find(node=>/AI順位/.test(String(node.textContent||'')))||rankRows[0];
+          rankRows.forEach(node=>{if(node!==preferred)node.remove()});
         }
         const details=card.querySelector('.ranking-card-details');
         if(details){
           const metrics=[...details.querySelectorAll('.metric')];
           const winMetric=metrics.find(x=>/1着率/.test(x.textContent||''));
-          if(winMetric){const label=winMetric.querySelector('span');if(label)label.textContent=`1着率（確率${h.probabilityRankV337}位）`}
+          // v345 already renders the correct win-probability rank for this row.
         }
       });
     }
 
     const tbody=document.getElementById('rows');
     if(tbody){
-      [...tbody.querySelectorAll('tr')].forEach((tr,i)=>{
-        const h=rows[i];if(!h)return;
+      [...tbody.querySelectorAll('tr')].forEach(tr=>{
+        const label=String(tr.querySelector('td:first-child')?.textContent||'');
+        // Comparison rows can be sorted independently; match by horse identity, not row index.
+        const h=rows.find(x=>String(x?.name||'')&&label.includes(String(x.name)));
+        if(!h)return;
         const rr=tr.querySelector('.comparison-rank');if(rr)rr.textContent=`AI ${h.aiRankV337}位`;
         const cells=[...tr.querySelectorAll('td')];
         const winCell=cells.find(td=>String(td.dataset?.label||'').includes('1着率'));
@@ -204,7 +396,8 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・評価軸の弱点を加えた別モデルで算出します。`;
+      const diag=[...rows].sort((a,b)=>(Number(b?.placeModelScoreV337)||0)-(Number(a?.placeModelScoreV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${tenth(Number(h.placeModelScoreV337)||0)}→${h.placeProbabilityRankV337}位`).join('　');
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を別モデルで統合。単勝市場が取得できる場合のみ15%を補助的に加味。<br><small>内部3着内モデル：${diag}</small>`;
     }
   }
 

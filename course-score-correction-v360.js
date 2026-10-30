@@ -71,7 +71,7 @@
   function patchScoreLocalHistory(){
     try{
       const old=window.scoreLocalHistory;
-      if(typeof old!=='function'||old.__courseV360)return false;
+      if(typeof old!=='function')return false;
       const fn=function(rows){
         const out=old.apply(this,arguments)||{};
         return{...out,course:courseScore(rows),course_v330:false,course_v360:true};
