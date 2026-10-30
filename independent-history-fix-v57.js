@@ -1637,7 +1637,7 @@
           if(!h||!Array.isArray(result.history))continue;
           for(const run of h.history||[]){
             if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;
-            const runRaceId=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
+            const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
             const runVenue=venueKey(run.venue);
             const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);
             const sameVenue=candidate=>{
@@ -1645,8 +1645,8 @@
               return venueKnown?candidateVenue===runVenue:true;
             };
             const exactRaceId=candidate=>{
-              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\\D/g,'');
-              return /^20\\d{10}$/.test(candidateRaceId)&&/^20\\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
+              const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
+              return /^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
             };
             const sameRaceDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
             const sameCoreDetails=candidate=>sameDate(candidate.date,run.date)&&sameVenue(candidate)&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
