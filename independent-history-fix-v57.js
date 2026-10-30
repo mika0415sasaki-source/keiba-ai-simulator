@@ -1644,7 +1644,7 @@
               const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
               const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;
+              const runVenue=venueKey(run.venue);
               const candidateVenue=venueKey(candidate.venue);
               const runSurface=surfaceKey(run.surface),candidateSurface=surfaceKey(candidate.surface);
               const candidateDate=dateKey(candidate.date),runDate=dateKey(run.date);
