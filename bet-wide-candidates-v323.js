@@ -4,7 +4,7 @@
 
   const num=v=>Number.isFinite(+v)?+v:null;
   const key=nums=>(nums||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
-  const getEval=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,6):[]}catch(_){return[]}};
+  const getEval=()=>{try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.winP)||0)-(Number(x?.winP)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,6):[]}catch(_){return[]}};
   const oddsFor=nums=>{
     try{
       const a=getEval(),m=new Map(a.map(h=>[+h.no,h]));

@@ -47,6 +47,9 @@
     const count=root.querySelectorAll(':scope > .card').length;
     if(count<list.length)fallback();
     const a=el('analyze');if(a){a.hidden=false;a.disabled=false;a.style.display='inline-block';a.style.visibility='visible';a.style.opacity='1';a.style.pointerEvents='auto'}
+    // The base renderer can run again after current-data-v370 has applied its card patch.
+    // Re-apply the consolidated weight line after every render so the old compact format cannot return.
+    try{if(typeof window.__patchCurrentDataCardsV370==='function')window.__patchCurrentDataCardsV370()}catch(_){}
     void root.offsetHeight;
     document.documentElement.dataset.horseCards=String(root.querySelectorAll(':scope > .card').length);
   }

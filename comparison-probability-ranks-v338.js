@@ -64,17 +64,8 @@
       const rr=tr.querySelector('.comparison-rank');
       if(rr)rr.textContent=`AI ${aiRank}位`;
 
-      const toggle=tr.querySelector('.comparison-toggle');
-      if(toggle){
-        let host=toggle.querySelector('.comparison-prob-ranks-v338');
-        if(!host){
-          host=document.createElement('div');
-          host.className='comparison-prob-ranks-v338';
-          const main=toggle.firstElementChild;
-          if(main)main.appendChild(host);else toggle.prepend(host);
-        }
-        host.innerHTML=`<span class="prob-rank-chip">1着率 <b>${winRank}位</b></span><span class="prob-rank-chip">3着内率 <b>${placeRank}位</b></span>`;
-      }
+      // 順位バッジ本体は v345 が一括描画するため、ここでは追加生成しない。
+      // v338 が後から2段目を挿入すると、同じ順位が二重表示になるため無効化。
 
       const cells=[...tr.querySelectorAll('td')];
       const winCell=cells.find(td=>String(td.dataset?.label||'').includes('1着率'));

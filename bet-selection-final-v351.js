@@ -6,14 +6,14 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const keyNums=arr=>(arr||[]).map(Number).filter(Number.isFinite).sort((a,b)=>a-b).join('-');
   const combos=(arr,n)=>{const out=[];const rec=(st,p)=>{if(p.length===n){out.push(p);return}for(let i=st;i<arr.length;i++)rec(i+1,[...p,arr[i]])};rec(0,[]);return out};
-  const hs=()=>{try{return Array.isArray(evaluated)?evaluated.slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}};
+  const hs=()=>{try{return Array.isArray(evaluated)?[...evaluated].sort((x,y)=>(Number(y?.winP)||0)-(Number(x?.winP)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999)).slice(0,Math.min(6,evaluated.length)):[]}catch(_){return[]}};
   const trioOdds=c=>{try{const o=Number(trioOddsFor(c));return Number.isFinite(o)&&o>0?o:null}catch(_){return null}};
 
   function shape(){
     const a0=hs();if(a0.length<3)return {strong:false,chaos:false,severe:false};
-    const a=[...a0].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
+    const a=[...a0].sort((x,y)=>(Number(y?.winP)||0)-(Number(x?.winP)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
     const s1=+a[0].score||0,s2=+a[1].score||0,s3=+a[2].score||0,s6=+a[a.length-1].score||0;
-    const p1=+a[0].place||0,p3=+a[2].place||0;
+    const p1=+a[0].winP||0,p3=+a[2].winP||0;
     const g12=s1-s2,g13=s1-s3,spread=s1-s6;
     const close5=a.filter(h=>s1-(+h.score||0)<=5).length;
     const close7=a.filter(h=>s1-(+h.score||0)<=7).length;
@@ -42,7 +42,7 @@
     const rm=new Map(a.map((h,i)=>[+h.no,i]));
     const r=c.map(h=>rm.get(+h.no)??99).sort((x,y)=>x-y);
     const o=trioOdds(c);
-    const hit=c.reduce((p,h)=>p*Math.max(.05,(+h.place||0)/100),1);
+    const hit=c.reduce((p,h)=>p*Math.max(.05,(+h.winP||0)/100),1);
     const ai=c.reduce((s,h)=>s+(+h.score||0),0);
     const rankSum=r.reduce((s,v)=>s+v,0);
     const market=o?clamp(Math.log10(Math.max(1,o))*5,0,12):0;
@@ -119,7 +119,7 @@
     const a=hs();if(a.length<3)return [];
     const d=decide();
     if(d.mode!=='form')return null;
-    const betRows=[...a].sort((x,y)=>(Number(y?.place)||0)-(Number(x?.place)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
+    const betRows=[...a].sort((x,y)=>(Number(y?.winP)||0)-(Number(x?.winP)||0)||(Number(y?.score)||0)-(Number(x?.score)||0)||(+x?.no||999)-(+y?.no||999));
 
     const pool=combos(betRows,3).map(c=>item(c,betRows,d.cap));
     const ordered=scenarioOrder(pool);

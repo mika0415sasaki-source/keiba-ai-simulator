@@ -42,7 +42,7 @@
       const pos=clamp(100-((rank-1)/Math.max(1,field-1))*72,25,100);
       const g=GRADE[gradeOf(r)]||68;
       const rel=relevance(r,t);
-      const run=.70*pos+.15*g+.15*rel;
+      const run=.55*pos+.15*g+.30*rel;
       const w=REC[i]||.4;n+=run*w;d+=w;
     });
     return d?n/d:50;
@@ -74,9 +74,9 @@
 
   function scoreV305(rows){
     let out={available:completed(rows).length>0,speed:50,last3f:55,distance:50,course:50};
-    if(oldLocal){try{const prev=oldLocal.apply(this,arguments);if(prev&&typeof prev==='object')out={...prev}}catch(_){}}
+    if(oldLocal){try{const prev=oldLocal.apply(this,arguments);if(prev&&typeof prev==='object')out={...prev}}catch(_) {}}
     const rr=completed(rows);
-    return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'v305'};
+    return {...out,available:rr.length>0,speed:recentScore(rows),last3f:sectionalScore(rows),metricVersion:'v305-55-15-30'};
   }
   scoreV305.__v305=true;scoreV305.__original=oldLocal;
   try{window.scoreLocalHistory=scoreV305;scoreLocalHistory=scoreV305}catch(_){}
@@ -104,7 +104,7 @@
     }
     const ev=el('evidence');if(ev){
       let d=ev.querySelector('[data-metric-v305]');if(!d){d=document.createElement('div');d.dataset.metricV305='1';d.style.marginTop='10px';ev.appendChild(d)}
-      d.innerHTML='<b>近走・上がり評価 v305</b><br>近走：着順だけの単純平均を廃止。頭数に対する着順・レース格・今回距離/芝ダへの近さ・新しい走ほど重い時系列ウェイトで評価。<br>上がり：33秒台を自動的に100点へ丸める方式を廃止。芝/ダート・距離・競馬場・馬場状態ごとの基準上がりとの差を時系列加重して評価。';
+      d.innerHTML='<b>近走・上がり評価 v305</b><br>近走：着順だけの単純平均を廃止。頭数に対する着順・レース格・今回距離/芝ダへの近さ・新しい走ほど重い時系列ウェイトで評価。<br>上がり：33秒台を自動的に100点へ丸める方式を廃止。芝/ダート・距離・競馬場・馬場状態ごとの基準上がりとの差を時系列加重して評価.';
     }
   }
 
@@ -123,5 +123,5 @@
   addEventListener('keiba-data-updated',()=>setTimeout(settle,0));
   addEventListener('pageshow',()=>setTimeout(settle,0));
   setTimeout(settle,0);
-  document.documentElement.dataset.metricModel='v305';
+  document.documentElement.dataset.metricModel='v305-55-15-30';
 })();

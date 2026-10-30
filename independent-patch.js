@@ -14,7 +14,7 @@
     function memoryRunToHistory(r){
       if(!r)return null;
       const passage=Array.isArray(r.passage)?r.passage:String(r.corners||'').split('-').map(Number).filter(Number.isFinite);
-      return {date:r.date||'',venue:r.venue||r.course||'',surface:r.surface||'',distance:+(r.distance??r.dist)||0,going:r.going||'',rank:+(r.rank??r.pos)||0,last3f:Number.isFinite(+(r.last3f??r.last3))?+(r.last3f??r.last3):null,jockey:r.jockey||'',passage,field_size:+(r.field_size||0)||null,source:r.source||'netkeiba-memory'};
+      return {date:r.date||'',venue:r.venue||r.course||'',surface:r.surface||'',distance:+(r.distance??r.dist)||0,going:r.going||'',rank:+(r.rank??r.pos)||0,last3f:Number.isFinite(+(r.last3f??r.last3))?+(r.last3f??r.last3):null,jockey:r.jockey||'',passage,field_size:+(r.field_size||0)||null,body_weight:[r.body_weight,r.horse_weight,r.bodyWeight,r.weight].map(Number).find(v=>Number.isFinite(v)&&v>=300&&v<=700)||null,source:r.source||'netkeiba-memory'};
     }
     function currentRaceDate(){
       const s=String(document.getElementById('raceUrl')?.value||'');
@@ -48,6 +48,9 @@
       if(!el||!preentry())return;
       let s=el.innerHTML;
       s=s.replace(/JRA実データ/g,'コース基礎データ');
+      s=s.replace(/履歴\s*[:：]?\s*(\d+)\/5走欠損(?:<br\s*\/?>\s*履歴\s*[:：]?\s*\1\/5走欠損)+/gi,'履歴：基準5走中$1走を取得');
+      s=s.replace(/履歴\s*[:：]?\s*(\d+)\/5走欠損/g,'履歴：基準5走中$1走を取得');
+      s=s.replace(/履歴\s*(\d+)\/5走/g,'完走履歴 $1走（基準5走）');
       s=s.replace(/騎手相性\s*：\s*JRA前4走コンビ成績を反映/g,'騎手相性：netkeiba過去走の騎乗情報を参考');
       s=s.replace(/騎手\s*：\s*現騎手×当馬のJRA前4走コンビ成績を反映/g,'騎手：netkeiba過去走の騎乗情報を参考（JRA出馬表確定後に照合）');
       s=s.replace(/実オッズ\s*：\s*単勝\s*\d+\/\d+頭\s*・\s*3連複\s*\d+点/g,'予想オッズ：netkeiba掲載値を使用（JRA実オッズ未反映）');
@@ -121,7 +124,7 @@
         if(need.length)await fallbackPass(need);
 
         if(preentry()){for(const h of horses){const s=inferStyle(h);if(s)h.style=s}}
-        renderHorses();evalAll();if(typeof renderPaceReason==='function')renderPaceReason();scheduleFix();
+        evalAll();renderHorses();if(typeof renderPaceReason==='function')renderPaceReason();scheduleFix();
         const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length,fills=horses.reduce((n,h)=>n+(h.jraFillCount||0),0);
         const hc=document.getElementById('histCount'); if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
         if(!silent)status('histStatus','netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を使用。'+(jraN?'JRA照合で'+fills+'項目を補完。':''));
