@@ -501,7 +501,7 @@
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
       if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{race_id:currentRaceId,items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -587,7 +587,7 @@
       // when race attributes identify exactly one run for the same horse.
       if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{race_id:currentRaceId,items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -1624,7 +1624,7 @@
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),18000);
       try{
-        const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{
+        const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{
           method:'POST',cache:'no-store',signal:controller.signal,
           headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
           body:JSON.stringify({race_id:currentRaceId,items:targets.map(h=>({name:h.name,id:horseId(h)}))})
