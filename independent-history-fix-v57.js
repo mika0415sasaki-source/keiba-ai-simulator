@@ -490,6 +490,9 @@
           clearTimeout(timer);
         }
       }
+      const raceUrlValue=String(raceUrl()||'');
+      const raceIdMatch=raceUrlValue.match(/(?:race_id=|\/race\/)(20\d{10})/i);
+      const currentRaceId=String(raceIdMatch?.[1]||(typeof raceMeta==='object'?raceMeta?.race_id||'':'')).replace(/\D/g,'');
       const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
       let exactResults=[];
       if(exactItems.length){
@@ -498,7 +501,7 @@
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
       if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -533,7 +536,7 @@
               if(normDate(a.date)!==normDate(b.date)||normSurface(a.surface)!==normSurface(b.surface)||Number(a.distance)!==Number(b.distance)||Number(a.rank)!==Number(b.rank))return false;
               const av=normVenue(a.venue),bv=normVenue(b.venue);
               // Venue may be absent in the primary parser for some regional races.
-              return !av||!bv||av===bv;
+              return !!av&&!!bv&&av===bv;
             };
             item.history=item.history.map(run=>{
               const matches=more.history.filter(candidate=>sameRun(run,candidate));
@@ -584,7 +587,7 @@
       // when race attributes identify exactly one run for the same horse.
       if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -604,7 +607,7 @@
               const matches=more.history.filter(candidate=>{
                 if(normDate(run.date)!==normDate(candidate.date)||normSurface(run.surface)!==normSurface(candidate.surface)||Number(run.distance)!==Number(candidate.distance)||Number(run.rank)!==Number(candidate.rank))return false;
                 const a=normVenue(run.venue),b=normVenue(candidate.venue);
-                return !a||!b||a===b;
+                return !!a&&!!b&&a===b;
               });
               if(matches.length!==1)return run;
               const candidate=matches[0],merged={...run};
@@ -1693,8 +1696,9 @@
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
         const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
-        const modalCount=payload.results.filter(r=>r.source==='netkeiba-horse-modal').length;
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n個別馬モーダル取得: '+modalCount+'/'+targets.length+'頭\n照合対象レースID: '+(currentRaceId||'取得不可')+'\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n【レースID診断】\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\n'+(missingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(directLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
+        const modalCount=payload.results.filter(r=>r.retrieval_source==='netkeiba-modal').length;
+        const dbFallbackCount=payload.results.filter(r=>r.retrieval_source==='db-horse-result').length;
+        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n個別馬モーダル取得: '+modalCount+'/'+targets.length+'頭 / DB成績ページ: '+dbFallbackCount+'頭\n照合対象レースID: '+(currentRaceId||'取得不可')+'\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n【レースID診断】\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\n'+(missingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(directLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
         if(changed||recoveredRaceIdChanged){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
