@@ -511,26 +511,37 @@
           };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
-          const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
-          const extraById=new Map(extra.filter(x=>/^\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
+          const currentRaceDigits=String(currentRaceId||'').replace(/\\D/g,'');
+          const targetDateNumber=raceDateNumber();
+          const runDateNumber=r=>{const d=normDate(r.date);return /^20\\d{6}$/.test(d)?Number(d):0};
+          const isTargetOrLater=r=>{
+            const rid=String(r.race_id||r.raceId||'').replace(/\\D/g,'');
+            return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&runDateNumber(r)>=targetDateNumber);
+          };
+          const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const mergePastRuns=(base,supplement)=>{
+            const merged=[],byKey=new Map();
+            for(const run of [...(base||[]),...(supplement||[])]){
+              if(!run||isTargetOrLater(run)||!normDate(run.date)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||!normVenue(run.venue)||!normSurface(run.surface))continue;
+              const k=raceKey(run),prior=byKey.get(k);
+              if(prior){
+                if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)prior.field_size=Number(run.field_size);
+                if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
+                for(const field of ['race_name','grade','jockey','going','last3f','body_weight'])if((prior[field]==null||prior[field]==='')&&run[field]!=null&&run[field]!=='')prior[field]=run[field];
+              }else{const copy={...run};byKey.set(k,copy);merged.push(copy)}
+            }
+            merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
+            return merged.slice(0,5);
+          };
+          const extraById=new Map(extra.filter(x=>/^\\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
           const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
           for(const item of exactResults){
             const more=extraById.get(String(item.id||''))||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
-            // If the primary parser returned fewer than five runs, recover missing runs
-            // only from the same horse ID and deduplicate by full race identity.
-            if(String(item.id||'')===String(more.id||'')&&item.history.length<5){
-              const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
-              const have=new Set(item.history.map(raceKey));
-              const merged=[...item.history];
-              for(const run of more.history){
-                const k=raceKey(run);
-                if(!normDate(run.date)||!normVenue(run.venue)||!normSurface(run.surface)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||have.has(k))continue;
-                have.add(k);
-                merged.push(run);
-              }
-              merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
-              item.history=merged.slice(0,5);
+            // Rebuild five completed runs even when the primary parser returned five
+            // rows: one of those rows may be the target race itself.
+            if(String(item.id||'')===String(more.id||'')){
+              item.history=mergePastRuns(item.history,more.history);
             }
             const sameRun=(a,b)=>{
               if(normDate(a.date)!==normDate(b.date)||normSurface(a.surface)!==normSurface(b.surface)||Number(a.distance)!==Number(b.distance)||Number(a.rank)!==Number(b.rank))return false;
@@ -603,6 +614,29 @@
             const id=String(item.id||item.horse_id||'');
             const more=extraById.get(id)||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
+            // Rebuild five completed runs from the same horse ID, excluding the target race.
+            if(String(id||'')===String(more.id||'')){
+              const currentRaceDigits=String(currentRaceId||'').replace(/\\D/g,'');
+              const targetDateNumber=raceDateNumber();
+              const dateNumber=r=>{const d=normDate(r.date);return /^20\\d{6}$/.test(d)?Number(d):0};
+              const isTargetOrLater=r=>{
+                const rid=String(r.race_id||r.raceId||'').replace(/\\D/g,'');
+                return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&dateNumber(r)>=targetDateNumber);
+              };
+              const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+              const merged=[],seen=new Map();
+              for(const run of [...item.history,...more.history]){
+                if(!run||isTargetOrLater(run)||!normDate(run.date)||!normVenue(run.venue)||!normSurface(run.surface)||!(Number(run.distance)>0)||!(Number(run.rank)>0))continue;
+                const k=key(run),prior=seen.get(k);
+                if(prior){
+                  const n=Number(run.field_size);
+                  if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&n>=2&&n<=30)prior.field_size=n;
+                  if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
+                }else{const copy={...run};seen.set(k,copy);merged.push(copy)}
+              }
+              merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
+              item.history=merged.slice(0,5);
+            }
             item.history=item.history.map(run=>{
               const matches=more.history.filter(candidate=>{
                 if(normDate(run.date)!==normDate(candidate.date)||normSurface(run.surface)!==normSurface(candidate.surface)||Number(run.distance)!==Number(candidate.distance)||Number(run.rank)!==Number(candidate.rank))return false;
