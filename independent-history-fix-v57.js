@@ -499,7 +499,7 @@
         try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
       }
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
-      if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
+      if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2)||!String(r.going||'').trim())))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)||!String(r.going||'').trim()))))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
@@ -526,6 +526,7 @@
               const k=raceKey(run),prior=byKey.get(k);
               if(prior){
                 if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)prior.field_size=Number(run.field_size);
+                if(!String(prior.going||'').trim()&&String(run.going||'').trim())prior.going=run.going;
                 if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
                 for(const field of ['race_name','grade','jockey','going','last3f','body_weight'])if((prior[field]==null||prior[field]==='')&&run[field]!=null&&run[field]!=='')prior[field]=run[field];
               }else{const copy={...run};byKey.set(k,copy);merged.push(copy)}
@@ -557,6 +558,7 @@
               const merged={...run};
               if(!merged.race_id&&/^20\d{10}$/.test(String(match.race_id||match.raceId||'')))merged.race_id=String(match.race_id||match.raceId);
               if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&n>=2&&n<=30)merged.field_size=n;
+              if(!String(merged.going||'').trim()&&String(match.going||'').trim())merged.going=match.going;
               return merged;
             });
           }
@@ -596,7 +598,7 @@
       // Enrich fallback history records as well as exact-ID records. The initial
       // fallback path can supply 5 runs without race_id/field_size; merge only
       // when race attributes identify exactly one run for the same horse.
-      if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
+      if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)||!String(r.going||'').trim()))){
         try{
           const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
@@ -631,6 +633,7 @@
                 if(prior){
                   const n=Number(run.field_size);
                   if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&n>=2&&n<=30)prior.field_size=n;
+                  if(!String(prior.going||'').trim()&&String(run.going||'').trim())prior.going=run.going;
                   if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
                 }else{const copy={...run};seen.set(k,copy);merged.push(copy)}
               }
@@ -649,6 +652,7 @@
               const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count);
               if(!/^20\d{10}$/.test(String(merged.race_id||''))&&/^20\d{10}$/.test(rid))merged.race_id=rid;
               if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&size>=2&&size<=30)merged.field_size=size;
+              if(!String(merged.going||'').trim()&&String(candidate.going||'').trim())merged.going=candidate.going;
               return merged;
             });
           }
@@ -899,7 +903,8 @@
       const domestic=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
       const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
       const missingFieldSize=rows.some(run=>!(Number(run.field_size)>=2));
-      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f||missingFieldSize;
+      const missingGoing=rows.some(run=>!String(run.going||'').trim());
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f||missingFieldSize||missingGoing;
     }
 
     function applyCurrentRoster(list=horses||[],url=raceUrl()){
@@ -1750,7 +1755,8 @@
       const grades=rows.filter(run=>normalizeGrade(run.grade||run.race_name)).length;
       const domestic=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
       const missingDomesticLast3f=rows.some(run=>domestic.has(String(run.venue||''))&&validLast3f(run.last3f)===undefined);
-      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f;
+      const missingGoing=rows.some(run=>!String(run.going||'').trim());
+      return rows.length<5||bodies===0||grades<Math.min(3,rows.length)||missingDomesticLast3f||missingGoing;
     };
     let autoHistoryStarted=false;
     const autoRecover=()=>{
