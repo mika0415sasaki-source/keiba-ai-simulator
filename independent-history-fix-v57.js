@@ -490,6 +490,9 @@
           clearTimeout(timer);
         }
       }
+      const raceUrlValue=String(raceUrl()||'');
+      const raceIdMatch=raceUrlValue.match(/(?:race_id=|\/race\/)(20\d{10})/i);
+      const currentRaceId=String(raceIdMatch?.[1]||(typeof raceMeta==='object'?raceMeta?.race_id||'':'')).replace(/\D/g,'');
       const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
       let exactResults=[];
       if(exactItems.length){
@@ -498,7 +501,7 @@
       // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
       if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2))))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)))))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -508,32 +511,43 @@
           };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
-          const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
-          const extraById=new Map(extra.filter(x=>/^\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
+          const currentRaceDigits=String(currentRaceId||'').replace(/\\D/g,'');
+          const targetDateNumber=raceDateNumber();
+          const runDateNumber=r=>{const d=normDate(r.date);return /^20\\d{6}$/.test(d)?Number(d):0};
+          const isTargetOrLater=r=>{
+            const rid=String(r.race_id||r.raceId||'').replace(/\\D/g,'');
+            return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&runDateNumber(r)>=targetDateNumber);
+          };
+          const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+          const mergePastRuns=(base,supplement)=>{
+            const merged=[],byKey=new Map();
+            for(const run of [...(base||[]),...(supplement||[])]){
+              if(!run||isTargetOrLater(run)||!normDate(run.date)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||!normVenue(run.venue)||!normSurface(run.surface))continue;
+              const k=raceKey(run),prior=byKey.get(k);
+              if(prior){
+                if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)prior.field_size=Number(run.field_size);
+                if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
+                for(const field of ['race_name','grade','jockey','going','last3f','body_weight'])if((prior[field]==null||prior[field]==='')&&run[field]!=null&&run[field]!=='')prior[field]=run[field];
+              }else{const copy={...run};byKey.set(k,copy);merged.push(copy)}
+            }
+            merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
+            return merged.slice(0,5);
+          };
+          const extraById=new Map(extra.filter(x=>/^\\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
           const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
           for(const item of exactResults){
             const more=extraById.get(String(item.id||''))||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
-            // If the primary parser returned fewer than five runs, recover missing runs
-            // only from the same horse ID and deduplicate by full race identity.
-            if(String(item.id||'')===String(more.id||'')&&item.history.length<5){
-              const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
-              const have=new Set(item.history.map(raceKey));
-              const merged=[...item.history];
-              for(const run of more.history){
-                const k=raceKey(run);
-                if(!normDate(run.date)||!normVenue(run.venue)||!normSurface(run.surface)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||have.has(k))continue;
-                have.add(k);
-                merged.push(run);
-              }
-              merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
-              item.history=merged.slice(0,5);
+            // Rebuild five completed runs even when the primary parser returned five
+            // rows: one of those rows may be the target race itself.
+            if(String(item.id||'')===String(more.id||'')){
+              item.history=mergePastRuns(item.history,more.history);
             }
             const sameRun=(a,b)=>{
               if(normDate(a.date)!==normDate(b.date)||normSurface(a.surface)!==normSurface(b.surface)||Number(a.distance)!==Number(b.distance)||Number(a.rank)!==Number(b.rank))return false;
               const av=normVenue(a.venue),bv=normVenue(b.venue);
-              // Venue may be absent in the primary parser for some regional races.
-              return !av||!bv||av===bv;
+              // Do not enrich a race unless both venue values are present and identical.
+              return !!av&&!!bv&&av===bv;
             };
             item.history=item.history.map(run=>{
               const matches=more.history.filter(candidate=>sameRun(run,candidate));
@@ -584,7 +598,7 @@
       // when race attributes identify exactly one run for the same horse.
       if(exactItems.length&&fallbackResults.some(x=>Array.isArray(x.history)&&x.history.some(r=>!/^20\d{10}$/.test(String(r.race_id||''))||!(Number(r.field_size)>=2)))){
         try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{items:exactItems},18000);
+          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{race_id:currentRaceId,items:exactItems},18000);
           const normDate=v=>{
             const s=String(v||'').normalize('NFKC').trim();
             const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
@@ -600,11 +614,34 @@
             const id=String(item.id||item.horse_id||'');
             const more=extraById.get(id)||extraByName.get(clean(item.name));
             if(!Array.isArray(item.history)||!Array.isArray(more?.history))continue;
+            // Rebuild five completed runs from the same horse ID, excluding the target race.
+            if(String(id||'')===String(more.id||'')){
+              const currentRaceDigits=String(currentRaceId||'').replace(/\\D/g,'');
+              const targetDateNumber=raceDateNumber();
+              const dateNumber=r=>{const d=normDate(r.date);return /^20\\d{6}$/.test(d)?Number(d):0};
+              const isTargetOrLater=r=>{
+                const rid=String(r.race_id||r.raceId||'').replace(/\\D/g,'');
+                return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&dateNumber(r)>=targetDateNumber);
+              };
+              const key=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
+              const merged=[],seen=new Map();
+              for(const run of [...item.history,...more.history]){
+                if(!run||isTargetOrLater(run)||!normDate(run.date)||!normVenue(run.venue)||!normSurface(run.surface)||!(Number(run.distance)>0)||!(Number(run.rank)>0))continue;
+                const k=key(run),prior=seen.get(k);
+                if(prior){
+                  const n=Number(run.field_size);
+                  if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&n>=2&&n<=30)prior.field_size=n;
+                  if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
+                }else{const copy={...run};seen.set(k,copy);merged.push(copy)}
+              }
+              merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
+              item.history=merged.slice(0,5);
+            }
             item.history=item.history.map(run=>{
               const matches=more.history.filter(candidate=>{
                 if(normDate(run.date)!==normDate(candidate.date)||normSurface(run.surface)!==normSurface(candidate.surface)||Number(run.distance)!==Number(candidate.distance)||Number(run.rank)!==Number(candidate.rank))return false;
                 const a=normVenue(run.venue),b=normVenue(candidate.venue);
-                return !a||!b||a===b;
+                return !!a&&!!b&&a===b;
               });
               if(matches.length!==1)return run;
               const candidate=matches[0],merged={...run};
@@ -1615,13 +1652,16 @@
         fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
         console.info('exact race-ID field sizes recovered:',directChanged);
       }
+      const raceUrlValue=raceUrl();
+      const raceIdMatch=raceUrlValue.match(/(?:race_id=|\/race\/)(20\d{10})/i);
+      const currentRaceId=String(raceIdMatch?.[1]||(typeof raceMeta==='object'?raceMeta?.race_id||'':'')).replace(/\D/g,'');
       const controller=new AbortController();
       const timer=setTimeout(()=>controller.abort(),18000);
       try{
-        const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-v1',{
+        const response=await fetch('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v1',{
           method:'POST',cache:'no-store',signal:controller.signal,
           headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
-          body:JSON.stringify({items:targets.map(h=>({name:h.name,id:horseId(h)}))})
+          body:JSON.stringify({race_id:currentRaceId,items:targets.map(h=>({name:h.name,id:horseId(h)}))})
         });
         const payload=await response.json().catch(()=>({}));
         if(!response.ok||!Array.isArray(payload.results))throw new Error(payload.error||('HTTP '+response.status));
@@ -1641,12 +1681,14 @@
               const candidateRaceId=String(candidate.race_id||candidate.raceId||'').replace(/\D/g,'');
               const runRaceId=String(run.race_id||run.raceId||'').replace(/\D/g,'');
               const exactRaceId=/^20\d{10}$/.test(candidateRaceId)&&/^20\d{10}$/.test(runRaceId)&&candidateRaceId===runRaceId;
-              const runVenue=venueKey(run.venue),candidateVenue=venueKey(candidate.venue);const venueKnown=!!runVenue&&!/不明|不詳|未取得/.test(runVenue);const sameVenue=venueKnown?candidateVenue===runVenue:true;
-              const sameRaceDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
-              const sameCoreDetails=sameDate(candidate.date,run.date)&&sameVenue&&surfaceKey(candidate.surface)===surfaceKey(run.surface)&&Number(candidate.distance)===Number(run.distance);
-              const size=Number(candidate.field_size??candidate.fieldSize??candidate.num_horses??candidate.horse_count??candidate.fieldSizeCount);
-              // Match on race identity before requiring enrichment fields; otherwise valid rows with no size/ID are discarded.
-              return exactRaceId||sameRaceDetails||sameCoreDetails;
+              const runVenue=venueKey(run.venue);
+              const candidateVenue=venueKey(candidate.venue);
+              const runSurface=surfaceKey(run.surface),candidateSurface=surfaceKey(candidate.surface);
+              const candidateDate=dateKey(candidate.date),runDate=dateKey(run.date);
+              const exactDate=!!(candidateDate.full&&runDate.full&&candidateDate.full===runDate.full);
+              const sameRaceDetails=exactDate&&!!runVenue&&!!candidateVenue&&runVenue===candidateVenue&&!!runSurface&&runSurface===candidateSurface&&Number(run.distance)>0&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              // Never attach a headcount using only date/distance: the complete race identity must match.
+              return exactRaceId||sameRaceDetails;
             });
             if(matches.length!==1)continue;
             const matched=matches[0];
@@ -1687,8 +1729,11 @@
         const availableCount=payload.results.filter(r=>r.available).length;
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
-        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const sameRaceDetails=sameDate(c.date,run.date)&&venueKey(c.venue)===venueKey(run.venue)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n【レースID診断】\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\n'+(missingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(directLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし'));
+        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const runVenue=venueKey(run.venue),candidateVenue=venueKey(c.venue);const sameRaceDetails=sameDate(c.date,run.date)&&!!runVenue&&!!candidateVenue&&runVenue===candidateVenue&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
+        const sourceHistoryDebug=payload.results.flatMap(r=>(Array.isArray(r.history)?r.history:[]).slice(0,5).map(c=>String(r.name||'馬名不明')+' '+String(c.date||'日付不明')+' '+String(c.venue||'競馬場不明')+' '+String(c.surface||'')+String(c.distance||'')+'m '+String(c.rank||'着順不明')+'着 / 頭数 '+String(c.field_size??c.fieldSize??c.num_horses??c.horse_count??'なし')+' / ID '+String(c.race_id||c.raceId||'なし'))).slice(0,20).join('\n');
+        const modalCount=payload.results.filter(r=>r.retrieval_source==='netkeiba-modal').length;
+        const dbFallbackCount=payload.results.filter(r=>r.retrieval_source==='db-horse-result').length;
+        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+targets.length+'頭\n個別馬モーダル取得: '+modalCount+'/'+targets.length+'頭 / DB成績ページ: '+dbFallbackCount+'頭\n照合対象レースID: '+(currentRaceId||'取得不可')+'\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+targets.length+'頭\n反映後も頭数未取得: '+remaining+'走\n\n【レースID診断】\n保存済みIDあり: '+raceIdTargets.length+'走 / 一意ID: '+uniqueRaceIds.length+'件\nIDなし・形式不正: '+missingRaceIdRuns.length+'走\n'+(missingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(directLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし')+ '\n\n【DB成績ページの解析内容（最大20走）】\n'+(sourceHistoryDebug||'解析走なし'));
         if(changed||recoveredRaceIdChanged){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
