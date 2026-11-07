@@ -67,10 +67,12 @@
       raceMeta.autoPace='';box.innerHTML=`<b>適用ペース：判定待ち</b><br>脚質データ ${known}/${horses.length}頭<br>過去5走の通過順が6割以上そろってから自動判定します。`;return;
     }
     const escN=styles.filter(x=>x==='逃').length,lead=styles.filter(x=>x==='先').length,diff=styles.filter(x=>x==='差').length,clos=styles.filter(x=>x==='追').length;
+    const officialCount=horses.filter(h=>String(h?.style_source||'')==='netkeiba競馬新聞'&&['逃','先','差','追'].includes(String(h?.style||''))).length;
+    const styleSource=officialCount===known?'netkeiba競馬新聞の脚質をそのまま使用':officialCount>0?'netkeiba競馬新聞の脚質を優先し、未掲載分は過去走の通過順から補完':'過去走の通過順から脚質判定';
     let auto=escN>=2||escN+lead>=Math.max(5,Math.ceil(known*.5))?'ハイ':escN===0&&lead<=2?'スロー':'ミドル';
     const manual=el('pace')?.value||'自動',applied=manual==='自動'?auto:manual;raceMeta.autoPace=auto;
     horses.forEach((h,i)=>{h.style=styles[i]||''});
-    box.innerHTML=`<b>適用ペース：${applied}</b><br>逃げ ${escN}頭 / 先行 ${lead}頭 / 差し ${diff}頭 / 追込 ${clos}頭 / 不明 ${horses.length-known}頭<br>${manual==='自動'?`過去走の通過順から脚質判定 → ${auto}想定`:'手動設定をAI分析へ反映'}`;
+    box.innerHTML=`<b>適用ペース：${applied}</b><br>逃げ ${escN}頭 / 先行 ${lead}頭 / 差し ${diff}頭 / 追込 ${clos}頭 / 不明 ${horses.length-known}頭<br>${manual==='自動'?`${styleSource} → ${auto}想定`:'手動設定をAI分析へ反映'}`;
   }
 
   function render({analyze=true,notify=true}={}){installQualityPatch();try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn(e)};if(analyze){try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn(e)}}try{renderPaceReasonV296()}catch(e){console.warn(e)};if(notify){try{dispatchEvent(new Event('keiba-data-updated'))}catch(_){}}}
