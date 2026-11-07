@@ -59,7 +59,7 @@
     const vals=(rows||[]).filter(r=>Array.isArray(r?.passage)&&r.passage.length&&+r.passage[0]>0).map(r=>Math.max(1,+r.passage[0])/Math.max(2,+r.field_size||16));
     if(!vals.length)return'';vals.sort((a,b)=>a-b);const x=vals[Math.floor(vals.length/2)];return x<=.16?'逃':x<=.38?'先':x<=.72?'差':'追';
   }
-  function horseStyle(h){return styleFromRows(h?.history)||styleFromRows(h?.jra_history)||''}
+  function horseStyle(h){const official=String(h?.style_source||'')==='netkeiba競馬新聞';const value=String(h?.style||'');if(official&&['逃','先','差','追'].includes(value))return value;return styleFromRows(h?.history)||styleFromRows(h?.jra_history)||''}
   function renderPaceReasonV296(){
     const box=el('paceReason');if(!box)return;if(!Array.isArray(horses)||!horses.length){box.innerHTML='出馬表取込後に自動判定します。';return}
     const styles=horses.map(h=>horseStyle(h)),known=styles.filter(Boolean).length;
@@ -105,7 +105,7 @@
 
   function mergeEnrichment(j){
     const rows=Array.isArray(j?.horses)?j.horses:[],byId=new Map(rows.map(r=>[String(r.netkeiba_horse_id||r.horse_id||r.id||''),r])),byName=new Map(rows.map(r=>[norm(r.name),r]));let ok=0,runs=0,ped=0,sty=0;
-    horses=horses.map(h=>{const x=byId.get(String(h.netkeiba_horse_id||h.horse_id||''))||byName.get(norm(h.name));if(!x)return {...h,style:horseStyle(h)};const z={...h};if(Array.isArray(x.history)&&x.history.length){z.history=x.history.slice(0,5);ok++;runs+=z.history.length;try{z.histScores=scoreLocalHistory(z.history);if(z.histScores)z.histScores.available=true}catch(_){z.histScores=null}}else{z.history=[];z.histScores=null}for(const k of ['sire','dam','damsire'])if(!String(z[k]||'').trim()&&String(x[k]||'').trim())z[k]=x[k];if(x.netkeiba_horse_id||x.horse_id||x.id){z.netkeiba_horse_id=String(x.netkeiba_horse_id||x.horse_id||x.id);z.horse_id=z.netkeiba_horse_id}z.style=styleFromRows(z.history)||styleFromRows(z.jra_history)||'';if(z.sire&&z.dam&&z.damsire)ped++;if(z.style)sty++;return z});updateHistoryCount();render({analyze:false,notify:false});return{ok,runs,ped,sty};
+    horses=horses.map(h=>{const x=byId.get(String(h.netkeiba_horse_id||h.horse_id||''))||byName.get(norm(h.name));if(!x)return {...h,style:horseStyle(h)};const z={...h};if(Array.isArray(x.history)&&x.history.length){z.history=x.history.slice(0,5);ok++;runs+=z.history.length;try{z.histScores=scoreLocalHistory(z.history);if(z.histScores)z.histScores.available=true}catch(_){z.histScores=null}}else{z.history=[];z.histScores=null}for(const k of ['sire','dam','damsire'])if(!String(z[k]||'').trim()&&String(x[k]||'').trim())z[k]=x[k];if(x.netkeiba_horse_id||x.horse_id||x.id){z.netkeiba_horse_id=String(x.netkeiba_horse_id||x.horse_id||x.id);z.horse_id=z.netkeiba_horse_id}const officialStyle=String(x.style_source||'')==='netkeiba競馬新聞'&&['逃','先','差','追'].includes(String(x.style||''));const keptOfficialStyle=String(z.style_source||'')==='netkeiba競馬新聞'&&['逃','先','差','追'].includes(String(z.style||''));if(officialStyle){z.style=x.style;z.style_source='netkeiba競馬新聞'}else if(keptOfficialStyle){/* netkeiba掲載脚質を維持 */}else{z.style=styleFromRows(z.history)||styleFromRows(z.jra_history)||'';z.style_source=z.style?'過去走通過順':''}if(z.sire&&z.dam&&z.damsire)ped++;if(z.style)sty++;return z});updateHistoryCount();render({analyze:false,notify:false});return{ok,runs,ped,sty};
   }
 
   async function importHistory(){
