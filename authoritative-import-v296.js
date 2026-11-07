@@ -79,7 +79,7 @@
   function applyRace(j,sourceUrl,rid){
     const list=Array.isArray(j?.horses)?j.horses:[];if(list.length<2)throw new Error('出走馬データを取得できませんでした。');
     raceMeta={...(j.meta||{}),race_id:rid||j?.meta?.race_id||'',source_url:sourceUrl};
-    horses=list.map((h,i)=>({...h,no:+(h.no||h.horse_no||i+1),history:[],style:'',histScores:null,jra_history:Array.isArray(h.jra_history)?h.jra_history:[],netkeiba_horse_id:String(h.netkeiba_horse_id||h.horse_id||'')})).filter(h=>h.no&&h.name).sort((a,b)=>a.no-b.no);evaluated=[];
+    horses=list.map((h,i)=>({...h,no:+(h.no||h.horse_no||i+1),history:[],style:['逃','先','差','追'].includes(String(h.style||''))?String(h.style):'',style_source:String(h.style_source||''),histScores:null,jra_history:Array.isArray(h.jra_history)?h.jra_history:[],netkeiba_horse_id:String(h.netkeiba_horse_id||h.horse_id||'')})).filter(h=>h.no&&h.name).sort((a,b)=>a.no-b.no);evaluated=[];
     try{oddsCache={race_id:raceMeta.race_id||'',win:{},wide:{},trio:{},fetched_at:null}}catch(_){}
     for(const h of horses){try{if(+h.odds>0)oddsCache.win[String(+h.no)]={odds:+h.odds,popularity:h.popularity||null,source:'出馬表'}}catch(_){}}
     if(raceMeta.race_name&&el('raceName'))el('raceName').value=raceMeta.race_name;setSelect('venue',raceMeta.venue);setSelect('surface',raceMeta.surface);setSelect('distance',raceMeta.distance);setSelect('going',raceMeta.going);updateHistoryCount();render();
