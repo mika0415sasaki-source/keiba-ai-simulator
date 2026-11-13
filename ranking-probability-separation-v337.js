@@ -134,10 +134,35 @@
     return units.map(u=>tenth(u/10));
   }
 
-  function aiShares(rows){
-    const scores=rows.map(h=>Number(h?.score)).filter(Number.isFinite),max=scores.length?Math.max(...scores):0;
-    const raw=rows.map(h=>{const s=Number(h?.score);return Number.isFinite(s)?Math.exp((s-max)/T):1});
-    const sum=raw.reduce((a,b)=>a+b,0)||1;
+  function winAiShares(rows){
+    const scores=rows.map(h=>{
+      const src=horseSource(h);
+      const style=String(src?.style||h?.style||'');
+      const manual=String(document.getElementById('pace')?.value||'自動');
+      const pace=manual==='自動'?String(raceMeta?.autoPace||'ミドル'):manual;
+      let paceAdj=0;
+      if(pace==='ハイ')paceAdj=style==='差'||style==='追'?4:style==='逃'?-3:0;
+      if(pace==='スロー')paceAdj=style==='逃'||style==='先'?3:style==='追'?-2:0;
+      const targetGoing=String(document.getElementById('going')?.value||'');
+      const history=Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[]);
+      const goingRuns=history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0);
+      const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
+      let jockeyAdj=0;
+      try{
+        const fn=window.jockeyComboScore;
+        const jockey=typeof fn==='function'?Number(fn(h)):NaN;
+        if(Number(h?.jockeyComboSamples)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
+      }catch(_){}
+      const base=Number(h?.score);
+      const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
+      h.winAiScoreV337=tenth(score);
+      h.winPaceAdjustmentV337=tenth(paceAdj);
+      h.winGoingAdjustmentV337=tenth(goingAdj);
+      h.winJockeyAdjustmentV337=tenth(jockeyAdj);
+      return score;
+    });
+    const max=scores.length?Math.max(...scores):0;
+    const raw=scores.map(s=>Math.exp((s-max)/T)),sum=raw.reduce((a,b)=>a+b,0)||1;
     return raw.map(v=>v/sum);
   }
 
@@ -282,13 +307,13 @@
 
   function recalcProbabilities(rows){
     if(rows.length<2)return false;
-    const ai=aiShares(rows),market=marketShares(rows,ai);
-    const winStrength=market
-      ?ai.map((v,i)=>v*AI_WEIGHT+market[i]*MARKET_WEIGHT)
-      :ai;
+    const winAi=winAiShares(rows),winMarket=marketShares(rows,winAi);
+    const winStrength=winMarket
+      ?winAi.map((v,i)=>v*AI_WEIGHT+winMarket[i]*MARKET_WEIGHT)
+      :winAi;
     const winSum=winStrength.reduce((a,b)=>a+b,0)||1,winNormalized=winStrength.map(v=>v/winSum);
-    const placeAi=placeShares(rows);
-    const placeStrength=market?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+market[i]*PLACE_MARKET_WEIGHT):placeAi;
+    const placeAi=placeShares(rows),placeMarket=marketShares(rows,placeAi);
+    const placeStrength=placeMarket?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+placeMarket[i]*PLACE_MARKET_WEIGHT):placeAi;
     const placeSum=placeStrength.reduce((a,b)=>a+b,0)||1,placeNormalized=placeStrength.map(v=>v/placeSum);
     const win=roundToTarget(winNormalized.map(v=>v*100),100,100);
     const place=roundToTarget(top3Probabilities(placeNormalized).map(v=>v*100),Math.min(3,rows.length)*100,100);
@@ -296,7 +321,7 @@
       h.winP=win[i];h.place=place[i];
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
-      h.probabilitySourceV337=market?'1着AI70%+単勝市場30%／3着内モデル85%+単勝市場15%':'1着AI100%／3着内モデル100%';
+      h.probabilitySourceV337=`1着AI70%${winMarket?'+単勝市場30%':''}／3着内モデル85%${placeMarket?'+単勝市場15%':''}`;
     });
     const probOrder=[...rows].sort((a,b)=>(Number(b?.winP)||0)-(Number(a?.winP)||0)||(+a?.no||999)-(+b?.no||999));
     const placeOrder=[...rows].sort((a,b)=>(Number(b?.place)||0)-(Number(a?.place)||0)||(Number(b?.score)||0)-(Number(a?.score)||0)||(+a?.no||999)-(+b?.no||999));
@@ -305,7 +330,7 @@
     placeOrder.forEach((h,i)=>h.placeProbabilityRankV337=i+1);
     document.documentElement.dataset.rankingModel='ai-ability-only-v337';
     document.documentElement.dataset.probabilityModel='win-ai70-market30-place-stability85-market15-v337';
-    document.documentElement.dataset.probabilityMarketBlend=market?'30':'0';
+    document.documentElement.dataset.probabilityMarketBlend=winMarket?'30':'0';
     return true;
   }
 
