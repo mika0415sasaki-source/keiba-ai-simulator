@@ -106,6 +106,8 @@
       const rank=Number(r?.rank??r?.pos);
       const raceName=norm(r?.race_name||r?.raceName||r?.title||'');
       if(date&&venue&&Number.isFinite(distance)&&distance>0){
+        // 同一馬の履歴では同日に複数レースへ出走しないため、基本キーでJRAの空欄補完を可能にする。
+        keys.push(['course',date,venue,surface,distance].join('|'));
         if(raceName)keys.push(['detail',date,venue,surface,distance,raceName].join('|'));
         if(Number.isFinite(rank)&&rank>0)keys.push(['finish',date,venue,surface,distance,rank].join('|'));
       }
