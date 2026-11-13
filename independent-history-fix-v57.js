@@ -1465,6 +1465,7 @@
               e.placeModelDistance=Number(placeFeatures.distance);
               e.placeModelGoing=Number(placeFeatures.going);
               e.placeModelLast3f=Number(placeFeatures.last3f);
+              e.placeModelSamples=placeFeatures.samples||{};
             }catch(_){}
           }
         }
