@@ -99,28 +99,19 @@
     return clamp(out.reduce((s,x)=>s+x.score*x.weight,0)/den,25,75);
   };
 
-  function marketAdjustment(h){
-    const o=Number(h?.winOdds);
-    if(!Number.isFinite(o)||o<=1)return 0;
-    return clamp(((100/o)-10)*.06,-1.2,1.8);
-  }
-
-  // v55本体ではAI指数へ単勝オッズ由来の微補正が入るため、ここで除外する。
-  // 以後のAI順位は能力・適性だけ、確率だけが市場を補助情報として使う。
+  // AI順位の入力はv358で市場・ペース・騎手補正を分離した能力・適性スコア。
   function separateAiScore(){
     let arr=[];try{arr=Array.isArray(evaluated)?evaluated:[]}catch(_){return []}
     const rows=activeRows(arr);
     rows.forEach(h=>{
       if(h?.rankingProbabilitySeparationV337)return;
-      const before=Number(h?.score),adj=marketAdjustment(h);
+      const before=Number(h?.score);
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
-        h.marketScoreAdjustmentV337=adj;
         const raceStrength=recentRaceStrength(h);
-        // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
-        // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
+        // 能力・適性スコアを主軸(85%)に、近走の実績レース強度を15%補助する。
         h.raceStrengthV337=tenth(raceStrength);
-        h.score=tenth(clamp(before*.85+raceStrength*.15-adj*.16,0,100));
+        h.score=tenth(clamp(before*.85+raceStrength*.15,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
