@@ -94,9 +94,13 @@
     let old=null;try{old=window.jockeyComboScore}catch(_){}
     if(typeof old!=='function'||old.__baseline20260910V358)return false;
     const fn=function(h){
-      const j=norm(h?.jockey||h?.rider||''),rows=j?(h?.history||[]).filter(r=>norm(r?.jockey||'')&&norm(r.jockey).includes(j)):[];
+      const j=norm(h?.jockey||h?.rider||'');
+      const rows=j?(Array.isArray(h?.jra_history)?h.jra_history:[])
+        .slice(0,4)
+        .filter(r=>norm(r?.jockey||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
+      try{h.jockeyComboSamples=rows.length}catch(_){}
       if(rows.length)return rows.map(r=>clamp(105-(+r.rank-1)*8,20,100)).reduce((a,b)=>a+b,0)/rows.length;
-      return old(h);
+      return j?62:55;
     };
     fn.__baseline20260910V358=true;fn.__original=old;
     try{window.jockeyComboScore=fn;jockeyComboScore=fn}catch(_){}
