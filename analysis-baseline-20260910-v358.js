@@ -92,10 +92,9 @@
 
   function jockeyHistoryRows(h){
     const src=horseSource(h);
-    const valid=r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0;
-    const netRows=(Array.isArray(src?.history)?src.history:[]).filter(valid).slice(0,5);
-    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(valid).slice(0,4);
-    const rows=[],seen=new Set();
+    const cancelled=r=>!r||/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''));
+    const netRows=(Array.isArray(src?.history)?src.history:[]).filter(r=>!cancelled(r)).slice(0,5).map(r=>({...r}));
+    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(r=>!cancelled(r)).slice(0,4);
     const runKeys=r=>{
       const keys=[];
       const id=String(r?.race_id||r?.raceId||r?.race_key||'').replace(/\D/g,'');
@@ -105,24 +104,51 @@
       const surface=norm(r?.surface||'');
       const distance=Number(r?.distance??r?.dist);
       const rank=Number(r?.rank??r?.pos);
-      if(date&&venue&&Number.isFinite(distance)&&distance>0&&Number.isFinite(rank)&&rank>0){
-        keys.push(['detail',date,venue,surface,distance,rank].join('|'));
+      const raceName=norm(r?.race_name||r?.raceName||r?.title||'');
+      if(date&&venue&&Number.isFinite(distance)&&distance>0){
+        if(raceName)keys.push(['detail',date,venue,surface,distance,raceName].join('|'));
+        if(Number.isFinite(rank)&&rank>0)keys.push(['finish',date,venue,surface,distance,rank].join('|'));
       }
       return keys;
     };
-    for(const r of netRows){
-      rows.push(r);
-      runKeys(r).forEach(key=>seen.add(key));
+    const hasValue=v=>v!==undefined&&v!==null&&String(v).trim()!==''&&!(typeof v==='number'&&(!Number.isFinite(v)||v<=0));
+    const fill=(target,source,canonical,aliases)=>{
+      if(hasValue(target[canonical]))return;
+      const value=aliases.map(k=>source?.[k]).find(hasValue);
+      if(value!==undefined)target[canonical]=value;
+    };
+    const mergeMissing=(target,source)=>{
+      fill(target,source,'race_id',['race_id','raceId','race_key']);
+      fill(target,source,'date',['date','race_date','raceDate']);
+      fill(target,source,'venue',['venue','course']);
+      fill(target,source,'surface',['surface']);
+      fill(target,source,'distance',['distance','dist']);
+      fill(target,source,'rank',['rank','pos']);
+      fill(target,source,'jockey',['jockey','rider']);
+      fill(target,source,'going',['going']);
+      fill(target,source,'field_size',['field_size','fieldSize','num_horses','horse_count']);
+      fill(target,source,'last3f',['last3f','last3']);
+      fill(target,source,'race_name',['race_name','raceName','title']);
+    };
+    const rows=netRows.slice();
+    // まず同一レースのJRA情報でnetkeiba側の空欄だけを補完する。netkeiba値は上書きしない。
+    for(const jr of jraRows){
+      const keys=runKeys(jr);
+      if(!keys.length)continue;
+      const match=rows.find(nr=>runKeys(nr).some(key=>keys.includes(key)));
+      if(match)mergeMissing(match,jr);
     }
-    // netkeibaの有効な過去走を優先し、5走未満の場合だけJRAで補完する。
-    if(netRows.length<5){
-      for(const r of jraRows){
+    // netkeibaの5走に満たない場合だけ、照合可能な別レースをJRAから追加する。
+    if(rows.length<5){
+      const seen=new Set(rows.flatMap(runKeys));
+      for(const jr of jraRows){
         if(rows.length>=5)break;
-        const keys=runKeys(r);
-        // 日付・競馬場・距離・着順等で照合できない行は、別レース混入を避けて補完しない。
+        const rank=Number(jr?.rank??jr?.pos);
+        if(!Number.isFinite(rank)||rank<=0)continue;
+        const keys=runKeys(jr);
         if(!keys.length||keys.some(key=>seen.has(key)))continue;
         keys.forEach(key=>seen.add(key));
-        rows.push(r);
+        rows.push({...jr});
       }
     }
     return rows;
