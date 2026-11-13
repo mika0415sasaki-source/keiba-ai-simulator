@@ -134,10 +134,10 @@ const rawNoJockey=clamp((raw-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),
 const baseNoJockey=clamp(((+e.baseScore||raw)-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),0,100);
 let score=alreadyComposed
               ?clamp(rawNoJockey+marketAdj*.16,0,100)
-              :clamp(rawNoJockey*.90+gf.score*.10,0,100);
+              :clamp(rawNoJockey,0,100);
 let baseScore=alreadyComposed
               ?clamp(baseNoJockey+marketAdj*.16,0,100)
-              :clamp(baseNoJockey*.90+gf.score*.10,0,100);
+              :clamp(baseNoJockey,0,100);
             const newQ=historicalQuality(src),oldQ=Number.isFinite(+e.quality)?+e.quality:newQ;
             if(Number.isFinite(newQ)&&oldQ!==newQ){
               const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.jockey||0)*(weights?.jockey??.10)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
