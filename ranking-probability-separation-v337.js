@@ -55,7 +55,7 @@
       const w=RECENCY[i]||.4;
       n+=value*w;d+=w;
     });
-    return d?clamp(n/d,25,99):65;
+    return d?clamp(n/d,25,99):null;
   }
 
   // 同じレースを実際に走った現出走馬同士の直接比較。
@@ -94,7 +94,7 @@
         out.push({score:clamp(50+diff*30,25,75),weight:w});
       });
     });
-    if(!out.length)return 65;
+    if(!out.length)return null;
     const den=out.reduce((s,x)=>s+x.weight,0)||1;
     return clamp(out.reduce((s,x)=>s+x.score*x.weight,0)/den,25,75);
   };
@@ -109,9 +109,9 @@
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
         const raceStrength=recentRaceStrength(h);
-        // 能力・適性スコアを主軸(85%)に、近走の実績レース強度を15%補助する。
-        h.raceStrengthV337=tenth(raceStrength);
-        h.score=tenth(clamp(before*.85+raceStrength*.15,0,100));
+        // 近走の実績レース強度は、取得できた場合だけ15%の補助軸として使う。
+        h.raceStrengthV337=Number.isFinite(raceStrength)?tenth(raceStrength):null;
+        h.score=Number.isFinite(raceStrength)?tenth(clamp(before*.85+raceStrength*.15,0,100)):tenth(before);
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
@@ -211,7 +211,7 @@
       // 3着内率では「3着以内なら全部100点」とせず、
       // 1着・2着・3着を段階評価する。安定して上位に来る馬を高く評価する。
       const finishBase=clamp(100-percentile*75,25,100);
-      const finishScore=clamp(finishBase*.80+headToHead*.20,25,100);
+      const finishScore=headToHead===null?finishBase:clamp(finishBase*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=(rank<=3?100:0)*w;inMoneyD+=w;
       finishValues.push({value:finishScore,weight:w});
