@@ -209,14 +209,18 @@
       // 着順のブレが小さい馬ほど3着内率を高くする。
       consistency=clamp(100-Math.sqrt(variance)*2.2,35,100);
     }
-    const axes=[h?.placeModelCourse,h?.placeModelDistance,h?.placeModelGoing];
-    const fallbackAxes=[h?.course,h?.distance,h?.going];
-    const validAxes=axes.map(Number).filter(Number.isFinite);
-    const sourceAxes=validAxes.length?validAxes:fallbackAxes.map(Number).filter(Number.isFinite);
+    const samples=h?.placeModelSamples||{};
+    const axisRows=[
+      {value:h?.placeModelCourse,valid:Number(samples.course)>0},
+      {value:h?.placeModelDistance,valid:Number(samples.distance)>0},
+      {value:h?.placeModelGoing,valid:Number(samples.going)>0}
+    ].filter(x=>x.valid&&Number.isFinite(Number(x.value)));
+    const sourceAxes=axisRows.map(x=>Number(x.value));
     const balance=sourceAxes.length
       ? sourceAxes.reduce((s,v)=>s+v,0)/sourceAxes.length*.60+Math.min(...sourceAxes)*.40
       : 65;
     const closing=Number.isFinite(+h?.placeModelLast3f)?+h.placeModelLast3f:((+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65);
+    const closingAvailable=Number(samples.closing)>0||(+h?.closingSamples||0)>0;
     const jockey=(()=>{
       try{
         const fn=window.jockeyComboScore;
@@ -224,6 +228,7 @@
         return Number.isFinite(+v)?+v:65;
       }catch(_){return 65}
     })();
+    const jockeyAvailable=Number(h?.jockeyComboSamples)>0;
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
     // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
@@ -233,20 +238,25 @@
       ?finishValues.reduce((s,x)=>s+x.value*x.weight,0)/finishDen
       :65;
     // 複勝圏に入った割合だけでなく、1〜5着以下の連続的な着順評価も反映する。
-    // finishMeanは着順そのもの、inMoneyは3着内に入った実績を表す別指標。
     const recent=history.length?clamp(finishMean*.60+inMoney*.40,25,99):65;
     const stable=history.length?clamp(consistency,35,99):65;
-    // 3着内率は1着率・AI指数とは別の序列を作る。
-    // 「複勝圏実績」と「着順安定度」を主軸にし、コース/距離/馬場・上がり・騎手相性は補助。
     const recentV=clamp(Number(recent)||65,25,99);
     const stableV=clamp(Number(stable)||65,25,99);
     const balanceV=clamp(Number(balance)||65,25,99);
     const closingV=clamp(Number(closing)||65,25,99);
     const jockeyV=clamp(Number(jockey)||65,25,99);
-    // 3着内率は「勝ち切る力」ではなく「安定して馬券内に来る力」を最優先。
-    // 近走の複勝圏実績40%＋着順安定度35%を主軸にし、
-    // コース/距離/馬場・上がり・騎手相性は補助として使う。
-    const direct=recentV*.40+stableV*.35+balanceV*.10+closingV*.05+jockeyV*.10;
+    // 欠損軸は中立値で埋めず、取得できた軸だけで元の比率を再正規化する。
+    const factors=[
+      {value:recentV,weight:.40,valid:count>0},
+      {value:stableV,weight:.35,valid:count>=2},
+      {value:balanceV,weight:.10,valid:sourceAxes.length>0},
+      {value:closingV,weight:.05,valid:closingAvailable},
+      {value:jockeyV,weight:.10,valid:jockeyAvailable}
+    ].filter(x=>x.valid);
+    const factorWeight=factors.reduce((s,x)=>s+x.weight,0);
+    const direct=factorWeight
+      ?factors.reduce((s,x)=>s+x.value*x.weight,0)/factorWeight
+      :65;
     const reliability=65+35*credibility;
     return clamp(
       direct*credibility+65*(1-credibility)+(reliability-65)*.08,
