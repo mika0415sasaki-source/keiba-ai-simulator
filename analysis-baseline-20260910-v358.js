@@ -90,17 +90,53 @@
     return true;
   }
 
+  function jockeyHistoryRows(h){
+    const src=horseSource(h);
+    const netRows=(Array.isArray(src?.history)?src.history:[]).slice(0,5);
+    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).slice(0,4);
+    const rows=[],seen=new Set();
+    const runKey=r=>{
+      const id=String(r?.race_id||r?.raceId||r?.race_key||'').replace(/\\D/g,'');
+      if(/^20\\d{10}$/.test(id))return 'id|'+id;
+      const date=dateKey(r?.date||r?.race_date||r?.raceDate);
+      const venue=norm(r?.venue||r?.course||'');
+      const surface=norm(r?.surface||'');
+      const distance=Number(r?.distance??r?.dist);
+      const rank=Number(r?.rank??r?.pos);
+      if(!date||!venue||!Number.isFinite(distance)||distance<=0||!Number.isFinite(rank)||rank<=0)return '';
+      return ['detail',date,venue,surface,distance,rank].join('|');
+    };
+    for(const r of netRows){
+      const key=runKey(r);
+      rows.push(r);
+      if(key)seen.add(key);
+    }
+    // netkeibaの5走が揃っている場合はそれを優先し、JRA履歴を追加しない。
+    // 5走未満の場合だけ、重複しないJRA過去4走で不足分を補う。
+    if(netRows.length<5){
+      for(const r of jraRows){
+        if(rows.length>=5)break;
+        const key=runKey(r);
+        // レースを特定できないJRA行は、別レースの誤結合を避けるため補完に使わない。
+        if(!key||seen.has(key))continue;
+        seen.add(key);
+        rows.push(r);
+      }
+    }
+    return rows;
+  }
+
   function installJockeyModel(){
     let old=null;try{old=window.jockeyComboScore}catch(_){}
     if(typeof old!=='function'||old.__baseline20260910V358)return false;
     const fn=function(h){
-      const j=norm(h?.jockey||h?.rider||'');
-      const rows=j?(Array.isArray(h?.jra_history)?h.jra_history:[])
-        .slice(0,4)
-        .filter(r=>norm(r?.jockey||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
+      const src=horseSource(h);
+      const j=norm(src?.jockey||src?.rider||h?.jockey||h?.rider||'');
+      const rows=j?jockeyHistoryRows(h)
+        .filter(r=>norm(r?.jockey||r?.rider||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       try{h.jockeyComboSamples=rows.length}catch(_){}
       if(rows.length)return rows.map(r=>clamp(105-(+r.rank-1)*8,20,100)).reduce((a,b)=>a+b,0)/rows.length;
-      return j?62:55;
+      return null;
     };
     fn.__baseline20260910V358=true;fn.__original=old;
     try{window.jockeyComboScore=fn;jockeyComboScore=fn}catch(_){}
