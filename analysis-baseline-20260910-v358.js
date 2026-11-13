@@ -5,6 +5,8 @@
   const el=id=>document.getElementById(id);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
+  // netkeibaの短縮表記「マーカン」と正式表記「T.マーカンド」を同一騎手として照合する。
+  const jockeyKey=v=>{const s=norm(v).replace(/[.．・]/g,'');return s==='マーカン'||s==='Tマーカン'||s==='Tマーカンド'?'Tマーカンド':s};
   const REC=[1,.82,.68,.56,.46];
   const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
   const JRA_VENUES=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
@@ -161,9 +163,9 @@
     if(typeof old!=='function'||old.__baseline20260910V358)return false;
     const fn=function(h){
       const src=horseSource(h);
-      const j=norm(src?.jockey||src?.rider||h?.jockey||h?.rider||'');
+      const j=jockeyKey(src?.jockey||src?.rider||h?.jockey||h?.rider||'');
       const rows=j?jockeyHistoryRows(h)
-        .filter(r=>norm(r?.jockey||r?.rider||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
+        .filter(r=>jockeyKey(r?.jockey||r?.rider||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       try{h.jockeyComboSamples=rows.length}catch(_){}
       if(rows.length)return rows.map(r=>clamp(105-(+r.rank-1)*8,20,100)).reduce((a,b)=>a+b,0)/rows.length;
       return null;
