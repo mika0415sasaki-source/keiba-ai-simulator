@@ -92,34 +92,36 @@
 
   function jockeyHistoryRows(h){
     const src=horseSource(h);
-    const netRows=(Array.isArray(src?.history)?src.history:[]).slice(0,5);
-    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).slice(0,4);
+    const valid=r=>r&&!/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''))&&Number.isFinite(+r?.rank)&&+r.rank>0;
+    const netRows=(Array.isArray(src?.history)?src.history:[]).filter(valid).slice(0,5);
+    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(valid).slice(0,4);
     const rows=[],seen=new Set();
-    const runKey=r=>{
-      const id=String(r?.race_id||r?.raceId||r?.race_key||'').replace(/\\D/g,'');
-      if(/^20\\d{10}$/.test(id))return 'id|'+id;
+    const runKeys=r=>{
+      const keys=[];
+      const id=String(r?.race_id||r?.raceId||r?.race_key||'').replace(/\D/g,'');
+      if(/^20\d{10}$/.test(id))keys.push('id|'+id);
       const date=dateKey(r?.date||r?.race_date||r?.raceDate);
-      const venue=norm(r?.venue||r?.course||'');
+      const venue=norm(r?.venue||r?.course||'').replace(/競馬場$/,'');
       const surface=norm(r?.surface||'');
       const distance=Number(r?.distance??r?.dist);
       const rank=Number(r?.rank??r?.pos);
-      if(!date||!venue||!Number.isFinite(distance)||distance<=0||!Number.isFinite(rank)||rank<=0)return '';
-      return ['detail',date,venue,surface,distance,rank].join('|');
+      if(date&&venue&&Number.isFinite(distance)&&distance>0&&Number.isFinite(rank)&&rank>0){
+        keys.push(['detail',date,venue,surface,distance,rank].join('|'));
+      }
+      return keys;
     };
     for(const r of netRows){
-      const key=runKey(r);
       rows.push(r);
-      if(key)seen.add(key);
+      runKeys(r).forEach(key=>seen.add(key));
     }
-    // netkeibaの5走が揃っている場合はそれを優先し、JRA履歴を追加しない。
-    // 5走未満の場合だけ、重複しないJRA過去4走で不足分を補う。
+    // netkeibaの有効な過去走を優先し、5走未満の場合だけJRAで補完する。
     if(netRows.length<5){
       for(const r of jraRows){
         if(rows.length>=5)break;
-        const key=runKey(r);
-        // レースを特定できないJRA行は、別レースの誤結合を避けるため補完に使わない。
-        if(!key||seen.has(key))continue;
-        seen.add(key);
+        const keys=runKeys(r);
+        // 日付・競馬場・距離・着順等で照合できない行は、別レース混入を避けて補完しない。
+        if(!keys.length||keys.some(key=>seen.has(key)))continue;
+        keys.forEach(key=>seen.add(key));
         rows.push(r);
       }
     }
