@@ -145,7 +145,7 @@
       if(pace==='スロー')paceAdj=style==='逃'||style==='先'?3:style==='追'?-2:0;
       const targetGoing=String(document.getElementById('going')?.value||'');
       const history=Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[]);
-      const goingRuns=history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0);
+      const goingRuns=targetGoing?history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
       let jockeyAdj=0;
       try{
