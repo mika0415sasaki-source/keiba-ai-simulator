@@ -123,28 +123,19 @@
       try{
         if(Array.isArray(evaluated)){
           evaluated=evaluated.map(e=>{
-            const src=horseSource(e),gf=gradeFeature(src?.history||src?.jra_history||[]),raw=+e.score||0;
-            const alreadyComposed=Number.isFinite(+e.gradeScore)&&Number.isFinite(+e.bodyWeightScore);
-            const odds=Number(e?.winOdds);
-            const marketAdj=Number.isFinite(odds)&&odds>1?clamp(((100/odds)-10)*.06,-1.2,1.8):0;
-            // independent-history-fix-v57 has already composed grade 10% and body weight 6%.
-            // Do not add grade a second time. Carry only the 16% of the legacy market
-            // adjustment lost in that 84% blend so v337 can remove the full adjustment.
+            const src=horseSource(e),gf=gradeFeature(src?.history||src?.jra_history||[]),raw=Number.isFinite(+e.baseScore)?+e.baseScore:(+e.score||0);
+            // v57 owns the single grade/body composition. This stage builds the market-free, pace-free ability score.
             // AI順位は馬自身の能力・適性のみ。旧AI指数に含まれていた騎手10%をここで除外し、
 // 残りの能力・適性軸を100%へ再正規化する。1着率側で騎手を別途反映する。
 const jockeyV=Number.isFinite(+e.jockey)?+e.jockey:55;
 const jockeyWeight=Number.isFinite(+weights?.jockey)?+weights.jockey:.10;
 const rawNoJockey=clamp((raw-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),0,100);
 const baseNoJockey=clamp(((+e.baseScore||raw)-jockeyV*jockeyWeight)/Math.max(.01,1-jockeyWeight),0,100);
-let score=alreadyComposed
-              ?clamp(rawNoJockey+marketAdj*.16,0,100)
-              :clamp(rawNoJockey,0,100);
-let baseScore=alreadyComposed
-              ?clamp(baseNoJockey+marketAdj*.16,0,100)
-              :clamp(baseNoJockey,0,100);
+let score=clamp(rawNoJockey,0,100);
+let baseScore=clamp(baseNoJockey,0,100);
             const newQ=historicalQuality(src),oldQ=Number.isFinite(+e.quality)?+e.quality:newQ;
             if(Number.isFinite(newQ)&&oldQ!==newQ){
-              const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.jockey||0)*(weights?.jockey??.10)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
+              const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
               const oldF=clamp(oldQ/100,.55,1),newF=clamp(newQ/100,.55,1),mix=gradeKnown(src)?.90:1,delta=rawAxes*(newF-oldF)*mix;
               score=clamp(score+delta,0,100);baseScore=clamp(baseScore+delta,0,100);
             }
