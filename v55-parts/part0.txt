@@ -852,7 +852,7 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
  const already=horses.filter(h=>(h.history||[]).length).length;
  const jockeyReady=horses.every(h=>h.jockey_history_loaded===true);
  if(!force && already===horses.length && jockeyReady){
-   document.getElementById("histCount").textContent=`netkeiba ${already}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭`;
+   document.getElementById("histCount").textContent=`netkeiba ${already}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭 / 騎手相性用全履歴 ${horses.filter(h=>h.jockey_history_loaded).length}/${horses.length}頭`;
    return {ok:already,total:horses.length};
  }
  try{
@@ -878,8 +878,8 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
       h.history=[];h.histScores=null;if(rows.length){h.netkeibaRejected=true;rejected++}
     }
   });
-  document.getElementById("histCount").textContent=`netkeiba ${ok}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭${rejected?` / 同名別馬疑い ${rejected}頭除外`:""}`;
-  renderHorses();evalAll();if(!silent)status("histStatus",`netkeiba5走 ${ok}/${horses.length}頭を取得。${rejected?`同名別馬疑い ${rejected}頭はJRA前4走へ切替。`:""}JRA4走は照合・欠損補完だけに使用します。`);return {ok,total:horses.length};
+  document.getElementById("histCount").textContent=`netkeiba ${ok}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭 / 騎手相性用全履歴 ${horses.filter(h=>h.jockey_history_loaded).length}/${horses.length}頭${rejected?` / 同名別馬疑い ${rejected}頭除外`:""}`;
+  renderHorses();evalAll();if(!silent)status("histStatus",`netkeiba5走 ${ok}/${horses.length}頭、騎手相性用全履歴 ${horses.filter(h=>h.jockey_history_loaded).length}/${horses.length}頭を取得。${rejected?`同名別馬疑い ${rejected}頭はJRA前4走へ切替。`:""}JRA4走は照合・欠損補完だけに使用します。`);return {ok,total:horses.length};
  }catch(e){if(!silent)status("histStatus",e.message||String(e),true);return {ok:0,total:horses.length}}
 }
 document.getElementById("importHist").onclick=()=>loadNetkeibaHistories({silent:false,force:true});
