@@ -1748,6 +1748,7 @@
         missingRoster=roster.filter(needsSize);
         targets=missingRoster.filter(h=>/^\d{10}$/.test(horseId(h)));
         missingHorseId=missingRoster.filter(h=>!/^\d{10}$/.test(horseId(h)));
+        if(excludedChanged){try{evalAll()}catch(error){console.warn('non-finish history re-evaluation skipped',error)}}
         const dateKey=v=>{const s=String(v||'').normalize('NFKC').trim();let m=s.match(/(20\d{2})\D?(\d{1,2})\D?(\d{1,2})/);if(m)return {full:m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0'),md:String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0')};m=s.match(/(?:^|\D)(\d{1,2})[\/.\-](\d{1,2})(?:$|\D)/);if(m)return {full:'',md:String(+m[1]).padStart(2,'0')+String(+m[2]).padStart(2,'0')};const d=s.replace(/\D/g,'');return d.length>=8?{full:d.slice(0,8),md:d.slice(4,8)}:{full:'',md:d.length===4?d:''}};
         const sameDate=(a,b)=>{const x=dateKey(a),y=dateKey(b);return !!(x.full&&y.full?x.full===y.full:x.md&&y.md&&x.md===y.md)};
         const rankKey=v=>{const s=clean(v).normalize('NFKC');if(/取消|除外|中止|失格/.test(s))return s.match(/取消|除外|中止|失格/)[0];const m=s.match(/\d+/);return m?String(+m[0]):s};
