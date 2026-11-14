@@ -96,6 +96,7 @@
     const src=horseSource(h);
     const cancelled=r=>!r||/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''));
     const netRows=(Array.isArray(src?.history)?src.history:[]).filter(r=>!cancelled(r)).slice(0,5).map(r=>({...r}));
+    const longRows=(Array.isArray(src?.jockey_history)?src.jockey_history:[]).filter(r=>!cancelled(r)).map(r=>({...r}));
     const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(r=>!cancelled(r)).slice(0,4);
     const runKeys=r=>{
       const keys=[];
@@ -135,6 +136,14 @@
       fill(target,source,'race_name',['race_name','raceName','title']);
     };
     const rows=netRows.slice();
+    // 騎手相性専用のnetkeiba全履歴を追加。既存5走の値を優先し、同一レースは重複させない。
+    for(const lr of longRows){
+      const keys=runKeys(lr);
+      if(!keys.length)continue;
+      const match=rows.find(nr=>runKeys(nr).some(key=>keys.includes(key)));
+      if(match)mergeMissing(match,lr);
+      else rows.push({...lr});
+    }
     // まず同一レースのJRA情報でnetkeiba側の空欄だけを補完する。netkeiba値は上書きしない。
     for(const jr of jraRows){
       const keys=runKeys(jr);
