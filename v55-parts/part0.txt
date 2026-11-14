@@ -92,6 +92,7 @@ const JRA_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-import"
 const JRA_META_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-race-meta";
 const RESULT_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-result-import";
 const NK_FALLBACK_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback";
+const JOCKEY_HISTORY_TEST_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-test-v1";
 const MEMORY_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55";
 const TRACKER_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-tracker-api";
 const ODDS_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds";
@@ -102,6 +103,10 @@ async function api(action,payload={}){const r=await fetch(API,{method:"POST",hea
 async function nkFallback(names,race_url){
  const r=await fetch(NK_FALLBACK_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url})});
  const j=await r.json(); if(!r.ok)throw new Error(j.error||"netkeiba再検索エラー"); return j;
+}
+async function jockeyHistoryApi(names,race_url,race_date){
+ const r=await fetch(JOCKEY_HISTORY_TEST_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url,race_date})});
+ const j=await r.json();if(!r.ok)throw new Error(j.error||"騎手相性用履歴の取得エラー");return j;
 }
 async function memoryApi(action,payload={}){
  const r=await fetch(MEMORY_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json","Cache-Control":"no-cache"},body:JSON.stringify({action,...payload})});
@@ -845,15 +850,26 @@ document.getElementById("importRace").onclick=async()=>{
 async function loadNetkeibaHistories({silent=false,force=false}={}){
  if(!horses.length){if(!silent)status("histStatus","先にJRA出馬表を取り込んでください。",true);return {ok:0,total:0}}
  const already=horses.filter(h=>(h.history||[]).length).length;
- if(!force && already===horses.length){
+ const jockeyReady=horses.every(h=>h.jockey_history_loaded===true);
+ if(!force && already===horses.length && jockeyReady){
    document.getElementById("histCount").textContent=`netkeiba ${already}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭`;
    return {ok:already,total:horses.length};
  }
  try{
   if(!silent)status("histStatus","netkeiba5走を取得中…");
-  const j=await nkFallback(horses.map(h=>h.name),document.getElementById("raceUrl").value);
-  const map=new Map((j.rows||[]).map(x=>[String(x.name||x.horse_name||"").trim(),x]));let ok=0,rejected=0;
+  const raceUrl=document.getElementById("raceUrl").value;
+  const names=horses.map(h=>h.name);
+  const [j,jockeyResult]=await Promise.all([
+    nkFallback(names,raceUrl),
+    jockeyHistoryApi(names,raceUrl,raceMeta?.race_date||"").catch(e=>({rows:[],error:String(e?.message||e)}))
+  ]);
+  const map=new Map((j.rows||[]).map(x=>[String(x.name||x.horse_name||"").trim(),x]));
+  const jockeyMap=new Map((jockeyResult.rows||[]).map(x=>[String(x.name||x.horse_name||"").trim(),x]));
+  let ok=0,rejected=0;
   horses.forEach(h=>{
+    const jr=jockeyMap.get(String(h.name).trim());
+    h.jockey_history=Array.isArray(jr?.history)?jr.history:[];
+    h.jockey_history_loaded=!!jr;
     const r=map.get(String(h.name).trim());const rows=r?.history||r?.rows||[];
     h.netkeibaRejected=false;
     if(rows.length&&validNetkeibaHistoryForHorse(h,rows)){
