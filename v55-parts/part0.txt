@@ -870,7 +870,7 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
     const jr=jockeyMap.get(String(h.name).trim());
     h.jockey_history=Array.isArray(jr?.history)?jr.history:[];
     h.jockey_history_loaded=!!jr;
-    const r=map.get(String(h.name).trim());const rows=r?.history||r?.rows||[];
+    const r=map.get(String(h.name).trim());const fallbackRows=r?.history||r?.rows||[];const rows=jr?.available&&Array.isArray(jr.history)&&jr.history.length?jr.history.slice(0,5):fallbackRows;
     h.netkeibaRejected=false;
     if(rows.length&&validNetkeibaHistoryForHorse(h,rows)){
       h.history=historyBeforeTargetRace(rows).slice(0,5);h.histScores=scoreLocalHistory(h.history);h.histScores.available=true;mergeNetkeibaWithJra(h);ok++;
