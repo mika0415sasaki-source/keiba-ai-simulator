@@ -281,7 +281,7 @@
     // race ID when both sides have one; otherwise require the same full date
     // and venue so another race cannot be removed accidentally.
     function nonfinishLabel(value){
-      const s=String(value||'').normalize('NFKC').replace(/[\\s　]+/g,'').trim();
+      const s=String(value||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
       if(s==='取'||/出走取消|取消/.test(s))return '取消';
       if(s==='除'||/競走除外|除外/.test(s))return '除外';
       if(s==='中'||/競走中止|中止/.test(s))return '中止';
@@ -290,7 +290,7 @@
     }
     function historyDateKey(value){
       const s=String(value||'').normalize('NFKC').trim();
-      const m=s.match(/(20\\d{2})\\D?(\\d{1,2})\\D?(\\d{1,2})/);
+      const m=s.match(/(20\d{2})\D?(\d{1,2})\D?(\d{1,2})/);
       return m?m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0'):'';
     }
     function historyVenueKey(value){
@@ -300,9 +300,9 @@
     }
     function sameExcludedRun(run,excluded){
       if(!run||!excluded||!nonfinishLabel(excluded.status||excluded.result_status||excluded.rank_text))return false;
-      const a=String(run.race_id||run.raceId||'').replace(/\\D/g,'');
-      const b=String(excluded.race_id||excluded.raceId||'').replace(/\\D/g,'');
-      if(/^20\\d{10}$/.test(a)&&/^20\\d{10}$/.test(b))return a===b;
+      const a=String(run.race_id||run.raceId||'').replace(/\D/g,'');
+      const b=String(excluded.race_id||excluded.raceId||'').replace(/\D/g,'');
+      if(/^20\d{10}$/.test(a)&&/^20\d{10}$/.test(b))return a===b;
       const da=historyDateKey(run.date),db=historyDateKey(excluded.date);
       const va=historyVenueKey(run.venue||run.course),vb=historyVenueKey(excluded.venue||excluded.course);
       return !!da&&da===db&&!!va&&!!vb&&va===vb;
@@ -1673,7 +1673,7 @@
       let excludedChanged=false;
       showHeadcountDiagnostic('除外・取消の履歴を照合中…');
       if(!targets.length){
-        showHeadcountDiagnostic('頭数取得 診断結果\\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\\n頭数未取得の馬: '+missingRoster.length+'頭 / 頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走\\n馬IDなし・形式不正: '+missingHorseId.length+'頭\\n'+(missingHorseId.map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'なし'));
+        showHeadcountDiagnostic('頭数取得 診断結果\n出走馬データ: '+roster.length+'頭 / 過去走あり: '+roster.filter(h=>(h.history||[]).length).length+'頭\n頭数未取得の馬: '+missingRoster.length+'頭 / 頭数未取得の過去走: '+missingRoster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0)+'走\n馬IDなし・形式不正: '+missingHorseId.length+'頭\n'+(missingHorseId.map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'なし'));
         return;
       }
       // Prefer exact race IDs so older races are not limited to the five-run history response.
@@ -1827,7 +1827,31 @@
         const finalUniqueRaceIds=[...new Set(finalRaceIdTargets.map(x=>x.rid))];
         const excludedRaceIds=new Set(payload.results.flatMap(r=>(r.excluded_runs||[]).map(x=>String(x.race_id||'').replace(/\D/g,''))).filter(x=>/^20\d{10}$/.test(x)));
         const visibleLookupResults=directLookupResults.filter(line=>![...excludedRaceIds].some(rid=>line.startsWith(rid+':')));
-        showHeadcountDiagnostic('頭数取得 診断結果\nAPI応答: 正常 / 対象馬: '+payload.results.length+'頭\n個別馬モーダル取得: '+modalCount+'/'+payload.results.length+'頭 / DB成績ページ: '+dbFallbackCount+'頭\n照合対象レースID: '+(currentRaceId||'取得不可')+'\n照合成功: '+changed+'件\n取得元の履歴応答: '+availableCount+'/'+payload.results.length+'頭\n頭数未取得の馬: '+missingRoster.length+'頭 / 頭数未取得の過去走: '+remaining+'走\\n馬IDで照会可能: '+targets.length+'頭 / 馬IDなし・形式不正: '+missingHorseId.length+'頭\\nIDなしの馬: '+(missingHorseId.map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'なし')\n除外・取消・中止・失格として除外: '+payload.results.reduce((n,r)=>n+(r.excluded_runs||[]).length,0)+'走\n\n【レースID診断】\n保存済みIDあり: '+finalRaceIdTargets.length+'走 / 一意ID: '+finalUniqueRaceIds.length+'件\nIDなし・形式不正: '+finalMissingRaceIdRuns.length+'走\n'+(finalMissingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常')+'\n直接取得結果:\n'+(visibleLookupResults.slice(0,8).join('\n')||'照会対象IDなし')+'\n\n未反映の走（最大8件）:\n'+(unmatched.slice(0,8).join('\n')||reasons||'未取得行なし')+ '\n\n【DB成績ページの解析内容（最大20走）】\n'+(sourceHistoryDebug||'解析走なし'));
+        showHeadcountDiagnostic([
+          '頭数取得 診断結果',
+          'API応答: 正常 / 対象馬: '+payload.results.length+'頭',
+          '個別馬モーダル取得: '+modalCount+'/'+payload.results.length+'頭 / DB成績ページ: '+dbFallbackCount+'頭',
+          '照合対象レースID: '+(currentRaceId||'取得不可'),
+          '照合成功: '+changed+'件',
+          '取得元の履歴応答: '+availableCount+'/'+payload.results.length+'頭',
+          '頭数未取得の馬: '+missingRoster.length+'頭 / 頭数未取得の過去走: '+remaining+'走',
+          '馬IDで照会可能: '+targets.length+'頭 / 馬IDなし・形式不正: '+missingHorseId.length+'頭',
+          'IDなしの馬: '+(missingHorseId.map(h=>String(h.name||'馬名不明')+'['+JSON.stringify(horseId(h))+']').join('、')||'なし'),
+          '除外・取消・中止・失格として除外: '+payload.results.reduce((n,r)=>n+(r.excluded_runs||[]).length,0)+'走',
+          '',
+          '【レースID診断】',
+          '保存済みIDあり: '+finalRaceIdTargets.length+'走 / 一意ID: '+finalUniqueRaceIds.length+'件',
+          'IDなし・形式不正: '+finalMissingRaceIdRuns.length+'走',
+          finalMissingRaceIdRuns.slice(0,8).join('\n')||'未取得走のID形式は正常',
+          '直接取得結果:',
+          visibleLookupResults.slice(0,8).join('\n')||'照会対象IDなし',
+          '',
+          '未反映の走（最大8件）:',
+          unmatched.slice(0,8).join('\n')||reasons||'未取得行なし',
+          '',
+          '【DB成績ページの解析内容（最大20走）】',
+          sourceHistoryDebug||'解析走なし'
+        ].join('\n'));
         if(changed||recoveredRaceIdChanged||excludedChanged||directChanged){
           try{renderHorses()}catch(error){console.warn('headcount redraw skipped',error)}
           fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses})}).catch(()=>{});
