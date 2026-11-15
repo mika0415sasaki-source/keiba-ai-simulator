@@ -64,6 +64,8 @@
    return {loaded,runs,reason};
   }
 
+  window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
+
   async function bulkFetch(url){
    const rid=ridFrom(url);if(!rid)throw new Error('netkeibaのrace_idを取得できません');
    const r=await fetch(BULK_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url,race_id:rid})});
