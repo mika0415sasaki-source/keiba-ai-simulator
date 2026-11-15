@@ -39,6 +39,29 @@
 
   function saveLater(list){setTimeout(()=>fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})}).catch(()=>{}),0)}
 
+  const JOCKEY_HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-test-v1';
+  async function fetchJockeyHistory(){
+   const names=horses.map(h=>h.name);
+   let result={rows:[],error:''};
+   try{
+    const r=await fetch(JOCKEY_HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({names,race_url:document.getElementById('raceUrl')?.value||'',race_date:raceMeta?.race_date||''})});
+    result=await r.json().catch(()=>({rows:[],error:'騎手相性APIの応答を読めません'}));
+    if(!r.ok)throw new Error(result.error||'騎手相性用全履歴の取得エラー');
+   }catch(e){result={rows:[],error:e.message||String(e)}}
+   const byName=new Map((result.rows||[]).map(x=>[clean(x.name||x.horse_name),x]));
+   for(const h of horses){
+    const row=byName.get(clean(h.name));
+    h.jockey_history=Array.isArray(row?.history)?row.history:[];
+    h.jockey_history_loaded=row?.available===true&&h.jockey_history.length>0;
+    h.jockey_history_error=h.jockey_history_loaded?'':clean(row?.error||result.error||'全履歴を取得できませんでした');
+   }
+   const loaded=horses.filter(h=>h.jockey_history_loaded===true).length;
+   const runs=horses.reduce((n,h)=>n+(Array.isArray(h.jockey_history)?h.jockey_history.length:0),0);
+   const missing=horses.filter(h=>!h.jockey_history_loaded);
+   const reason=missing.length?' / 未取得 '+missing.length+'頭（'+missing.slice(0,4).map(h=>h.name+': '+h.jockey_history_error).join('、')+(missing.length>4?'、ほか'+(missing.length-4)+'頭':'')+'）':'';
+   return {loaded,runs,reason};
+  }
+
   async function bulkFetch(url){
    const rid=ridFrom(url);if(!rid)throw new Error('netkeibaのrace_idを取得できません');
    const r=await fetch(BULK_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({url,race_id:rid})});
@@ -72,7 +95,8 @@
    });
    renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){};fixCards();saveLater(horses);
    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
-   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
+   const jockey=await fetchJockeyHistory();
+   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason;
    if(!silent){const ped=horses.filter(h=>h.sire&&h.dam&&h.damsire).length,sty=horses.filter(h=>['逃','先','差','追'].includes(h.style)).length;status('histStatus',`netkeiba ${ok}/${horses.length}頭・合計${totalRuns}走を取得。血統 ${ped}/${horses.length}頭・脚質 ${sty}/${horses.length}頭。`)}
    return {ok,total:horses.length,totalRuns};
   }
@@ -97,7 +121,10 @@
    }
    horses=horses.map(normalizeHorse);renderHorses();try{evalAll()}catch(_){};fixCards();
    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0);
-   return {ok,total:horses.length,totalRuns};
+   const jockey=await fetchJockeyHistory();
+   const jraN=horses.filter(h=>(h.jra_history||[]).length).length;
+   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason;
+   return {ok,total:horses.length,totalRuns,jockeyLoaded:jockey.loaded,jockeyRuns:jockey.runs};
   };
 
   function weightLabel(h){
