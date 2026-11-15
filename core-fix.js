@@ -61,7 +61,8 @@
    const runs=horses.reduce((n,h)=>n+(Array.isArray(h.jockey_history)?h.jockey_history.length:0),0);
    const missing=horses.filter(h=>!h.jockey_history_loaded);
    const reason=missing.length?' / 未取得 '+missing.length+'頭（'+missing.slice(0,4).map(h=>h.name+': '+h.jockey_history_error).join('、')+(missing.length>4?'、ほか'+(missing.length-4)+'頭':'')+'）':'';
-   return {loaded,runs,reason};
+   const d=result.diagnostics||{};const diag=' / ID照合 '+(d.id_found??'?')+'/'+(d.total??names.length)+'・出走表ID一致 '+(d.race_id_matches??'?')+'頭・処理 '+(d.request_ms??'?')+'ms';
+   return {loaded,runs,reason,diag};
   }
 
   window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
