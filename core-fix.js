@@ -46,7 +46,7 @@
    const names=horses.map(h=>h.name);
    let result={rows:[],error:''};
    try{
-    const r=await fetch(JOCKEY_HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({names,race_url:document.getElementById('raceUrl')?.value||'',race_date:raceMeta?.race_date||''})});
+    const r=await fetch(JOCKEY_HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({names,race_url:document.getElementById('raceUrl')?.value||'',race_date:raceMeta?.race_date||''})});
     result=await r.json().catch(()=>({rows:[],error:'騎手相性APIの応答を読めません'}));
     if(!r.ok)throw new Error(result.error||'騎手相性用全履歴の取得エラー');
    }catch(e){result={rows:[],error:e.message||String(e)}}
