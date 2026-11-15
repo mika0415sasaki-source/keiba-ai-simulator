@@ -1633,11 +1633,18 @@
           const jraN=horses.filter(h=>(h.jra_history||[]).length).length;
           const count=document.getElementById('histCount');
           if(count)count.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
-          let jockeyResult={loaded:0,runs:0,reason:' / 騎手相性用全履歴API未接続'};
+          let jockeyResult={loaded:0,runs:0,reason:'API未接続'};
           if(typeof window.__fetchJockeyHistoryForCurrentRace==='function'){
-            try{jockeyResult=await window.__fetchJockeyHistoryForCurrentRace()}catch(error){jockeyResult={loaded:0,runs:0,reason:' / 騎手相性用全履歴エラー：'+(error?.message||String(error))}}
+            try{jockeyResult=await window.__fetchJockeyHistoryForCurrentRace()}catch(error){jockeyResult={loaded:0,runs:0,reason:error?.message||String(error)}}
           }
-          if(count)count.textContent+=' / 騎手相性用全履歴 '+jockeyResult.loaded+'/'+horses.length+'頭・計'+jockeyResult.runs+'走'+(jockeyResult.reason||'');
+          let jockeyStatus=document.getElementById('jockeyHistCount');
+          if(!jockeyStatus&&count){jockeyStatus=document.createElement('div');jockeyStatus.id='jockeyHistCount';jockeyStatus.style.cssText='margin-top:7px;padding:8px 10px;border:1px solid #33415f;border-radius:9px;font-size:12px;line-height:1.45;color:#b8c4dc;background:rgba(8,15,30,.32)';count.insertAdjacentElement('afterend',jockeyStatus)}
+          if(jockeyStatus){
+            const missing=horses.length-jockeyResult.loaded;
+            const failed=String(jockeyResult.reason||'');
+            const network=/Load failed|Failed to fetch|NetworkError/i.test(failed);
+            jockeyStatus.textContent='騎手全履歴：'+jockeyResult.loaded+'/'+horses.length+'頭・'+jockeyResult.runs+'走'+(missing?' ／ 未取得 '+missing+'頭':'')+(network?'（通信エラー）':missing?'（一部未取得）':'');
+          }
           let message='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を取得しました。';
           if(rejected.length)message+=' 同名の別馬を除外：'+rejected.join('、')+'。';
           if(fallbackError)message+=' 取得先への接続に失敗したため、保存済みデータだけを使用しています。';
