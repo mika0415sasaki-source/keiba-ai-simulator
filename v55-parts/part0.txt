@@ -869,7 +869,8 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
   horses.forEach(h=>{
     const jr=jockeyMap.get(String(h.name).trim());
     h.jockey_history=Array.isArray(jr?.history)?jr.history:[];
-    h.jockey_history_loaded=!!jr;
+    h.jockey_history_loaded=jr?.available===true&&h.jockey_history.length>0;
+    h.jockey_history_error=h.jockey_history_loaded?"":String(jr?.error||jockeyResult?.error||"全履歴を取得できませんでした");
     const r=map.get(String(h.name).trim());const fallbackRows=r?.history||r?.rows||[];const rows=jr?.available&&Array.isArray(jr.history)&&jr.history.length?jr.history.slice(0,5):fallbackRows;
     h.netkeibaRejected=false;
     if(rows.length&&validNetkeibaHistoryForHorse(h,rows)){
@@ -878,8 +879,12 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
       h.history=[];h.histScores=null;if(rows.length){h.netkeibaRejected=true;rejected++}
     }
   });
-  document.getElementById("histCount").textContent=`netkeiba ${ok}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭 / 騎手相性用全履歴 ${horses.filter(h=>h.jockey_history_loaded).length}/${horses.length}頭${rejected?` / 同名別馬疑い ${rejected}頭除外`:""}`;
-  renderHorses();evalAll();if(!silent)status("histStatus",`netkeiba5走 ${ok}/${horses.length}頭、騎手相性用全履歴 ${horses.filter(h=>h.jockey_history_loaded).length}/${horses.length}頭を取得。${rejected?`同名別馬疑い ${rejected}頭はJRA前4走へ切替。`:""}JRA4走は照合・欠損補完だけに使用します。`);return {ok,total:horses.length};
+  const jockeyLoaded=horses.filter(h=>h.jockey_history_loaded===true).length;
+  const jockeyRuns=horses.reduce((n,h)=>n+(Array.isArray(h.jockey_history)?h.jockey_history.length:0),0);
+  const jockeyMissing=horses.filter(h=>!h.jockey_history_loaded);
+  const jockeyMissingText=jockeyMissing.length?` / 未取得 ${jockeyMissing.length}頭（${jockeyMissing.slice(0,4).map(h=>`${h.name}: ${h.jockey_history_error}`).join("、")}${jockeyMissing.length>4?`、ほか${jockeyMissing.length-4}頭`:""}）`:"";
+  document.getElementById("histCount").textContent=`netkeiba ${ok}/${horses.length}頭 / JRA照合 ${horses.filter(h=>(h.jra_history||[]).length).length}頭 / 騎手相性用全履歴 ${jockeyLoaded}/${horses.length}頭・計${jockeyRuns}走${jockeyMissingText}${rejected?` / 同名別馬疑い ${rejected}頭除外`:""}`;
+  renderHorses();evalAll();if(!silent)status("histStatus",`netkeiba5走 ${ok}/${horses.length}頭、騎手相性用全履歴 ${jockeyLoaded}/${horses.length}頭・計${jockeyRuns}走を取得。${jockeyMissingText}${rejected?`同名別馬疑い ${rejected}頭はJRA前4走へ切替。`:""}JRA4走は照合・欠損補完だけに使用します。`);return {ok,total:horses.length};
  }catch(e){if(!silent)status("histStatus",e.message||String(e),true);return {ok:0,total:horses.length}}
 }
 document.getElementById("importHist").onclick=()=>loadNetkeibaHistories({silent:false,force:true});
