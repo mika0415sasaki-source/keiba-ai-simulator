@@ -1633,6 +1633,11 @@
           const jraN=horses.filter(h=>(h.jra_history||[]).length).length;
           const count=document.getElementById('histCount');
           if(count)count.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭';
+          let jockeyResult={loaded:0,runs:0,reason:' / 騎手相性用全履歴API未接続'};
+          if(typeof window.__fetchJockeyHistoryForCurrentRace==='function'){
+            try{jockeyResult=await window.__fetchJockeyHistoryForCurrentRace()}catch(error){jockeyResult={loaded:0,runs:0,reason:' / 騎手相性用全履歴エラー：'+(error?.message||String(error))}}
+          }
+          if(count)count.textContent+=' / 騎手相性用全履歴 '+jockeyResult.loaded+'/'+horses.length+'頭・計'+jockeyResult.runs+'走'+(jockeyResult.reason||'');
           let message='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を取得しました。';
           if(rejected.length)message+=' 同名の別馬を除外：'+rejected.join('、')+'。';
           if(fallbackError)message+=' 取得先への接続に失敗したため、保存済みデータだけを使用しています。';
