@@ -382,6 +382,9 @@
       h.netkeibaRejected=false;
       h.netkeibaError='';
       try{mergeNetkeibaWithJra(h)}catch(_){}
+      // Verified-history enrichment can reintroduce a non-finish row. Reapply the
+      // horse's already-known exclusions after every history merge.
+      applyExcludedRunsToHorse(h,h.nonfinish_history||[]);
       const currentBody=Number(h.__currentBodyWeightV370);
       if(Number.isFinite(currentBody)&&currentBody>=300&&currentBody<=700){
         h.body_weight=currentBody;
