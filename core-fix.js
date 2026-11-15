@@ -1,6 +1,6 @@
 (()=>{
  const wait=()=>{
-  if(!window.__independentPatchApplied||typeof jraImport!=='function'||typeof renderHorses!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
+  if(typeof jraImport!=='function'||typeof renderHorses!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
   if(window.__coreFixApplied)return;
   window.__coreFixApplied=true;
   document.documentElement.dataset.coreFixApplied='true';
