@@ -1,8 +1,10 @@
 (()=>{
  const wait=()=>{
-  if(!window.__independentPatchApplied||typeof jraImport!=='function'||typeof renderHorses!=='function'||typeof scoreLocalHistory!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
+  if(!window.__independentPatchApplied||typeof jraImport!=='function'||typeof renderHorses!=='function'||!document.getElementById('raceUrl')){setTimeout(wait,60);return}
   if(window.__coreFixApplied)return;
   window.__coreFixApplied=true;
+  document.documentElement.dataset.coreFixApplied='true';
+  const bootCount=document.getElementById('histCount');if(bootCount)bootCount.textContent='騎手相性用全履歴：自動取得処理を準備しました';
 
   const BULK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-newspaper-v2';
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
