@@ -776,7 +776,7 @@ function renderPaceReason(){
 }
 document.getElementById("pace").addEventListener("change",()=>{renderPaceReason();if(horses.length)evalAll()});
 function jockeyComboScore(h){
- const name=String(h.jockey||"").trim();if(!name)return 55;const rows=(h.jra_history||[]).filter(r=>String(r.jockey||"").replace(/\s+/g,"").includes(name.replace(/\s+/g,""))&&r.rank);if(!rows.length)return 62;const vals=rows.map(r=>cl(105-(+r.rank-1)*8,20,100));return vals.reduce((a,b)=>a+b,0)/vals.length;
+ const name=String(h.jockey||"").trim();if(!name){h.jockeyComboSamples=0;return 55;}const rows=(h.jra_history||[]).filter(r=>String(r.jockey||"").replace(/\s+/g,"").includes(name.replace(/\s+/g,""))&&r.rank);h.jockeyComboSamples=rows.length;if(!rows.length)return 62;const vals=rows.map(r=>cl(105-(+r.rank-1)*8,20,100));return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
 function bloodScore(h){const s=[h.sire,h.dam,h.damsire].filter(Boolean).length;return s>=3?80:s===2?72:s===1?64:55}
 function evalAll(){
