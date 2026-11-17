@@ -107,7 +107,7 @@
    try{window.__refreshRankingProbabilityV337?.()}catch(e){console.warn('jockey probability refresh',e)}
    try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn('jockey analysis refresh',e)}
    try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn('jockey card rerender',e)}
-   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockey.diag;
+   const firstHorse=horses[0];const firstCard=firstHorse?[...document.querySelectorAll('#horses .card')].find(card=>(card.querySelector('.rank')?.textContent||'').includes(firstHorse.name)):null;const firstLine=firstCard?[...firstCard.querySelectorAll('.small')].find(el=>el.textContent.includes('騎手相性'))?.textContent||'騎手相性行なし':'カード未検出';const rowHorses=horses.filter(h=>Array.isArray(h.jockey_history)&&h.jockey_history.length>0).length;const cardDiag=firstHorse?' / 表示診断 '+firstHorse.name+'：配列'+(firstHorse.jockey_history?.length||0)+'走・読込'+(firstHorse.jockey_history_loaded?'済':'未')+'・全頭行あり'+rowHorses+'/'+horses.length+' / DOM '+firstLine:'';const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockey.diag+cardDiag;
    if(!silent){const ped=horses.filter(h=>h.sire&&h.dam&&h.damsire).length,sty=horses.filter(h=>['逃','先','差','追'].includes(h.style)).length;status('histStatus',`netkeiba ${ok}/${horses.length}頭・合計${totalRuns}走を取得。血統 ${ped}/${horses.length}頭・脚質 ${sty}/${horses.length}頭。`)}
    return {ok,total:horses.length,totalRuns};
   }
