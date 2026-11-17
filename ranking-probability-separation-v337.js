@@ -239,12 +239,12 @@
     const closingAvailable=Number(samples.closing)>0||(+h?.closingSamples||0)>0;
     const jockey=(()=>{
       try{
-        const fn=window.jockeyComboScore;
-        const v=typeof fn==='function'?fn(h):Number(h?.jockey_combo);
+        const fn=window.jockeyFullHistoryComboScore;
+        const v=typeof fn==='function'?fn(h):65;
         return Number.isFinite(+v)?+v:65;
       }catch(_){return 65}
     })();
-    const jockeyAvailable=Number(h?.jockeyComboSamples)>0;
+    const jockeyAvailable=Number(h?.jockeyFullHistorySamplesV1)>0;
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
     // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
@@ -422,7 +422,7 @@
     if(evidence){
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
-      const diag=[...rows].sort((a,b)=>(Number(b?.placeModelScoreV337)||0)-(Number(a?.placeModelScoreV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${tenth(Number(h.placeModelScoreV337)||0)}→${h.placeProbabilityRankV337}位`).join('　');
+      const diag=[...rows].sort((a,b)=>(Number(b?.placeModelScoreV337)||0)-(Number(a?.placeModelScoreV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${tenth(Number(h.placeModelScoreV337)||0)}点／騎手相性${tenth(Number(h.jockeyFullHistoryScoreV1)||65)}点・${Number(h.jockeyFullHistorySamplesV1)||0}件→${h.placeProbabilityRankV337}位`).join('　');
       d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を別モデルで統合。単勝市場が取得できる場合のみ15%を補助的に加味。<br><small>内部3着内モデル：${diag}</small>`;
     }
   }
