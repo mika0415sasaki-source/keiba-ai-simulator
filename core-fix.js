@@ -43,7 +43,8 @@
 
   const JOCKEY_HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-test-v1';
   async function fetchJockeyHistory(){
-   const names=horses.map(h=>h.name);\n   const horse_ids=Object.fromEntries(horses.map(h=>[clean(h.name),clean(h.netkeiba_horse_id||h.horse_id||'')]).filter(([name,id])=>name&&/^\\d{10}$/.test(id)));
+   const names=horses.map(h=>h.name);
+   const horse_ids=Object.fromEntries(horses.map(h=>[clean(h.name),clean(h.netkeiba_horse_id||h.horse_id||'')]).filter(([name,id])=>name&&/^\d{10}$/.test(id)));
    let result={rows:[],error:''};
    try{
     const r=await fetch(JOCKEY_HISTORY_API,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({names,horse_ids,race_url:document.getElementById('raceUrl')?.value||'',race_date:raceMeta?.race_date||''})});
@@ -91,7 +92,9 @@
     if(validPed(x.dam))z.dam=validPed(x.dam);
     if(validPed(x.damsire))z.damsire=validPed(x.damsire);
     if(['逃','先','差','追'].includes(x.style))z.style=x.style;
-    const resolvedHorseId=clean(x.netkeiba_horse_id||x.horse_id||'');\n    if(/^\\d{10}$/.test(resolvedHorseId))z.netkeiba_horse_id=resolvedHorseId;\n    if(clean(x.jockey))z.jockey=clean(x.jockey);
+    const resolvedHorseId=clean(x.netkeiba_horse_id||x.horse_id||'');
+    if(/^\d{10}$/.test(resolvedHorseId))z.netkeiba_horse_id=resolvedHorseId;
+    if(clean(x.jockey))z.jockey=clean(x.jockey);
     if(Number.isFinite(+x.carried_weight))z.carried_weight=+x.carried_weight;
     if(Number.isFinite(+x.body_weight)&&+x.body_weight>=300)z.body_weight=+x.body_weight;
     if(Number.isFinite(+x.last_body_weight)&&+x.last_body_weight>=300)z.last_body_weight=+x.last_body_weight;
