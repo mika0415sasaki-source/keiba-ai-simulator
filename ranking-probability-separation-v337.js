@@ -149,9 +149,9 @@
       const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
       let jockeyAdj=0;
       try{
-        const fn=window.jockeyComboScore;
+        const fn=window.jockeyFullHistoryComboScore;
         const jockey=typeof fn==='function'?Number(fn(h)):NaN;
-        if(Number(h?.jockeyComboSamples)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
+        if(Number(h?.jockeyFullHistorySamplesV1)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
       }catch(_){}
       const base=Number(h?.score);
       const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
