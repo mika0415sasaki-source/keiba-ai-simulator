@@ -133,7 +133,7 @@
    const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockeyCardDisplaySummary()+jockey.diag;
    const displayDiag=jockeyCardDisplaySummary();
    status('histStatus','騎手相性表示確認：'+displayDiag);
-   if(!silent){const ped=horses.filter(h=>h.sire&&h.dam&&h.damsire).length,sty=horses.filter(h=>['逃','先','差','追'].includes(h.style)).length;status('histStatus',`netkeiba ${ok}/${horses.length}頭・合計${totalRuns}走を取得。血統 ${ped}/${horses.length}頭・脚質 ${sty}/${horses.length}頭。'+displayDiag)}
+   if(!silent){const ped=horses.filter(h=>h.sire&&h.dam&&h.damsire).length,sty=horses.filter(h=>['逃','先','差','追'].includes(h.style)).length;status('histStatus',`netkeiba ${ok}/${horses.length}頭・合計${totalRuns}走を取得。血統 ${ped}/${horses.length}頭・脚質 ${sty}/${horses.length}頭。${displayDiag}`)}
    return {ok,total:horses.length,totalRuns};
   }
 
