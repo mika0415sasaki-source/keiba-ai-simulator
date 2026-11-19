@@ -780,7 +780,11 @@ function jockeyComboScore(h){
 }
 function jockeyFullHistoryComboScore(h){
  const name=String(h.jockey||"").replace(/\s+/g,"").trim();
- const rows=name&&Array.isArray(h.jockey_history)?h.jockey_history.filter(r=>String(r.jockey||"").replace(/\s+/g,"").includes(name)&&Number.isFinite(+r.rank)&&+r.rank>0):[];
+ const rows=name&&Array.isArray(h.jockey_history)?h.jockey_history.filter(r=>{
+  const past=String(r.jockey||"").replace(/\s+/g,"").trim();
+  const same= name==="マーカンド" ? (past==="マーカンド"||past==="マーカン") : past.includes(name);
+  return same&&Number.isFinite(+r.rank)&&+r.rank>0;
+ }):[];
  h.jockeyFullHistorySamplesV1=rows.length;
  if(!rows.length){h.jockeyFullHistoryScoreV1=65;return 65;}
  const vals=rows.map(r=>cl(105-(+r.rank-1)*8,20,100));
