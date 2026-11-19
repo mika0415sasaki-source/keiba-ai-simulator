@@ -62,7 +62,8 @@
    const runs=horses.reduce((n,h)=>n+(Array.isArray(h.jockey_history)?h.jockey_history.length:0),0);
    const missing=horses.filter(h=>!h.jockey_history_loaded);
    const reason=missing.length?' / 未取得 '+missing.length+'頭（'+missing.slice(0,4).map(h=>h.name+': '+h.jockey_history_error).join('、')+(missing.length>4?'、ほか'+(missing.length-4)+'頭':'')+'）':'';
-   const d=result.diagnostics||{};const stages=d.stage_counts&&typeof d.stage_counts==='object'?Object.entries(d.stage_counts).map(([k,v])=>k+':'+v+'頭').join(' / '):'未返却';const diag=' / 馬ID確認 '+(d.id_found??'?')+'/'+names.length+'頭・出走表抽出ID '+(d.race_id_matches??'?')+'件・処理 '+(d.request_ms??'?')+'ms・段階 '+stages;
+   const d=result.diagnostics||{};const stages=d.stage_counts&&typeof d.stage_counts==='object'?Object.entries(d.stage_counts).map(([k,v])=>k+':'+v+'頭').join(' / '):'未返却';const cvDiag=Array.isArray(d.cherwinia_markand_rows)?'・チェルヴィニアのマーカン履歴 '+d.cherwinia_markand_rows.map(x=>x.date+':'+x.rank+'着/'+(x.field_size??'頭数—')+'頭').join('、'):'';
+   const diag=' / 馬ID確認 '+(d.id_found??'?')+'/'+names.length+'頭・出走表抽出ID '+(d.race_id_matches??'?')+'件・頭数取得 '+(d.field_size_runs??'?')+'/'+((d.field_size_runs??0)+(d.field_size_missing_runs??0))+'走'+cvDiag+'・処理 '+(d.request_ms??'?')+'ms・段階 '+stages;
    return {loaded,runs,reason,diag};
   }
 
