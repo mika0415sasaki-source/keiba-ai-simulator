@@ -66,6 +66,24 @@
    return {loaded,runs,reason,diag};
   }
 
+  function jockeyCardDisplaySummary(){
+   const roster=Array.isArray(horses)?horses:[];
+   const cards=[...document.querySelectorAll('#horses .card')];
+   let shown=0,matched=0,neutral=0,missing=0;
+   for(const h of roster){
+    const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
+    const jockey=clean(h.jockey).replace(/\s+/g,'');
+    const samples=jockey?history.filter(r=>String(r.jockey||'').replace(/\s+/g,'').includes(jockey)&&Number.isFinite(+r.rank)&&+r.rank>0).length:0;
+    const card=cards.find(el=>(el.querySelector('.rank')?.textContent||'').includes(h.name));
+    const line=card?[...card.querySelectorAll(':scope > .small')].find(el=>el.textContent.includes('騎手相性：')):null;
+    if(line)shown++;
+    if(samples>0)matched++;
+    else if(history.length)neutral++;
+    else missing++;
+   }
+   return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）';
+  }
+
   window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
 
   async function bulkFetch(url){
@@ -107,7 +125,7 @@
    try{window.__refreshRankingProbabilityV337?.()}catch(e){console.warn('jockey probability refresh',e)}
    try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn('jockey analysis refresh',e)}
    try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn('jockey card rerender',e)}
-   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockey.diag;
+   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockeyCardDisplaySummary()+jockey.diag;
    if(!silent){const ped=horses.filter(h=>h.sire&&h.dam&&h.damsire).length,sty=horses.filter(h=>['逃','先','差','追'].includes(h.style)).length;status('histStatus',`netkeiba ${ok}/${horses.length}頭・合計${totalRuns}走を取得。血統 ${ped}/${horses.length}頭・脚質 ${sty}/${horses.length}頭。`)}
    return {ok,total:horses.length,totalRuns};
   }
@@ -137,7 +155,7 @@
    try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn('jockey analysis refresh',e)}
    try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn('jockey card rerender',e)}
    const jraN=horses.filter(h=>(h.jra_history||[]).length).length;
-   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason;
+   const hc=document.getElementById('histCount');if(hc)hc.textContent='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走 / JRA照合 '+jraN+'頭 / 騎手相性用全履歴 '+jockey.loaded+'/'+horses.length+'頭・計'+jockey.runs+'走'+jockey.reason+jockeyCardDisplaySummary();
    return {ok,total:horses.length,totalRuns,jockeyLoaded:jockey.loaded,jockeyRuns:jockey.runs};
   };
 
