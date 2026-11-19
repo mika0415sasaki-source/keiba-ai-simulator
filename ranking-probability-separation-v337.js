@@ -157,7 +157,7 @@
       const goingRuns=targetGoing?history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
       let jockeyAdj=0;
-      const jockey=confidenceAdjustedJockeyScore(src);
+      const jockey=fullHistoryJockeyScore(src);
       if(Number(src?.jockeyFullHistorySamplesV1)>0)jockeyAdj=(jockey-65)*.10;
       const base=Number(h?.score);
       const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
@@ -186,7 +186,7 @@
   }
 
   // 騎手相性は着順・出走頭数・複勝圏率・成績のばらつきから算出した実績値をそのまま使う。
-  function confidenceAdjustedJockeyScore(h){
+  function fullHistoryJockeyScore(h){
     try{
       const fn=window.jockeyFullHistoryComboScore;
       const v=typeof fn==='function'?Number(fn(h)):65;
@@ -252,7 +252,7 @@
       : 65;
     const closing=Number.isFinite(+h?.placeModelLast3f)?+h.placeModelLast3f:((+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65);
     const closingAvailable=Number(samples.closing)>0||(+h?.closingSamples||0)>0;
-    const jockey=confidenceAdjustedJockeyScore(src);
+    const jockey=fullHistoryJockeyScore(src);
     const jockeyAvailable=Number(src?.jockeyFullHistorySamplesV1)>0;
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
