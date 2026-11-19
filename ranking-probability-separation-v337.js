@@ -185,20 +185,13 @@
     try{return (Array.isArray(horses)?horses:[]).find(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''))||h}catch(_){return h}
   }
 
-  // 騎手相性は少数騎乗の偶然を抑えるため、中立65点を4件分の事前情報として縮小する。
-  // 1件なら実績差の20%、4件なら50%、8件なら約67%を反映する。
-  // 表示用の生スコアは変更せず、確率モデルに渡す値だけを調整する。
+  // 騎手相性は着順・出走頭数・複勝圏率・成績のばらつきから算出した実績値をそのまま使う。
   function confidenceAdjustedJockeyScore(h){
-    const src=horseSource(h);
-    let raw=65;
     try{
       const fn=window.jockeyFullHistoryComboScore;
-      if(typeof fn==='function')raw=Number(fn(src));
-    }catch(_){}
-    const n=Math.max(0,Number(src?.jockeyFullHistorySamplesV1)||0);
-    if(!n||!Number.isFinite(raw))return 65;
-    const reliability=n/(n+4);
-    return clamp(65+(raw-65)*reliability,25,99);
+      const v=typeof fn==='function'?Number(fn(h)):65;
+      return Number.isFinite(v)?v:65;
+    }catch(_){return 65}
   }
 
   // 3着内率は「勝ち切る強度」と分離し、近走の複勝圏実績・着順の安定度・
