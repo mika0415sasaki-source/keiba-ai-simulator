@@ -159,8 +159,8 @@
       let jockeyAdj=0;
       try{
         const fn=window.jockeyFullHistoryComboScore;
-        const jockey=typeof fn==='function'?Number(fn(h)):NaN;
-        if(Number(h?.jockeyFullHistorySamplesV1)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
+        const jockey=typeof fn==='function'?Number(fn(src)):NaN;
+        if(Number(src?.jockeyFullHistorySamplesV1)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
       }catch(_){}
       const base=Number(h?.score);
       const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
@@ -249,11 +249,11 @@
     const jockey=(()=>{
       try{
         const fn=window.jockeyFullHistoryComboScore;
-        const v=typeof fn==='function'?fn(h):65;
+        const v=typeof fn==='function'?fn(src):65;
         return Number.isFinite(+v)?+v:65;
       }catch(_){return 65}
     })();
-    const jockeyAvailable=Number(h?.jockeyFullHistorySamplesV1)>0;
+    const jockeyAvailable=Number(src?.jockeyFullHistorySamplesV1)>0;
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
     // 履歴が取得できている場合は、3着内実績を中立値へ薄めず主軸にする。
