@@ -157,11 +157,8 @@
       const goingRuns=targetGoing?history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
       let jockeyAdj=0;
-      try{
-        const fn=window.jockeyFullHistoryComboScore;
-        const jockey=typeof fn==='function'?Number(fn(src)):NaN;
-        if(Number(src?.jockeyFullHistorySamplesV1)>0&&Number.isFinite(jockey))jockeyAdj=(jockey-65)*.10;
-      }catch(_){}
+      const jockey=confidenceAdjustedJockeyScore(src);
+      if(Number(src?.jockeyFullHistorySamplesV1)>0)jockeyAdj=(jockey-65)*.10;
       const base=Number(h?.score);
       const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
       h.winAiScoreV337=tenth(score);
@@ -186,6 +183,22 @@
 
   function horseSource(h){
     try{return (Array.isArray(horses)?horses:[]).find(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''))||h}catch(_){return h}
+  }
+
+  // 騎手相性は少数騎乗の偶然を抑えるため、中立65点を4件分の事前情報として縮小する。
+  // 1件なら実績差の20%、4件なら50%、8件なら約67%を反映する。
+  // 表示用の生スコアは変更せず、確率モデルに渡す値だけを調整する。
+  function confidenceAdjustedJockeyScore(h){
+    const src=horseSource(h);
+    let raw=65;
+    try{
+      const fn=window.jockeyFullHistoryComboScore;
+      if(typeof fn==='function')raw=Number(fn(src));
+    }catch(_){}
+    const n=Math.max(0,Number(src?.jockeyFullHistorySamplesV1)||0);
+    if(!n||!Number.isFinite(raw))return 65;
+    const reliability=n/(n+4);
+    return clamp(65+(raw-65)*reliability,25,99);
   }
 
   // 3着内率は「勝ち切る強度」と分離し、近走の複勝圏実績・着順の安定度・
@@ -246,13 +259,7 @@
       : 65;
     const closing=Number.isFinite(+h?.placeModelLast3f)?+h.placeModelLast3f:((+h?.closingSamples||0)>0&&Number.isFinite(+h.last3f)?+h.last3f:65);
     const closingAvailable=Number(samples.closing)>0||(+h?.closingSamples||0)>0;
-    const jockey=(()=>{
-      try{
-        const fn=window.jockeyFullHistoryComboScore;
-        const v=typeof fn==='function'?fn(src):65;
-        return Number.isFinite(+v)?+v:65;
-      }catch(_){return 65}
-    })();
+    const jockey=confidenceAdjustedJockeyScore(src);
     const jockeyAvailable=Number(src?.jockeyFullHistorySamplesV1)>0;
     const count=finishValues.length;
     const credibility=clamp(count/5,0,1);
