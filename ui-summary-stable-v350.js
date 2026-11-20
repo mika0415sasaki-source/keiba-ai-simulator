@@ -32,6 +32,9 @@
       .v350-jockey-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid rgba(63,86,130,.55);border-radius:8px;background:rgba(10,19,35,.48);font-size:11px;color:#9fb0cf}
       .v350-jockey-row b{color:#eef3ff;min-width:0;overflow-wrap:anywhere}
       .v350-jockey-row strong{color:#eef3ff;font-variant-numeric:tabular-nums}
+      .v350-jockey-diagnostics{display:grid;gap:6px;margin-top:8px}
+      .v350-diag-row{display:grid;gap:3px;padding:7px 8px;border:1px solid rgba(230,174,87,.4);border-radius:8px;background:rgba(10,19,35,.48);font-size:10px;line-height:1.45;color:#b8c5dc;overflow-wrap:anywhere}
+      .v350-diag-row b{color:#f2d29a;font-size:11px}
       #analysisSummaryV350 details{margin-top:10px;padding-top:8px;border-top:1px solid rgba(63,86,130,.45);color:#9fb0cf}
       #analysisSummaryV350 details>summary{cursor:pointer;font-size:11px;font-weight:800;color:#cfdaf0;list-style:none}
       #analysisSummaryV350 details>summary::-webkit-details-marker{display:none}
@@ -118,6 +121,17 @@
     const effectRows=Array.isArray(evaluated)?evaluated:[];
     const jockeyEffects=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).sort((a,b)=>(Number(a.no)||999)-(Number(b.no)||999)).map(h=>'<div class="v350-jockey-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>1着 <strong>'+(Number(h.winJockeyEffectPpV337)>=0?'+':'')+Number(h.winJockeyEffectPpV337).toFixed(1)+'pt</strong></span><span>3着内 <strong>'+(Number(h.placeJockeyEffectPpV337)>=0?'+':'')+Number(h.placeJockeyEffectPpV337).toFixed(1)+'pt</strong></span></div>').join('');
     const jockeyEffectCount=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).length;
+    let sourcePool=[];try{sourcePool=Array.isArray(horses)?horses:[]}catch(_){}
+    const jockeyDiagnostics=effectRows.filter(h=>h).map(h=>{
+      const noMatches=sourcePool.filter(x=>+x?.no===+h?.no);
+      const nameMatches=sourcePool.filter(x=>String(x?.name||'')===String(h?.name||''));
+      const candidates=sourcePool.filter(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''));
+      const src=candidates[0]||null;
+      const match=noMatches.length&&nameMatches.length?'馬番＋馬名':noMatches.length?'馬番のみ':nameMatches.length?'馬名のみ':'該当なし';
+      const changed=!!src&&(String(src.name||'')!==String(h.name||'')||+src.no!==+h.no||String(src.jockey||'')!==String(h.jockey||'')||Number(src.jockeyFullHistorySamplesV1||0)!==Number(h.jockeyFullHistorySamplesV1||0));
+      if(+h.no!==15&&!changed&&candidates.length<=1)return '';
+      return '<div class="v350-diag-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>評価側 '+esc(h.jockey||'騎手未設定')+'／'+Number(h.jockeyFullHistorySamplesV1||0)+'件</span><span>元データ '+esc(src?.no??'—')+' '+esc(src?.name||'該当なし')+'／'+esc(src?.jockey||'—')+'／'+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span><span>照合 '+match+'・候補 '+candidates.length+'件（馬番 '+noMatches.length+'／馬名 '+nameMatches.length+'）</span><span>全履歴 '+(Array.isArray(src?.jockey_history)?src.jockey_history.length:0)+'走・一致 '+Number(src?.jockeyFullHistoryMatchedV1||0)+'件・頭数確認 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span></div>';
+    }).filter(Boolean).join('');
     host.innerHTML=`
       <div class="v350-section">
         <div class="v350-head">
@@ -155,6 +169,7 @@
       <div class="v350-section">
         <div class="v350-head"><div><div class="v350-title">騎手相性の実確率差</div><div class="v350-sub">騎手補正あり − なし（確率の差・ポイント）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
         ${jockeyEffects?'<div class="v350-jockey-effects">'+jockeyEffects+'</div>':'<div class="v350-note">確率を計算すると、各馬の差がここに表示されます。</div>'}
+        <details><summary>騎手補正の照合診断（15番・不一致馬）</summary><div class="v350-jockey-diagnostics">${jockeyDiagnostics||'<div class="v350-note">表示対象の不一致はありません。</div>'}</div></details>
       </div>`;
     document.documentElement.dataset.uiSummaryStable='v350';
   }
