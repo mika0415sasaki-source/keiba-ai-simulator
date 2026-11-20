@@ -128,9 +128,10 @@
       const candidates=sourcePool.filter(x=>+x?.no===+h?.no||String(x?.name||'')===String(h?.name||''));
       const src=candidates[0]||null;
       const match=noMatches.length&&nameMatches.length?'馬番＋馬名':noMatches.length?'馬番のみ':nameMatches.length?'馬名のみ':'該当なし';
-      const changed=!!src&&(String(src.name||'')!==String(h.name||'')||+src.no!==+h.no||String(src.jockey||'')!==String(h.jockey||'')||Number(src.jockeyFullHistorySamplesV1||0)!==Number(h.jockeyFullHistorySamplesV1||0));
+      const changed=!!src&&(String(src.name||'')!==String(h.name||'')||+src.no!==+h.no||Number(src.jockeyFullHistorySamplesV1||0)!==Number(h.jockeyFullHistorySamplesV1||0));
       if(+h.no!==15&&!changed&&candidates.length<=1)return '';
-      return '<div class="v350-diag-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>評価側 '+esc(h.jockey||'騎手未設定')+'／'+Number(h.jockeyFullHistorySamplesV1||0)+'件</span><span>元データ '+esc(src?.no??'—')+' '+esc(src?.name||'該当なし')+'／'+esc(src?.jockey||'—')+'／'+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span><span>照合 '+match+'・候補 '+candidates.length+'件（馬番 '+noMatches.length+'／馬名 '+nameMatches.length+'）</span><span>全履歴 '+(Array.isArray(src?.jockey_history)?src.jockey_history.length:0)+'走・一致 '+Number(src?.jockeyFullHistoryMatchedV1||0)+'件・頭数確認 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span></div>';
+      const evaluatedJockeyScore=Number.isFinite(Number(h.jockey))?Number(h.jockey).toFixed(1):'未保持';
+      return '<div class="v350-diag-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>評価側 jockey評価点 '+evaluatedJockeyScore+'点／全履歴照合 '+Number(h.jockeyFullHistorySamplesV1||0)+'件</span><span>元データ 現騎手 '+esc(src?.jockey||'未設定')+'／全履歴照合 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span><span>照合 '+match+'・候補 '+candidates.length+'件（馬番 '+noMatches.length+'／馬名 '+nameMatches.length+'）</span><span>全履歴 '+(Array.isArray(src?.jockey_history)?src.jockey_history.length:0)+'走・一致 '+Number(src?.jockeyFullHistoryMatchedV1||0)+'件・頭数確認 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span></div>';
     }).filter(Boolean).join('');
     host.innerHTML=`
       <div class="v350-section">
