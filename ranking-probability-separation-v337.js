@@ -143,7 +143,7 @@
     return units.map(u=>tenth(u/10));
   }
 
-  function winAiShares(rows){
+  function winAiShares(rows,includeJockey=true){
     const scores=rows.map(h=>{
       const src=horseSource(h);
       const style=String(src?.style||h?.style||'');
@@ -158,13 +158,15 @@
       const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
       let jockeyAdj=0;
       const jockey=fullHistoryJockeyScore(src);
-      if(Number(src?.jockeyFullHistorySamplesV1)>0)jockeyAdj=(jockey-65)*.10;
+      if(includeJockey&&Number(src?.jockeyFullHistorySamplesV1)>0)jockeyAdj=(jockey-65)*.10;
       const base=Number(h?.score);
       const score=clamp((Number.isFinite(base)?base:65)+paceAdj+goingAdj+jockeyAdj,0,100);
-      h.winAiScoreV337=tenth(score);
-      h.winPaceAdjustmentV337=tenth(paceAdj);
-      h.winGoingAdjustmentV337=tenth(goingAdj);
-      h.winJockeyAdjustmentV337=tenth(jockeyAdj);
+      if(includeJockey){
+        h.winAiScoreV337=tenth(score);
+        h.winPaceAdjustmentV337=tenth(paceAdj);
+        h.winGoingAdjustmentV337=tenth(goingAdj);
+        h.winJockeyAdjustmentV337=tenth(jockeyAdj);
+      }
       return score;
     });
     const max=scores.length?Math.max(...scores):0;
@@ -213,7 +215,7 @@
       return rows.slice(0,5);
     }catch(_){return []}
   }
-  function placeProfile(h,allRows){
+  function placeProfile(h,allRows,includeJockey=true){
     const src=horseSource(h),history=placeHistory(h);
     const headToHead=headToHeadScore(h,allRows);
     let inMoneyN=0,inMoneyD=0;const finishValues=[];
@@ -276,7 +278,7 @@
       {value:stableV,weight:.35,valid:count>=2},
       {value:balanceV,weight:.10,valid:sourceAxes.length>0},
       {value:closingV,weight:.05,valid:closingAvailable},
-      {value:jockeyV,weight:.10,valid:jockeyAvailable}
+      {value:jockeyV,weight:.10,valid:includeJockey&&jockeyAvailable}
     ].filter(x=>x.valid);
     const factorWeight=factors.reduce((s,x)=>s+x.weight,0);
     const direct=factorWeight
@@ -288,8 +290,8 @@
       25,99
     );
   }
-  function placeShares(rows){
-    const scores=rows.map(h=>placeProfile(h,rows)),max=scores.length?Math.max(...scores):0;
+  function placeShares(rows,includeJockey=true){
+    const scores=rows.map(h=>placeProfile(h,rows,includeJockey)),max=scores.length?Math.max(...scores):0;
     const raw=scores.map(v=>Math.exp((v-max)/PLACE_T)),sum=raw.reduce((a,b)=>a+b,0)||1;
     rows.forEach((h,i)=>h.placeModelScoreV337=tenth(scores[i]));
     return raw.map(v=>v/sum);
@@ -317,17 +319,29 @@
   function recalcProbabilities(rows){
     if(rows.length<2)return false;
     const winAi=winAiShares(rows),winMarket=marketShares(rows,winAi);
+    const winAiNoJockey=winAiShares(rows,false),winMarketNoJockey=marketShares(rows,winAiNoJockey);
+    const winBase=winMarketNoJockey?winAiNoJockey.map((v,i)=>v*AI_WEIGHT+winMarketNoJockey[i]*MARKET_WEIGHT):winAiNoJockey;
+    const winBaseSum=winBase.reduce((a,b)=>a+b,0)||1;
+    const winBasePct=roundToTarget(winBase.map(v=>v/winBaseSum*100),100,100);
     const winStrength=winMarket
       ?winAi.map((v,i)=>v*AI_WEIGHT+winMarket[i]*MARKET_WEIGHT)
       :winAi;
     const winSum=winStrength.reduce((a,b)=>a+b,0)||1,winNormalized=winStrength.map(v=>v/winSum);
     const placeAi=placeShares(rows),placeMarket=marketShares(rows,placeAi);
+    const placeAiNoJockey=placeShares(rows,false),placeMarketNoJockey=marketShares(rows,placeAiNoJockey);
+    const placeBase=placeMarketNoJockey?placeAiNoJockey.map((v,i)=>v*PLACE_MODEL_WEIGHT+placeMarketNoJockey[i]*PLACE_MARKET_WEIGHT):placeAiNoJockey;
+    const placeBaseSum=placeBase.reduce((a,b)=>a+b,0)||1;
+    const placeBaseTop3=roundToTarget(top3Probabilities(placeBase.map(v=>v/placeBaseSum)).map(v=>v*100),Math.min(3,rows.length)*100,100);
     const placeStrength=placeMarket?placeAi.map((v,i)=>v*PLACE_MODEL_WEIGHT+placeMarket[i]*PLACE_MARKET_WEIGHT):placeAi;
     const placeSum=placeStrength.reduce((a,b)=>a+b,0)||1,placeNormalized=placeStrength.map(v=>v/placeSum);
     const win=roundToTarget(winNormalized.map(v=>v*100),100,100);
     const place=roundToTarget(top3Probabilities(placeNormalized).map(v=>v*100),Math.min(3,rows.length)*100,100);
     rows.forEach((h,i)=>{
       h.winP=win[i];h.place=place[i];
+      h.winPWithoutJockeyV337=winBasePct[i];
+      h.placeWithoutJockeyV337=placeBaseTop3[i];
+      h.winJockeyEffectPpV337=tenth(win[i]-winBasePct[i]);
+      h.placeJockeyEffectPpV337=tenth(place[i]-placeBaseTop3[i]);
       h.fairOdds=h.winP>0?100/h.winP:null;
       const o=Number(h?.winOdds)||0;h.valueIndex=o>0&&h.fairOdds?o/h.fairOdds:1;
       h.probabilitySourceV337=`1着AI70%${winMarket?'+単勝市場30%':''}／3着内モデル85%${placeMarket?'+単勝市場15%':''}`;
@@ -432,7 +446,8 @@
       let d=evidence.querySelector('[data-rank-prob-v337]');
       if(!d){d=document.createElement('div');d.dataset.rankProbV337='1';d.style.marginTop='10px';evidence.appendChild(d)}
       const diag=[...rows].sort((a,b)=>(Number(b?.placeModelScoreV337)||0)-(Number(a?.placeModelScoreV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${tenth(Number(h.placeModelScoreV337)||0)}点／騎手相性${tenth(Number(h.jockeyFullHistoryScoreV1)||65)}点・${Number(h.jockeyFullHistorySamplesV1)||0}件→${h.placeProbabilityRankV337}位`).join('　');
-      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を別モデルで統合。単勝市場が取得できる場合のみ15%を補助的に加味。<br><small>内部3着内モデル：${diag}</small>`;
+      const effect=[...rows].sort((a,b)=>(Number(b?.winJockeyEffectPpV337)||0)-(Number(a?.winJockeyEffectPpV337)||0)||(+a?.no||999)-(+b?.no||999)).map(h=>`${h.no}:${h.name||''} 1着 ${Number(h.winJockeyEffectPpV337)>=0?'+':''}${h.winJockeyEffectPpV337}pt／3着内 ${Number(h.placeJockeyEffectPpV337)>=0?'+':''}${h.placeJockeyEffectPpV337}pt`).join('　');
+      d.innerHTML=`<b>順位・確率の分離 v337：</b> AI指数は能力・適性のみ。1着率は勝ち切る強度、3着内率は直近5走の複勝圏実績・着順安定度・コース/距離/馬場・上がり・騎手相性を別モデルで統合。単勝市場が取得できる場合のみ15%を補助的に加味。<br><small>内部3着内モデル：${diag}<br>騎手相性の実確率差（騎手補正あり−なし）：${effect}</small>`;
     }
   }
 
