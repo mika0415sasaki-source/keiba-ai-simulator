@@ -169,7 +169,7 @@
         <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55"><div class="v350-spec"><b>AI順位</b> 能力・適性<br><b>1着率</b> AI70%＋単勝市場30%<br><b>3着内率</b> 近走・安定度・コース/距離・馬場・上がり・騎手相性の別モデル（単勝市場は取得時のみ15%補助）<br><b>過去走</b> netkeiba5走を優先、JRA4走は空欄のみ補完。欠損は該当項目から除外<br><b>騎手相性</b> 現騎手×当馬のJRA前4走コンビ成績<br><b>馬場</b> 補正ON</div></div></details>
       </div>
       <div class="v350-section">
-        <div class="v350-head"><div><div class="v350-title">騎手相性の実確率差</div><div class="v350-sub">騎手補正あり − なし（確率の差・ポイント）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
+        <div class="v350-head"><div><div class="v350-title">騎手補正による確率変動（全体再配分を含む）</div><div class="v350-sub">騎手補正あり − なし（他馬への補正による全体の配分変化も含む）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
         ${jockeyEffects?'<div class="v350-jockey-effects">'+jockeyEffects+'</div>':'<div class="v350-note">確率を計算すると、各馬の差がここに表示されます。</div>'}
         <details><summary>騎手補正の照合診断（15番・不一致馬）</summary><div class="v350-jockey-diagnostics">${jockeyDiagnostics||'<div class="v350-note">表示対象の不一致はありません。</div>'}</div></details>
       </div>`;
