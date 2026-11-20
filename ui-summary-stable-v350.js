@@ -28,6 +28,10 @@
       .v350-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid rgba(63,86,130,.72);border-radius:999px;background:rgba(10,19,35,.58);font-size:11px;color:#aebbd3;white-space:nowrap}
       .v350-chip b{color:#eef3ff;font-size:11px}
       .v350-chip.good{border-color:rgba(102,224,163,.35);color:#82dcb3}
+      .v350-jockey-effects{display:grid;gap:5px;max-height:260px;overflow:auto}
+      .v350-jockey-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid rgba(63,86,130,.55);border-radius:8px;background:rgba(10,19,35,.48);font-size:11px;color:#9fb0cf}
+      .v350-jockey-row b{color:#eef3ff;min-width:0;overflow-wrap:anywhere}
+      .v350-jockey-row strong{color:#eef3ff;font-variant-numeric:tabular-nums}
       #analysisSummaryV350 details{margin-top:10px;padding-top:8px;border-top:1px solid rgba(63,86,130,.45);color:#9fb0cf}
       #analysisSummaryV350 details>summary{cursor:pointer;font-size:11px;font-weight:800;color:#cfdaf0;list-style:none}
       #analysisSummaryV350 details>summary::-webkit-details-marker{display:none}
@@ -111,6 +115,9 @@
     const wasOpen=!!host.querySelector('details')?.open;
     const c=ctx(),d=counts(),p=profile(c)||{speed:.22,last3f:.18,course:.14,distance:.14},r=route(c),bad=Math.max(0,d.total-d.complete);
     const shape=c.venue==='阪神'&&c.surface==='芝'&&c.dist===2000?'内回り・急坂＋同/近似コース実績を反映':`${r||c.turn+'回り'}・同/近似コースと距離実績を反映`;
+    const effectRows=Array.isArray(evaluated)?evaluated:[];
+    const jockeyEffects=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).sort((a,b)=>(Number(a.no)||999)-(Number(b.no)||999)).map(h=>'<div class="v350-jockey-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>1着 <strong>'+(Number(h.winJockeyEffectPpV337)>=0?'+':'')+Number(h.winJockeyEffectPpV337).toFixed(1)+'pt</strong></span><span>3着内 <strong>'+(Number(h.placeJockeyEffectPpV337)>=0?'+':'')+Number(h.placeJockeyEffectPpV337).toFixed(1)+'pt</strong></span></div>').join('');
+    const jockeyEffectCount=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).length;
     host.innerHTML=`
       <div class="v350-section">
         <div class="v350-head">
@@ -144,6 +151,10 @@
           <span class="v350-chip">3連複 <b>${d.trioN}点</b></span>
         </div>
         <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55"><div class="v350-spec"><b>AI順位</b> 能力・適性<br><b>1着率</b> AI70%＋単勝市場30%<br><b>3着内率</b> 近走・安定度・コース/距離・馬場・上がり・騎手相性の別モデル（単勝市場は取得時のみ15%補助）<br><b>過去走</b> netkeiba5走を優先、JRA4走は空欄のみ補完。欠損は該当項目から除外<br><b>騎手相性</b> 現騎手×当馬のJRA前4走コンビ成績<br><b>馬場</b> 補正ON</div></div></details>
+      </div>
+      <div class="v350-section">
+        <div class="v350-head"><div><div class="v350-title">騎手相性の実確率差</div><div class="v350-sub">騎手補正あり − なし（確率の差・ポイント）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
+        ${jockeyEffects?'<div class="v350-jockey-effects">'+jockeyEffects+'</div>':'<div class="v350-note">確率を計算すると、各馬の差がここに表示されます。</div>'}
       </div>`;
     document.documentElement.dataset.uiSummaryStable='v350';
   }
