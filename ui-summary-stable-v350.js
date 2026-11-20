@@ -131,7 +131,8 @@
       const changed=!!src&&(String(src.name||'')!==String(h.name||'')||+src.no!==+h.no||Number(src.jockeyFullHistorySamplesV1||0)!==Number(h.jockeyFullHistorySamplesV1||0));
       if(+h.no!==15&&!changed&&candidates.length<=1)return '';
       const evaluatedJockeyScore=Number.isFinite(Number(h.jockey))?Number(h.jockey).toFixed(1):'未保持';
-      return '<div class="v350-diag-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>評価側 jockey評価点 '+evaluatedJockeyScore+'点／全履歴照合 '+Number(h.jockeyFullHistorySamplesV1||0)+'件</span><span>元データ 現騎手 '+esc(src?.jockey||'未設定')+'／全履歴照合 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span><span>照合 '+match+'・候補 '+candidates.length+'件（馬番 '+noMatches.length+'／馬名 '+nameMatches.length+'）</span><span>全履歴 '+(Array.isArray(src?.jockey_history)?src.jockey_history.length:0)+'走・一致 '+Number(src?.jockeyFullHistoryMatchedV1||0)+'件・頭数確認 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span></div>';
+      const fullHistoryScore=Number.isFinite(Number(src?.jockeyFullHistoryScoreV1))?Number(src.jockeyFullHistoryScoreV1).toFixed(1):'未計算';
+      return '<div class="v350-diag-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>評価側 既存騎手指数（JRA前4走） '+evaluatedJockeyScore+'点</span><span>確率計算参照元 現騎手 '+esc(src?.jockey||'未設定')+'／全履歴点 '+fullHistoryScore+'点</span><span>照合 '+match+'・候補 '+candidates.length+'件（馬番 '+noMatches.length+'／馬名 '+nameMatches.length+'）</span><span>全履歴 '+(Array.isArray(src?.jockey_history)?src.jockey_history.length:0)+'走・一致 '+Number(src?.jockeyFullHistoryMatchedV1||0)+'件・有効 '+Number(src?.jockeyFullHistorySamplesV1||0)+'件</span></div>';
     }).filter(Boolean).join('');
     host.innerHTML=`
       <div class="v350-section">
