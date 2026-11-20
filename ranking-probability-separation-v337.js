@@ -293,7 +293,7 @@
   function placeShares(rows,includeJockey=true){
     const scores=rows.map(h=>placeProfile(h,rows,includeJockey)),max=scores.length?Math.max(...scores):0;
     const raw=scores.map(v=>Math.exp((v-max)/PLACE_T)),sum=raw.reduce((a,b)=>a+b,0)||1;
-    rows.forEach((h,i)=>h.placeModelScoreV337=tenth(scores[i]));
+    if(includeJockey)rows.forEach((h,i)=>h.placeModelScoreV337=tenth(scores[i]));
     return raw.map(v=>v/sum);
   }
 
