@@ -112,15 +112,15 @@
     const rows=activeRows(arr);
     rows.forEach(h=>{
       if(h?.rankingProbabilitySeparationV337)return;
-      const before=Number(h?.score),adj=marketAdjustment(h);
+      const before=Number(h?.score),adj=0;
       if(Number.isFinite(before)){
         h.scoreBeforeMarketV337=before;
-        h.marketScoreAdjustmentV337=adj;
+        h.marketScoreAdjustmentV337=0;
         const raceStrength=recentRaceStrength(h);
-        // 既存AI点を主軸(85%)に残し、実績レース強度を15%だけ補助する。
-        // 近走・コース等の既存項目を壊さず、重賞好走と低級条件好走を区別する。
+        // AI順位は能力・適性のみ。単勝市場補正はここでは一切加えない。
+        // 実績レース強度は既存AI点を主軸(85%)にした補助評価として維持する。
         h.raceStrengthV337=tenth(raceStrength);
-        h.score=tenth(clamp(before*.85+raceStrength*.15-adj*.16,0,100));
+        h.score=tenth(clamp(before*.85+raceStrength*.15,0,100));
         h.aiScoreV337=h.score;
       }
       h.rankingProbabilitySeparationV337=true;
