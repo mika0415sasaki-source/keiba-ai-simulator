@@ -152,10 +152,10 @@
       let paceAdj=0;
       if(pace==='ハイ')paceAdj=style==='差'||style==='追'?4:style==='逃'?-3:0;
       if(pace==='スロー')paceAdj=style==='逃'||style==='先'?3:style==='追'?-2:0;
-      const targetGoing=String(document.getElementById('going')?.value||'');
-      const history=Array.isArray(src?.history)&&src.history.length?src.history:(Array.isArray(src?.jra_history)?src.jra_history:[]);
-      const goingRuns=targetGoing?history.slice(0,5).filter(r=>String(r?.going||'')===targetGoing&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
-      const goingAdj=goingRuns.length?clamp(5-goingRuns.reduce((s,r)=>s+(+r.rank),0)/goingRuns.length,-4,4):0;
+      // 馬場適性は v341 が芝/ダート別・馬場の近さ別に評価し、
+      // scoreLocalHistory のコース/距離へ反映済み。ここで完全一致の
+      // 馬場補正を重ねると二重評価になるため、追加補正は行わない。
+      const goingAdj=0;
       let jockeyAdj=0;
       const jockey=fullHistoryJockeyScore(src);
       if(includeJockey&&Number(src?.jockeyFullHistorySamplesV1)>0)jockeyAdj=(jockey-65)*.10;
