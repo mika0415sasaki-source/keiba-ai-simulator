@@ -295,8 +295,29 @@
     }
     function historyVenueKey(value){
       const s=clean(value).replace(/競馬場|競馬/g,'');
-      const venues=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉','門別','盛岡','水沢','浦和','船橋','大井','川崎','金沢','笠松','名古屋','園田','姫路','高知','佐賀','シャティン','香港','メイダン','ドバイ','デルマー','ロンシャン','アスコット'];
+      // メイダン開催は取得元によって「ドバイ」「メイダン」と表記が分かれる。
+      // 同一開催地として正規化し、海外レースの重複履歴を防ぐ。
+      if(s.includes('メイダン')||s.includes('ドバイ'))return 'メイダン';
+      const venues=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉','門別','盛岡','水沢','浦和','船橋','大井','川崎','金沢','笠松','名古屋','園田','姫路','高知','佐賀','シャティン','香港','デルマー','ロンシャン','アスコット'];
       return venues.find(v=>s.includes(v))||s;
+    }
+    function sameHistoryRun(a,b){
+      if(!a||!b)return false;
+      const aid=String(a.race_id||'').replace(/\D/g,'');
+      const bid=String(b.race_id||'').replace(/\D/g,'');
+      const validA=/^20\d{10}$/.test(aid),validB=/^20\d{10}$/.test(bid);
+      // 両方に正式なレースIDがある場合、ID不一致の別レースは統合しない。
+      if(validA&&validB&&aid!==bid)return false;
+      const dateA=historyDateKey(a.date),dateB=historyDateKey(b.date);
+      const venueA=historyVenueKey(a.venue||a.course),venueB=historyVenueKey(b.venue||b.course);
+      if(!dateA||dateA!==dateB||!venueA||!venueB||venueA!==venueB)return false;
+      const surfaceA=clean(a.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
+      const surfaceB=clean(b.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
+      return surfaceA===surfaceB&&Number(a.distance||a.dist)===Number(b.distance||b.dist)&&Number(a.rank||a.pos)===Number(b.rank||b.pos);
+    }
+    function weakHistoryRaceName(value){
+      const s=clean(value);
+      return !s||/^(?:ドバイ|メイダン)[・ー-]?\d+$/.test(s);
     }
     function sameExcludedRun(run,excluded){
       if(!run||!excluded||!nonfinishLabel(excluded.status||excluded.result_status||excluded.rank_text))return false;
@@ -336,34 +357,24 @@
       // discard the richer data during de-duplication.
       const combined=[...normalizeHistory(rows),...normalizeHistory(h.history||[])];
       const unique=[];
-      const seen=new Set();
       combined.sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
       for(const run of combined){
-        const dateDigits=String(run.date||'').replace(/\D/g,'');
-        const dateKey=dateDigits;
-        const key=[dateKey,run.venue,run.surface,run.distance,run.rank].join('|');
-        if(seen.has(key)){
-          // A fresh history row can omit field_size while a previously verified duplicate has it.
-          // Preserve only the verified headcount; do not let a blank refresh erase it.
-          const existing=unique.find(x=>{
-            const d=String(x.date||'').replace(/\D/g,'');
-            const dk=d;
-            return [dk,x.venue,x.surface,x.distance,x.rank].join('|')===key;
-          });
-          if(existing){
-            if(!/^20\d{10}$/.test(String(existing.race_id||''))&&/^20\d{10}$/.test(String(run.race_id||'')))existing.race_id=String(run.race_id);
-            if(!(Number(existing.field_size)>=2&&Number(existing.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)existing.field_size=Number(run.field_size);
-            if((!existing.venue||/不明|不詳|未取得/.test(String(existing.venue)))&&run.venue)existing.venue=run.venue;
-            if(!existing.race_name&&run.race_name)existing.race_name=run.race_name;
-            if(!existing.grade&&run.grade)existing.grade=run.grade;
-            if(!existing.jockey&&run.jockey)existing.jockey=run.jockey;
-            if(!existing.going&&run.going)existing.going=run.going;
-            if(!Array.isArray(existing.passage)||!existing.passage.length)if(Array.isArray(run.passage)&&run.passage.length)existing.passage=run.passage;
-            if(!(Number(existing.body_weight)>=300&&Number(existing.body_weight)<=700)&&Number(run.body_weight)>=300&&Number(run.body_weight)<=700){existing.body_weight=Number(run.body_weight);if(run.body_weight_change!=null)existing.body_weight_change=run.body_weight_change;}
-          }
+        const duplicateIndex=unique.findIndex(existing=>sameHistoryRun(existing,run));
+        if(duplicateIndex>=0){
+          // 同一レースの複数取得行は、頭数・格・レース名など情報量の多い内容へ統合する。
+          const existing=unique[duplicateIndex];
+          if(!/^20\d{10}$/.test(String(existing.race_id||''))&&/^20\d{10}$/.test(String(run.race_id||'')))existing.race_id=String(run.race_id);
+          if(!(Number(existing.field_size)>=2&&Number(existing.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)existing.field_size=Number(run.field_size);
+          if((!existing.venue||/不明|不詳|未取得/.test(String(existing.venue)))&&run.venue)existing.venue=run.venue;
+          if(weakHistoryRaceName(existing.race_name)&&!weakHistoryRaceName(run.race_name))existing.race_name=run.race_name;
+          if(!existing.grade&&run.grade)existing.grade=run.grade;
+          if(!existing.jockey&&run.jockey)existing.jockey=run.jockey;
+          if(!existing.going&&run.going)existing.going=run.going;
+          if(!Array.isArray(existing.passage)||!existing.passage.length)if(Array.isArray(run.passage)&&run.passage.length)existing.passage=run.passage;
+          if(!(Number(existing.body_weight)>=300&&Number(existing.body_weight)<=700)&&Number(run.body_weight)>=300&&Number(run.body_weight)<=700){existing.body_weight=Number(run.body_weight);if(run.body_weight_change!=null)existing.body_weight_change=run.body_weight_change;}
+          if(!(Number.isFinite(Number(existing.last3f))&&Number(existing.last3f)>=20&&Number(existing.last3f)<=60)&&Number.isFinite(Number(run.last3f))&&Number(run.last3f)>=20&&Number(run.last3f)<=60)existing.last3f=Number(run.last3f);
           continue;
         }
-        seen.add(key);
         unique.push(run);
         if(unique.length>=5)break;
       }
