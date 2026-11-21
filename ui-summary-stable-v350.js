@@ -121,6 +121,12 @@
     const effectRows=Array.isArray(evaluated)?evaluated:[];
     const jockeyEffects=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).sort((a,b)=>(Number(a.no)||999)-(Number(b.no)||999)).map(h=>'<div class="v350-jockey-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>1着 <strong>'+(Number(h.winJockeyEffectPpV337)>=0?'+':'')+Number(h.winJockeyEffectPpV337).toFixed(1)+'pt</strong></span><span>3着内 <strong>'+(Number(h.placeJockeyEffectPpV337)>=0?'+':'')+Number(h.placeJockeyEffectPpV337).toFixed(1)+'pt</strong></span></div>').join('');
     const jockeyEffectCount=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).length;
+    const placeBreakdown=[12,16,15].map(no=>{
+      const h=effectRows.find(x=>+x?.no===no),b=h?.placeModelBreakdownV337;
+      if(!b)return '';
+      const axes=(b.effectiveAxes||[]).map(x=>esc(x.name)+' '+Number(x.value).toFixed(1)+'点（'+Number(x.weight).toFixed(1)+'%）').join('／');
+      return '<div class="v350-diag-row"><b>'+esc(no+' '+(h.name||''))+'</b><span>過去走 '+b.historyCount+'走・着順有効 '+b.rankCount+'走・近走 '+b.recent+'点・安定度 '+b.stable+'点</span><span>コース/距離/馬場 '+(b.course??'欠損')+' / '+(b.distance??'欠損')+' / '+(b.going??'欠損')+'点・上がり '+(b.closing??'欠損')+'点・騎手 '+(b.jockey??'欠損')+'点</span><span>同走比較 '+(b.headToHead===null?'対象なし':b.headToHead+'点')+'・複勝圏実績 '+b.inMoney+'点・着順平均評価 '+b.finishMean+'点</span><span>有効ウェイト：'+axes+'</span></div>';
+    }).filter(Boolean).join('');
     let sourcePool=[];try{sourcePool=Array.isArray(horses)?horses:[]}catch(_){}
     const jockeyDiagnostics=effectRows.filter(h=>h).map(h=>{
       const noMatches=sourcePool.filter(x=>+x?.no===+h?.no);
@@ -172,6 +178,7 @@
         <div class="v350-head"><div><div class="v350-title">騎手補正による確率変動（全体再配分を含む）</div><div class="v350-sub">騎手補正あり − なし（他馬への補正による全体の配分変化も含む）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
         ${jockeyEffects?'<div class="v350-jockey-effects">'+jockeyEffects+'</div>':'<div class="v350-note">確率を計算すると、各馬の差がここに表示されます。</div>'}
         <details><summary>騎手補正の照合診断（15番・不一致馬）</summary><div class="v350-jockey-diagnostics">${jockeyDiagnostics||'<div class="v350-note">表示対象の不一致はありません。</div>'}</div></details>
+        <details><summary>3着内率の内訳診断（12・16・15番）</summary><div class="v350-jockey-diagnostics">${placeBreakdown||'<div class="v350-note">内訳データ未取得。レースを再分析してください。</div>'}</div><div class="v350-note">表示は診断専用。確率の計算式・順位・買い目には影響しません。</div></details>
       </div>`;
     document.documentElement.dataset.uiSummaryStable='v350';
   }
