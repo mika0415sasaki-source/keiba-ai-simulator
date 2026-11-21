@@ -274,11 +274,11 @@
     const jockeyV=clamp(Number(jockey)||65,25,99);
     // 欠損軸は中立値で埋めず、取得できた軸だけで元の比率を再正規化する。
     const factors=[
-      {value:recentV,weight:.40,valid:count>0},
-      {value:stableV,weight:.35,valid:count>=2},
-      {value:balanceV,weight:.10,valid:sourceAxes.length>0},
-      {value:closingV,weight:.05,valid:closingAvailable},
-      {value:jockeyV,weight:.10,valid:includeJockey&&jockeyAvailable}
+      {name:'近走',value:recentV,weight:.40,valid:count>0},
+      {name:'安定度',value:stableV,weight:.35,valid:count>=2},
+      {name:'コース・距離・馬場',value:balanceV,weight:.10,valid:sourceAxes.length>0},
+      {name:'上がり',value:closingV,weight:.05,valid:closingAvailable},
+      {name:'騎手相性',value:jockeyV,weight:.10,valid:includeJockey&&jockeyAvailable}
     ].filter(x=>x.valid);
     const factorWeight=factors.reduce((s,x)=>s+x.weight,0);
     const direct=factorWeight
@@ -292,8 +292,7 @@
         consistency:tenth(consistency),stable:tenth(stableV),course:Number(samples.course)>0?tenth(h.placeModelCourse):null,
         distance:Number(samples.distance)>0?tenth(h.placeModelDistance):null,going:Number(samples.going)>0?tenth(h.placeModelGoing):null,
         closing:closingAvailable?tenth(closingV):null,jockey:jockeyAvailable?tenth(jockeyV):null,
-        activeAxes:factors.map(x=>({name:x===factors[0]?'': '',value:tenth(x.value),weight:x.weight})),
-        effectiveWeights:factors.map(x=>({value:tenth(x.value),weight:Math.round(x.weight/factorWeight*1000)/10}))
+        effectiveAxes:factors.map(x=>({name:x.name,value:tenth(x.value),weight:Math.round(x.weight/factorWeight*1000)/10}))
       };
     }
     const reliability=65+35*credibility;
