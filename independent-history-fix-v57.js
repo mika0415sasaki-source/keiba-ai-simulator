@@ -297,7 +297,7 @@
       const s=clean(value).replace(/競馬場|競馬/g,'');
       // メイダン開催は取得元によって「ドバイ」「メイダン」と表記が分かれる。
       // 同一開催地として正規化し、海外レースの重複履歴を防ぐ。
-      if(s.includes('メイダン')||s.includes('ドバイ'))return 'メイダン';
+      if(s.includes('メイダン')||s.includes('ドバイ')||s.includes('ア首')||/\bUAE\b/i.test(s))return 'メイダン';
       const venues=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉','門別','盛岡','水沢','浦和','船橋','大井','川崎','金沢','笠松','名古屋','園田','姫路','高知','佐賀','シャティン','香港','デルマー','ロンシャン','アスコット'];
       return venues.find(v=>s.includes(v))||s;
     }
@@ -310,10 +310,27 @@
       if(validA&&validB&&aid!==bid)return false;
       const dateA=historyDateKey(a.date),dateB=historyDateKey(b.date);
       const venueA=historyVenueKey(a.venue||a.course),venueB=historyVenueKey(b.venue||b.course);
-      if(!dateA||dateA!==dateB||!venueA||!venueB||venueA!==venueB)return false;
+      if(!dateA||!dateB||!venueA||!venueB||venueA!==venueB)return false;
       const surfaceA=clean(a.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
       const surfaceB=clean(b.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
-      return surfaceA===surfaceB&&Number(a.distance||a.dist)===Number(b.distance||b.dist)&&Number(a.rank||a.pos)===Number(b.rank||b.pos);
+      const distanceA=Number(a.distance||a.dist),distanceB=Number(b.distance||b.dist);
+      const rankA=Number(a.rank||a.pos),rankB=Number(b.rank||b.pos);
+      const sameCore=surfaceA===surfaceB&&distanceA===distanceB&&rankA===rankB;
+      if(!sameCore)return false;
+      if(dateA===dateB)return true;
+      // 海外開催は現地日付と日本時間の日付が1日ずれることがある。
+      // メイダン開催に限定し、レース名・条件・着順まで一致した場合だけ統合する。
+      if(venueA!=='メイダン')return false;
+      const dayA=Date.UTC(+dateA.slice(0,4),+dateA.slice(4,6)-1,+dateA.slice(6,8));
+      const dayB=Date.UTC(+dateB.slice(0,4),+dateB.slice(4,6)-1,+dateB.slice(6,8));
+      if(Math.abs(dayA-dayB)!==86400000)return false;
+      const nameKey=v=>clean(v).normalize('NFKC').replace(/[（(](?:JPN)?G(?:I{1,3}|[123])[）)]/gi,'').replace(/\s+/g,'');
+      const nameA=nameKey(a.race_name||a.raceName||a.title||a.race);
+      const nameB=nameKey(b.race_name||b.raceName||b.title||b.race);
+      if(!nameA||nameA!==nameB)return false;
+      const fieldA=Number(a.field_size||a.fieldSize),fieldB=Number(b.field_size||b.fieldSize);
+      if(fieldA>=2&&fieldB>=2&&fieldA!==fieldB)return false;
+      return true;
     }
     function weakHistoryRaceName(value){
       const s=clean(value);
@@ -1316,7 +1333,11 @@
           const finishText=Number.isFinite(field)&&field>=2&&Number(run.rank)>0?`${field}頭中${run.rank}着`:'頭数未取得';
           spans[2].textContent=[`${run.surface||''}${run.distance||''}`,grade||'格未取得',finishText].join(' ');
 
-          if(run.race_name)spans[1].textContent=`${run.venue||'—'}・${run.race_name}`;
+          const rawVenue=clean(run.venue||'').replace(/競馬場/g,'');
+          const shownVenue=/ドバイ|メイダン/i.test(rawVenue)?'メイダン':rawVenue;
+          const shownRaceName=clean(run.race_name||'');
+          const shownParts=[shownVenue,shownRaceName].filter(Boolean);
+          if(shownParts.length)spans[1].textContent=shownParts.join('・');
         });
         card.querySelector?.('[data-grade-summary]')?.remove();
         const grade=historyGradeFeature(runs);
