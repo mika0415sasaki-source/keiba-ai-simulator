@@ -1646,7 +1646,8 @@
             const missing=horses.length-jockeyResult.loaded;
             const failed=String(jockeyResult.reason||'');
             const network=/Load failed|Failed to fetch|NetworkError/i.test(failed);
-            jockeyStatus.textContent='騎手全履歴：'+jockeyResult.loaded+'/'+horses.length+'頭・'+jockeyResult.runs+'走'+(missing?' ／ 未取得 '+missing+'頭':'')+(network?'（通信エラー）':missing?'（一部未取得）':'')+(jockeyResult.diag||'');
+            const jockeyDiag=String(jockeyResult.diag||'').replace(/・未取得例.*?(?=・処理|・段階|$)/g,'');
+            jockeyStatus.textContent='騎手全履歴：'+jockeyResult.loaded+'/'+horses.length+'頭・'+jockeyResult.runs+'走'+(missing?' ／ 未取得 '+missing+'頭':'')+(network?'（通信エラー）':missing?'（一部未取得）':'')+jockeyDiag;
           }
           let message='netkeiba '+ok+'/'+horses.length+'頭・合計'+totalRuns+'走を取得しました。';
           if(rejected.length)message+=' 同名の別馬を除外：'+rejected.join('、')+'。';
