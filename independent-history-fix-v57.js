@@ -306,10 +306,19 @@
       const aid=String(a.race_id||'').replace(/\D/g,'');
       const bid=String(b.race_id||'').replace(/\D/g,'');
       const validA=/^20\d{10}$/.test(aid),validB=/^20\d{10}$/.test(bid);
-      // 両方に正式なレースIDがある場合、ID不一致の別レースは統合しない。
-      if(validA&&validB&&aid!==bid)return false;
       const dateA=historyDateKey(a.date),dateB=historyDateKey(b.date);
       const venueA=historyVenueKey(a.venue||a.course),venueB=historyVenueKey(b.venue||b.course);
+      // 正式IDが異なる別レースは原則統合しない。ただし、メイダンの現地日付/JST日付差で、
+      // 同一レース名かつ1日違いの場合だけID体系差を許容する。
+      if(validA&&validB&&aid!==bid){
+        const dayA=Date.UTC(+dateA.slice(0,4),+dateA.slice(4,6)-1,+dateA.slice(6,8));
+        const dayB=Date.UTC(+dateB.slice(0,4),+dateB.slice(4,6)-1,+dateB.slice(6,8));
+        const nameKey=v=>clean(v).normalize('NFKC').replace(/[（(](?:JPN)?G(?:I{1,3}|[123])[）)]/gi,'').replace(/\s+/g,'');
+        const nameA=nameKey(a.race_name||a.raceName||a.title||a.race);
+        const nameB=nameKey(b.race_name||b.raceName||b.title||b.race);
+        const crossDateMeydan=venueA==='メイダン'&&venueB==='メイダン'&&Math.abs(dayA-dayB)===86400000&&!!nameA&&nameA===nameB;
+        if(!crossDateMeydan)return false;
+      }
       if(!dateA||!dateB||!venueA||!venueB||venueA!==venueB)return false;
       const surfaceA=clean(a.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
       const surfaceB=clean(b.surface||'').replace(/芝コース/g,'芝').replace(/ダートコース/g,'ダート');
