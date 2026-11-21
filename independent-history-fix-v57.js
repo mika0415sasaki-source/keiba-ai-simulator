@@ -577,11 +577,11 @@
           };
           const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
           const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
-          const currentRaceDigits=String(currentRaceId||'').replace(/\\D/g,'');
+          const currentRaceDigits=String(currentRaceId||'').replace(/\D/g,'');
           const targetDateNumber=raceDateNumber();
-          const runDateNumber=r=>{const d=normDate(r.date);return /^20\\d{6}$/.test(d)?Number(d):0};
+          const runDateNumber=r=>{const d=normDate(r.date);return /^20\d{6}$/.test(d)?Number(d):0};
           const isTargetOrLater=r=>{
-            const rid=String(r.race_id||r.raceId||'').replace(/\\D/g,'');
+            const rid=String(r.race_id||r.raceId||'').replace(/\D/g,'');
             return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&runDateNumber(r)>=targetDateNumber);
           };
           const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
