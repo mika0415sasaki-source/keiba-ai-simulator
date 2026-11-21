@@ -1532,7 +1532,17 @@
             e.histScores=recent;
             // 3着内モデル専用の適性値。AI指数の course/distance/going は変更しない。
             try{
-              const placeFeatures=scoreBalancedHistory(source?.history?.length?source.history:(source?.jra_history||[]))||{};
+              const placeRows=source?.history?.length?source.history:(source?.jra_history||[]);
+              const baseFeatures=typeof scoreBalancedHistory==='function'
+                ?(scoreBalancedHistory(placeRows)||{})
+                :{};
+              const goingEvidence=recent?.goingProfileV341;
+              // 3着内モデルの馬場軸も、1着AI側と同じ v341 の近似馬場評価を使う。
+              // 重↔稍重など隣接状態の実績を、完全一致だけで切り捨てない。
+              const placeFeatures=goingEvidence?.active&&Number(goingEvidence.count)>0
+                ?{...baseFeatures,going:Number(goingEvidence.combined),
+                  samples:{...(baseFeatures.samples||{}),going:Number(goingEvidence.count)}}
+                :baseFeatures;
               e.placeModelCourse=Number(placeFeatures.course);
               e.placeModelDistance=Number(placeFeatures.distance);
               e.placeModelGoing=Number(placeFeatures.going);
