@@ -231,16 +231,17 @@
       const finishScore=headToHead===null?finishBase:clamp(finishBase*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
       inMoneyN+=(rank<=3?100:0)*w;inMoneyD+=w;
-      finishValues.push({value:finishScore,weight:w});
+      finishValues.push({value:finishScore,position:percentile,weight:w});
     });
     const inMoney=inMoneyD?inMoneyN/inMoneyD:65;
     let consistency=65;
     if(finishValues.length>=2){
       const wd=finishValues.reduce((s,x)=>s+x.weight,0)||1;
-      const mean=finishValues.reduce((s,x)=>s+x.value*x.weight,0)/wd;
-      const variance=finishValues.reduce((s,x)=>s+x.weight*(x.value-mean)**2,0)/wd;
-      // 着順のブレが小さい馬ほど3着内率を高くする。
-      consistency=clamp(100-Math.sqrt(variance)*2.2,35,100);
+      // 安定度は着順の良し悪し（近走評価）と分離し、頭数差を補正した着順位置の
+      // ばらつきだけを評価する。同じ好走点・対戦相手補正を安定度へ重ねない。
+      const meanPosition=finishValues.reduce((s,x)=>s+x.position*x.weight,0)/wd;
+      const variance=finishValues.reduce((s,x)=>s+x.weight*(x.position-meanPosition)**2,0)/wd;
+      consistency=clamp(100-Math.sqrt(variance)*110,35,100);
     }
     const samples=h?.placeModelSamples||{};
     const axisRows=[
