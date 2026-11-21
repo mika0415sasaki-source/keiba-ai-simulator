@@ -218,7 +218,7 @@
   function placeProfile(h,allRows,includeJockey=true){
     const src=horseSource(h),history=placeHistory(h);
     const headToHead=headToHeadScore(h,allRows);
-    let inMoneyN=0,inMoneyD=0;const finishValues=[];
+    let inMoneyN=0,inMoneyD=0,gradeN=0,gradeD=0;const finishValues=[];
     history.forEach((r,i)=>{
       const rank=+r?.rank;if(!(Number.isFinite(rank)&&rank>0))return;
       const field=Math.max(rank,Number.isFinite(+r?.field_size)&&+r.field_size>=2?+r.field_size:16,2);
@@ -228,10 +228,17 @@
       // 3着内率では「3着以内なら全部100点」とせず、
       // 1着・2着・3着を段階評価する。安定して上位に来る馬を高く評価する。
       const finishBase=clamp(100-percentile*75,25,100);
-      const finishScore=headToHead===null?finishBase:clamp(finishBase*.80+headToHead*.20,25,100);
+      // 格情報が確認できる走だけ、近走の着順評価へ25%反映する。
+      // 格が欠損している走は着順評価をそのまま使い、中立点で補完しない。
+      const gradeLabel=gradeOf(r),gradeValue=GRADE[gradeLabel];
+      const finishWithGrade=Number.isFinite(gradeValue)
+        ?clamp(finishBase*.75+gradeValue*.25,25,100)
+        :finishBase;
+      const finishScore=headToHead===null?finishWithGrade:clamp(finishWithGrade*.80+headToHead*.20,25,100);
       const w=RECENCY[i]||.4;
+      if(Number.isFinite(gradeValue)){gradeN+=gradeValue*w;gradeD+=w}
       inMoneyN+=(rank<=3?100:0)*w;inMoneyD+=w;
-      finishValues.push({value:finishScore,position:percentile,weight:w});
+      finishValues.push({value:finishScore,position:percentile,weight:w,gradeValue:Number.isFinite(gradeValue)?gradeValue:null});
     });
     const inMoney=inMoneyD?inMoneyN/inMoneyD:65;
     let consistency=65;
@@ -290,6 +297,8 @@
       h.placeModelBreakdownV337={
         historyCount:history.length,rankCount:count,headToHead:headToHead===null?null:tenth(headToHead),
         inMoney:tenth(inMoney),finishMean:tenth(finishMean),recent:tenth(recentV),
+        gradeSamples:gradeD?finishValues.filter(x=>Number.isFinite(x.gradeValue)).length:0,
+        gradeAverage:gradeD?tenth(gradeN/gradeD):null,
         consistency:tenth(consistency),stable:tenth(stableV),course:Number(samples.course)>0?tenth(h.placeModelCourse):null,
         distance:Number(samples.distance)>0?tenth(h.placeModelDistance):null,going:Number(samples.going)>0?tenth(h.placeModelGoing):null,
         closing:closingAvailable?tenth(closingV):null,jockey:jockeyAvailable?tenth(jockeyV):null,
