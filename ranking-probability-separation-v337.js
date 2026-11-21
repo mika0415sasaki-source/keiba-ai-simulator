@@ -284,6 +284,18 @@
     const direct=factorWeight
       ?factors.reduce((s,x)=>s+x.value*x.weight,0)/factorWeight
       :65;
+    // 診断専用。確率計算の式・係数には影響させない。
+    if(includeJockey){
+      h.placeModelBreakdownV337={
+        historyCount:history.length,rankCount:count,headToHead:headToHead===null?null:tenth(headToHead),
+        inMoney:tenth(inMoney),finishMean:tenth(finishMean),recent:tenth(recentV),
+        consistency:tenth(consistency),stable:tenth(stableV),course:Number(samples.course)>0?tenth(h.placeModelCourse):null,
+        distance:Number(samples.distance)>0?tenth(h.placeModelDistance):null,going:Number(samples.going)>0?tenth(h.placeModelGoing):null,
+        closing:closingAvailable?tenth(closingV):null,jockey:jockeyAvailable?tenth(jockeyV):null,
+        activeAxes:factors.map(x=>({name:x===factors[0]?'': '',value:tenth(x.value),weight:x.weight})),
+        effectiveWeights:factors.map(x=>({value:tenth(x.value),weight:Math.round(x.weight/factorWeight*1000)/10}))
+      };
+    }
     const reliability=65+35*credibility;
     return clamp(
       direct*credibility+65*(1-credibility)+(reliability-65)*.08,
