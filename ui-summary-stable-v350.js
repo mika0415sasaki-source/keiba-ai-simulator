@@ -159,7 +159,7 @@
           <span class="v350-chip">ワイド <b>${d.wideN}点</b></span>
           <span class="v350-chip">3連複 <b>${d.trioN}点</b></span>
         </div>
-        <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55"><div class="v350-spec"><b>AI順位</b> 能力・適性<br><b>1着率</b> AI70%＋単勝市場30%<br><b>3着内率</b> 近走・安定度・コース/距離・馬場・上がり・騎手相性の別モデル（単勝市場は取得時のみ15%補助）<br><b>過去走</b> netkeiba5走を優先、JRA4走は空欄のみ補完。欠損は該当項目から除外<br><b>騎手相性</b> 現騎手×当馬のJRA前4走コンビ成績<br><b>馬場</b> 補正ON</div></div></details>
+        <details${wasOpen?' open':''}><summary>計算仕様を見る</summary><div class="small" style="margin-top:7px;line-height:1.55"><div class="v350-spec"><b>AI順位</b> 能力・適性のみ<br><b>1着率</b> AI70%＋単勝市場30%（市場未取得時はAI100%）<br><b>3着内率</b> 近走40%・安定度35%・コース/距離/馬場10%・上がり5%・騎手相性10%の独立モデル（単勝市場取得時のみ15%補助）<br><b>過去走</b> netkeiba直近5走を優先、JRA4走は空欄のみ補完。欠損軸は除外して比率を再配分<br><b>騎手相性</b> 現騎手×当馬の全履歴（頭数確認済みの騎乗実績）<br><b>馬場</b> 補正ON。AI指数は馬場適性をコース・距離評価へ反映し、確率モデルは過去走の同一馬場実績を評価<br><b>レース格</b> 1着率はAI指数内の近走レース強度に反映（格不明は中立点68）。3着内率は格取得走のみ近走着順評価の25%に反映</div></div></details>
       </div>
       <div class="v350-section">
         <div class="v350-head"><div><div class="v350-title">騎手補正による確率変動（全体再配分を含む）</div><div class="v350-sub">騎手補正あり − なし（他馬への補正による全体の配分変化も含む）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
