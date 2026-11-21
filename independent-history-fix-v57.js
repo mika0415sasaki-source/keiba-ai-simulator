@@ -317,7 +317,7 @@
     }
     function weakHistoryRaceName(value){
       const s=clean(value);
-      return !s||/^\\d+$/.test(s)||/^(?:ドバイ|メイダン)[・ー-]?\\d+$/.test(s);
+      return !s||/^\d+$/.test(s)||/^(?:ドバイ|メイダン)[・ー-]?\d+$/.test(s);
     }
     function sameExcludedRun(run,excluded){
       if(!run||!excluded||!nonfinishLabel(excluded.status||excluded.result_status||excluded.rank_text))return false;
