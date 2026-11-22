@@ -32,9 +32,6 @@
       .v350-jockey-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 8px;border:1px solid rgba(63,86,130,.55);border-radius:8px;background:rgba(10,19,35,.48);font-size:11px;color:#9fb0cf}
       .v350-jockey-row b{color:#eef3ff;min-width:0;overflow-wrap:anywhere}
       .v350-jockey-row strong{color:#eef3ff;font-variant-numeric:tabular-nums}
-      .v350-jockey-diagnostics{display:grid;gap:6px;margin-top:8px}
-      .v350-diag-row{display:grid;gap:3px;padding:7px 8px;border:1px solid rgba(230,174,87,.4);border-radius:8px;background:rgba(10,19,35,.48);font-size:10px;line-height:1.45;color:#b8c5dc;overflow-wrap:anywhere}
-      .v350-diag-row b{color:#f2d29a;font-size:11px}
       #analysisSummaryV350 details{margin-top:10px;padding-top:8px;border-top:1px solid rgba(63,86,130,.45);color:#9fb0cf}
       #analysisSummaryV350 details>summary{cursor:pointer;font-size:11px;font-weight:800;color:#cfdaf0;list-style:none}
       #analysisSummaryV350 details>summary::-webkit-details-marker{display:none}
@@ -121,12 +118,6 @@
     const effectRows=Array.isArray(evaluated)?evaluated:[];
     const jockeyEffects=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).sort((a,b)=>(Number(a.no)||999)-(Number(b.no)||999)).map(h=>'<div class="v350-jockey-row"><b>'+esc(h.no)+' '+esc(h.name||'')+'</b><span>1着 <strong>'+(Number(h.winJockeyEffectPpV337)>=0?'+':'')+Number(h.winJockeyEffectPpV337).toFixed(1)+'pt</strong></span><span>3着内 <strong>'+(Number(h.placeJockeyEffectPpV337)>=0?'+':'')+Number(h.placeJockeyEffectPpV337).toFixed(1)+'pt</strong></span></div>').join('');
     const jockeyEffectCount=effectRows.filter(h=>h&&Number.isFinite(Number(h.winJockeyEffectPpV337))&&Number.isFinite(Number(h.placeJockeyEffectPpV337))).length;
-    const placeBreakdown=[12,16,15].map(no=>{
-      const h=effectRows.find(x=>+x?.no===no),b=h?.placeModelBreakdownV337;
-      if(!b)return '';
-      const axes=(b.effectiveAxes||[]).map(x=>esc(x.name)+' '+Number(x.value).toFixed(1)+'点（'+Number(x.weight).toFixed(1)+'%）').join('／');
-      return '<div class="v350-diag-row"><b>'+esc(no+' '+(h.name||''))+'</b><span>過去走 '+b.historyCount+'走・着順有効 '+b.rankCount+'走・近走 '+b.recent+'点・安定度 '+b.stable+'点</span><span>コース/距離/馬場 '+(b.course??'欠損')+' / '+(b.distance??'欠損')+' / '+(b.going??'欠損')+'点・上がり '+(b.closing??'欠損')+'点・騎手 '+(b.jockey??'欠損')+'点</span><span>同走比較 '+(b.headToHead===null?'対象なし':b.headToHead+'点')+'・複勝圏実績 '+b.inMoney+'点・着順平均評価 '+b.finishMean+'点</span><span>有効ウェイト：'+axes+'</span></div>';
-    }).filter(Boolean).join('');
     host.innerHTML=`
       <div class="v350-section">
         <div class="v350-head">
@@ -164,7 +155,6 @@
       <div class="v350-section">
         <div class="v350-head"><div><div class="v350-title">騎手補正による確率変動（全体再配分を含む）</div><div class="v350-sub">騎手補正あり − なし（他馬への補正による全体の配分変化も含む）</div></div><span class="v350-badge">${jockeyEffectCount}頭</span></div>
         ${jockeyEffects?'<div class="v350-jockey-effects">'+jockeyEffects+'</div>':'<div class="v350-note">確率を計算すると、各馬の差がここに表示されます。</div>'}
-        <details><summary>3着内率の内訳診断（12・16・15番）</summary><div class="v350-jockey-diagnostics">${placeBreakdown||'<div class="v350-note">内訳データ未取得。レースを再分析してください。</div>'}</div><div class="v350-note">表示は診断専用。確率の計算式・順位・買い目には影響しません。</div></details>
       </div>`;
     document.documentElement.dataset.uiSummaryStable='v350';
   }
