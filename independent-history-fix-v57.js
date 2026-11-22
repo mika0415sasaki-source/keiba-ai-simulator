@@ -1,7 +1,7 @@
 (()=>{
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const FALLBACK_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback';
-  const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-horse-history-independent-v4';
+  const HISTORY_V3_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v3';
   const FORECAST_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-forecast-v2';
 
   const wait=()=>{
@@ -588,86 +588,9 @@
       const exactItems=list.map(h=>({name:h.name,id:horseId(h)})).filter(x=>/^\d{10}$/.test(x.id));
       let exactResults=[];
       if(exactItems.length){
-        try{exactResults=await postHistory(HISTORY_V3_API,{items:exactItems},12000)}catch(error){console.warn('exact history',error)}
+        try{exactResults=await postHistory(HISTORY_V3_API,{race_id:currentRaceId,items:exactItems},18000)}catch(error){console.warn('exact completed history',error)}
       }
-      // Headcount-only enrichment. Keep all ranking and probability logic unchanged.
-      if(exactItems.length&&(exactResults.some(x=>Array.isArray(x.history)&&(x.history.length<5||x.history.some(r=>!(Number(r.field_size)>=2)||!String(r.going||'').trim())))||list.some(h=>Array.isArray(h.history)&&(h.history.length<5||h.history.some(r=>!(Number(r.field_size)>=2)||!String(r.going||'').trim()))))){
-        try{
-          const extra=await postHistory('https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/netkeiba-completed-history-independent-v3',{race_id:currentRaceId,items:exactItems},18000);
-          const normDate=v=>{
-            const s=String(v||'').normalize('NFKC').trim();
-            const m=s.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/);
-            if(m)return m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0');
-            const digits=s.replace(/\D/g,'');
-            return digits.slice(0,8);
-          };
-          const normVenue=v=>clean(v).replace(/競馬場|競馬/g,'').trim();
-          const normSurface=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
-          const currentRaceDigits=String(currentRaceId||'').replace(/\D/g,'');
-          const targetDateNumber=raceDateNumber();
-          const runDateNumber=r=>{const d=normDate(r.date);return /^20\d{6}$/.test(d)?Number(d):0};
-          const isTargetOrLater=r=>{
-            const rid=String(r.race_id||r.raceId||'').replace(/\D/g,'');
-            return (!!currentRaceDigits&&rid===currentRaceDigits)||(!!targetDateNumber&&runDateNumber(r)>=targetDateNumber);
-          };
-          const raceKey=r=>[normDate(r.date),normVenue(r.venue),normSurface(r.surface),Number(r.distance)||0,Number(r.rank)||0].join('|');
-          const mergePastRuns=(base,supplement)=>{
-            const merged=[],byKey=new Map();
-            for(const run of [...(base||[]),...(supplement||[])]){
-              if(!run||isTargetOrLater(run)||!normDate(run.date)||!(Number(run.distance)>0)||!(Number(run.rank)>0)||!normVenue(run.venue)||!normSurface(run.surface))continue;
-              const k=raceKey(run),prior=byKey.get(k);
-              if(prior){
-                if(!(Number(prior.field_size)>=2&&Number(prior.field_size)<=30)&&Number(run.field_size)>=2&&Number(run.field_size)<=30)prior.field_size=Number(run.field_size);
-                if(!String(prior.going||'').trim()&&String(run.going||'').trim())prior.going=run.going;
-                if(!/^20\\d{10}$/.test(String(prior.race_id||''))&&/^20\\d{10}$/.test(String(run.race_id||'')))prior.race_id=String(run.race_id);
-                for(const field of ['race_name','grade','jockey','going','last3f','body_weight'])if((prior[field]==null||prior[field]==='')&&run[field]!=null&&run[field]!=='')prior[field]=run[field];
-              }else{const copy={...run};byKey.set(k,copy);merged.push(copy)}
-            }
-            merged.sort((a,b)=>normDate(b.date).localeCompare(normDate(a.date)));
-            return merged.slice(0,5);
-          };
-          const extraById=new Map(extra.filter(x=>/^\\d{10}$/.test(String(x.id||''))).map(x=>[String(x.id),x]));
-          const extraByName=new Map(extra.map(x=>[clean(x.name),x]));
-          for(const item of exactResults){
-            const more=extraById.get(String(item.id||''))||extraByName.get(clean(item.name));
-            if(!Array.isArray(item.history))continue;
-            if(Array.isArray(more?.excluded_runs)&&more.excluded_runs.length){
-              item.excluded_runs=more.excluded_runs;
-              item.history=removeExcludedRuns(item.history,more.excluded_runs);
-            }
-            if(!Array.isArray(more?.history))continue;
-            // Rebuild five completed runs even when the primary parser returned five
-            // rows: one of those rows may be the target race itself.
-            // The supplemental endpoint may omit/normalize the horse ID differently.
-            // The primary request is already bound to an exact horse ID, and the
-            // supplemental response is matched by that horse's exact normalized name.
-            // Permit the merge on exact ID OR exact name; never merge by list position.
-            const sameHorseById=String(item.id||'')!==''&&String(item.id||'')===String(more.id||'');
-            const sameHorseByName=clean(item.name)===clean(more.name)&&
-              exactItems.some(requested=>String(requested.id)===String(item.id||'')&&clean(requested.name)===clean(item.name));
-            if(sameHorseById||sameHorseByName){
-              item.history=mergePastRuns(item.history,more.history);
-            }
-            const sameRun=(a,b)=>{
-              if(normDate(a.date)!==normDate(b.date)||normSurface(a.surface)!==normSurface(b.surface)||Number(a.distance)!==Number(b.distance)||Number(a.rank)!==Number(b.rank))return false;
-              const av=normVenue(a.venue),bv=normVenue(b.venue);
-              // Do not enrich a race unless both venue values are present and identical.
-              return !!av&&!!bv&&av===bv;
-            };
-            item.history=item.history.map(run=>{
-              const matches=more.history.filter(candidate=>sameRun(run,candidate));
-              // Only enrich when the race identity resolves to exactly one candidate.
-              if(matches.length!==1)return run;
-              const match=matches[0],n=Number(match.field_size??match.fieldSize??match.num_horses??match.horse_count);
-              const merged={...run};
-              if(!merged.race_id&&/^20\d{10}$/.test(String(match.race_id||match.raceId||'')))merged.race_id=String(match.race_id||match.raceId);
-              if(!(Number(merged.field_size)>=2&&Number(merged.field_size)<=30)&&n>=2&&n<=30)merged.field_size=n;
-              if(!String(merged.going||'').trim()&&String(match.going||'').trim())merged.going=match.going;
-              return merged;
-            });
-          }
-        }catch(error){console.warn('headcount enrichment skipped',error)}
-      }
+      // The modal-first completed-history endpoint is authoritative here; do not fetch it a second time.
       const exactNames=new Set(exactResults.filter(x=>x.available&&Array.isArray(x.history)&&x.history.length).map(x=>clean(x.name)));
       const remaining=list.filter(h=>!exactNames.has(clean(h.name)));
       if(!remaining.length)return exactResults;
