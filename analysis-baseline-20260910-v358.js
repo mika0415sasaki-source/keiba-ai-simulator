@@ -68,13 +68,12 @@
   function dateKey(v){const m=String(v||'').normalize('NFKC').replace(/[年月]/g,'-').replace(/日/g,'').match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);return m?+m[1]*10000+(+m[2])*100+(+m[3]):null}
   function earliest(rows){return rows.slice().sort((a,b)=>(dateKey(a?.date)||99999999)-(dateKey(b?.date)||99999999))[0]||null}
   function isDebut(r){return /新馬/.test([r?.grade,r?.race_grade,r?.class_name,r?.race_class,r?.class,r?.race_name,r?.raceName,r?.title,r?.race].filter(Boolean).join(' '))}
-  function isForeignRun(r){const v=String(r?.venue||'').replace(/競馬場/g,'').trim();return !!v&&!JRA_VENUES.has(v)}
   function historicalQuality(h){
     const rows=rowsOf(h),n=rows.length;if(!n)return 0;
-    let have=0,total=0;
-    for(const r of rows){const checks=[+r.rank>0,!!r.venue,!!r.surface,Number.isFinite(+r.distance)&&+r.distance>0,!!r.going,!!r.jockey];const l3=Number(r.last3f);if(Number.isFinite(l3)&&l3>=20&&l3<=60)checks.push(true);else if(!isForeignRun(r))checks.push(false);for(const ok of checks){total++;if(ok)have++}}
-    const career=n>=5||isDebut(earliest(rows)),fieldScore=Math.round(have/Math.max(1,total)*100),cap=career?100:(CONF[n]??100);
-    return Math.min(fieldScore,cap);
+    // 欠損項目は該当する評価軸だけで除外する。履歴全体の品質率で全能力軸を減点しない。
+    // ここでは履歴件数による信頼度だけを返し、5走そろっていれば100とする。
+    const career=n>=5||isDebut(earliest(rows)),cap=career?100:(CONF[n]??100);
+    return cap;
   }
   function gradeKnown(h){return rowsOf(h).some(r=>!!runGrade(r))}
   function horseSource(e){try{return (Array.isArray(horses)?horses:[]).find(h=>+h.no===+e.no||norm(h.name)===norm(e.name))||e}catch(_){return e}}
