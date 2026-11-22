@@ -10,6 +10,20 @@
   const MEMORY_API_URL='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55';
   const isNk=u=>/netkeiba\.com/i.test(String(u||''));
   const clean=v=>String(v??'').trim();
+  // 騎手名は照合専用に正規化。既知の略記だけを同一視し、部分一致は使わない。
+  const jockeyKey=v=>{
+   const n=clean(v).normalize('NFKC').replace(/[\\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
+   const aliases={'バルザロ':'バルザロー','Cデム':'Cデムーロ'};
+   return aliases[n]||n;
+  };
+  const alignJockeyHistory=(h,rows)=>{
+   const current=jockeyKey(h?.jockey);
+   if(!current||!Array.isArray(rows))return Array.isArray(rows)?rows:[];
+   return rows.map(r=>{
+    if(!r||typeof r!=='object')return r;
+    return jockeyKey(r.jockey)===current?{...r,jockey:clean(h.jockey)}:r;
+   });
+  };
   const first=(...v)=>{for(const x of v){const s=clean(x);if(s&&s!=='-'&&s!=='—')return s}return ''};
   const ridFrom=u=>(String(u||'').match(/race_id[=\/:_-]*(20\d{10})/i)||String(u||'').match(/\b(20\d{10})\b/)||[])[1]||'';
   const validPed=v=>{const s=clean(v);if(!s||s.length<2||s.length>40)return'';if(/[�□■◆◇]/.test(s)||/^TOP$/i.test(s)||/^Image$/i.test(s)||/母:父|父:|母父:|データベース/.test(s))return'';if((s.match(/[・･]/g)||[]).length>=2)return'';return s};
@@ -54,7 +68,7 @@
    const byName=new Map((result.rows||[]).map(x=>[clean(x.name||x.horse_name),x]));
    for(const h of horses){
     const row=byName.get(clean(h.name));
-    h.jockey_history=Array.isArray(row?.history)?row.history:[];
+    h.jockey_history=alignJockeyHistory(h,Array.isArray(row?.history)?row.history:[]);
     h.jockey_history_loaded=row?.available===true&&h.jockey_history.length>0;
     h.jockey_history_error=h.jockey_history_loaded?'':clean(row?.error||result.error||'全履歴を取得できませんでした');
    }
@@ -74,8 +88,8 @@
    let shown=0,matched=0,neutral=0,missing=0,cherwinia='';
    for(const h of roster){
     const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
-    const jockey=clean(h.jockey).replace(/\s+/g,'');
-    const matchedRows=jockey?history.filter(r=>String(r.jockey||'').replace(/\s+/g,'').includes(jockey)&&Number.isFinite(+r.rank)&&+r.rank>0):[];
+    const jockey=jockeyKey(h.jockey);
+    const matchedRows=jockey?history.filter(r=>jockeyKey(r.jockey)===jockey&&Number.isFinite(+r.rank)&&+r.rank>0):[];
     const samples=matchedRows.length;
     const card=cards.find(el=>(el.querySelector('.rank')?.textContent||'').includes(h.name));
     const line=card?[...card.querySelectorAll(':scope > .small')].find(el=>el.textContent.includes('騎手相性：')):null;
