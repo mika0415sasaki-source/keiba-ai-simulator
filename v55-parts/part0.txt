@@ -679,14 +679,22 @@ function sameRaceRow(a,b){
  if(da&&db&&da!==db)return false;
  const ad=+(a.distance||a.race_distance)||0, bd=+(b.distance||b.race_distance)||0;
  if(ad&&bd&&ad!==bd)return false;
- const venueOf=r=>String(r.venue||r.track||r.course_venue||"").normalize("NFKC").replace(/競馬場/g,"").trim();
+ const venueOf=r=>String(r.venue||r.track||r.course_venue||"").normalize("NFKC").replace(/競馬場/g,"").replace(/\s+/g,"").trim();
  const av=venueOf(a), bv=venueOf(b);
  if(av&&bv&&av!==bv)return false;
- const surfaceOf=r=>String(r.surface||r.track_type||r.course_type||"").normalize("NFKC").replace(/ダ/g,"ダート").trim();
+ const surfaceOf=r=>{
+  const v=String(r.surface||r.track_type||r.course_type||"").normalize("NFKC").replace(/\s+/g,"").trim();
+  if(!v)return "";
+  if(v.includes("ダ"))return "ダート";
+  if(v.includes("芝"))return "芝";
+  return v;
+ };
  const as=surfaceOf(a), bs=surfaceOf(b);
  if(as&&bs&&as!==bs)return false;
  if(aid&&bid&&aid===bid)return true;
- return !!(da&&db&&da===db);
+ if(!(da&&db&&da===db))return false;
+ // 日付だけでは別レース混入を防げないため、競馬場・距離・馬場のいずれかの一致も必須。
+ return !!((av&&bv&&av===bv)||(ad&&bd&&ad===bd)||(as&&bs&&as===bs));
 }
 function historyBeforeTargetRace(rows){
  const url=String(document.getElementById("raceUrl")?.value||"");
