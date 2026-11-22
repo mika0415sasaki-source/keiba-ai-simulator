@@ -662,17 +662,31 @@ function missingText(r){
  return m;
 }
 function normDateKey(s){
- const m=String(s||"").replace(/[./]/g,"-").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
- if(!m)return String(s||"").slice(0,10);
- return `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+ const v=String(s||"").normalize("NFKC").trim()
+  .replace(/年/g,"-").replace(/月/g,"-").replace(/日/g,"")
+  .replace(/[./]/g,"-");
+ const m=v.match(/(20\d{2})-(\d{1,2})-(\d{1,2})/);
+ if(!m)return "";
+ return m[1]+"-"+String(+m[2]).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0");
 }
 function sameRaceRow(a,b){
  if(!a||!b)return false;
- const da=normDateKey(a.date), db=normDateKey(b.date);
+ const idOf=r=>String(r.race_id||r.raceId||r.race_key||"").trim();
+ const aid=idOf(a), bid=idOf(b);
+ if(aid&&bid&&aid!==bid)return false;
+ const da=normDateKey(a.date||a.race_date||a.raceDate||a.date_text);
+ const db=normDateKey(b.date||b.race_date||b.raceDate||b.date_text);
  if(da&&db&&da!==db)return false;
- const ad=+a.distance||0, bd=+b.distance||0;
+ const ad=+(a.distance||a.race_distance)||0, bd=+(b.distance||b.race_distance)||0;
  if(ad&&bd&&ad!==bd)return false;
- return true;
+ const venueOf=r=>String(r.venue||r.track||r.course_venue||"").normalize("NFKC").replace(/競馬場/g,"").trim();
+ const av=venueOf(a), bv=venueOf(b);
+ if(av&&bv&&av!==bv)return false;
+ const surfaceOf=r=>String(r.surface||r.track_type||r.course_type||"").normalize("NFKC").replace(/ダ/g,"ダート").trim();
+ const as=surfaceOf(a), bs=surfaceOf(b);
+ if(as&&bs&&as!==bs)return false;
+ if(aid&&bid&&aid===bid)return true;
+ return !!(da&&db&&da===db);
 }
 function historyBeforeTargetRace(rows){
  const url=String(document.getElementById("raceUrl")?.value||"");
