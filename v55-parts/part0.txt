@@ -862,9 +862,11 @@ document.getElementById("importRace").onclick=async()=>{
     if(inferredDistance)[...document.getElementById("distance").options].forEach(o=>o.selected=+o.value===+inferredDistance);
     if(j.meta?.going)[...document.getElementById("going").options].forEach(o=>o.selected=o.value===j.meta.going);
     await loadMemoryForHorses();
-    renderHorses(); renderPaceReason();
-    // 出馬表取込後にnetkeiba過去5走を自動取得。ボタン操作は不要。
+    // 出馬表の初回表示前にnetkeiba過去5走を取得する。
+    // 先にrenderHorses()するとJRA前4走だけの中間状態が表示されるため、
+    // 履歴取得完了後のrenderHorses()に初回描画を一本化する。
     await loadNetkeibaHistories({silent:true});
+    renderPaceReason();
     // 出馬表取込時点で実オッズも自動取得。AI分析時には再取得して直前値へ更新する。
     try{await oddsApi({force:true})}catch(e){console.warn("odds auto",e)}
     evalAll();
