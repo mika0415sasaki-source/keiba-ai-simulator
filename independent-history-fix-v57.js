@@ -638,7 +638,14 @@
             if(!Array.isArray(more?.history))continue;
             // Rebuild five completed runs even when the primary parser returned five
             // rows: one of those rows may be the target race itself.
-            if(String(item.id||'')===String(more.id||'')){
+            // The supplemental endpoint may omit/normalize the horse ID differently.
+            // The primary request is already bound to an exact horse ID, and the
+            // supplemental response is matched by that horse's exact normalized name.
+            // Permit the merge on exact ID OR exact name; never merge by list position.
+            const sameHorseById=String(item.id||'')!==''&&String(item.id||'')===String(more.id||'');
+            const sameHorseByName=clean(item.name)===clean(more.name)&&
+              exactItems.some(requested=>String(requested.id)===String(item.id||'')&&clean(requested.name)===clean(item.name));
+            if(sameHorseById||sameHorseByName){
               item.history=mergePastRuns(item.history,more.history);
             }
             const sameRun=(a,b)=>{
