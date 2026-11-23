@@ -95,9 +95,9 @@
   function jockeyHistoryRows(h){
     const src=horseSource(h);
     const cancelled=r=>!r||/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''));
-    const netRows=(Array.isArray(src?.history)?src.history:[]).filter(r=>!cancelled(r)).slice(0,5).map(r=>({...r}));
-    const longRows=(Array.isArray(src?.jockey_history)?src.jockey_history:[]).filter(r=>!cancelled(r)).map(r=>({...r}));
-    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(r=>!cancelled(r)).slice(0,4);
+    const netRows=(Array.isArray(src?.history)?src.history:[]).filter(r=>!cancelled(r)).slice(0,5).map(r=>({...r,_jockey_sources:['netkeiba_5'],_jra_filled_fields:[]}));
+    const longRows=(Array.isArray(src?.jockey_history)?src.jockey_history:[]).filter(r=>!cancelled(r)).map(r=>({...r,_jockey_sources:['netkeiba_all'],_jra_filled_fields:[]}));
+    const jraRows=(Array.isArray(src?.jra_history)?src.jra_history:[]).filter(r=>!cancelled(r)).slice(0,4).map(r=>({...r,_jockey_sources:['jra'],_jra_filled_fields:[]}));
     const runKeys=r=>{
       const keys=[];
       const id=String(r?.race_id||r?.raceId||r?.race_key||'').replace(/\D/g,'');
@@ -118,22 +118,14 @@
     };
     const hasValue=v=>v!==undefined&&v!==null&&String(v).trim()!==''&&!(typeof v==='number'&&(!Number.isFinite(v)||v<=0));
     const fill=(target,source,canonical,aliases)=>{
-      if(hasValue(target[canonical]))return;
+      if(hasValue(target[canonical]))return false;
       const value=aliases.map(k=>source?.[k]).find(hasValue);
-      if(value!==undefined)target[canonical]=value;
+      if(value!==undefined){target[canonical]=value;return true}return false;
     };
     const mergeMissing=(target,source)=>{
-      fill(target,source,'race_id',['race_id','raceId','race_key']);
-      fill(target,source,'date',['date','race_date','raceDate']);
-      fill(target,source,'venue',['venue','course']);
-      fill(target,source,'surface',['surface']);
-      fill(target,source,'distance',['distance','dist']);
-      fill(target,source,'rank',['rank','pos']);
-      fill(target,source,'jockey',['jockey','rider']);
-      fill(target,source,'going',['going']);
-      fill(target,source,'field_size',['field_size','fieldSize','num_horses','horse_count']);
-      fill(target,source,'last3f',['last3f','last3']);
-      fill(target,source,'race_name',['race_name','raceName','title']);
+      const filled=[];
+      for(const [canonical,aliases] of [['race_id',['race_id','raceId','race_key']],['date',['date','race_date','raceDate']],['venue',['venue','course']],['surface',['surface']],['distance',['distance','dist']],['rank',['rank','pos']],['jockey',['jockey','rider']],['going',['going']],['field_size',['field_size','fieldSize','num_horses','horse_count']],['last3f',['last3f','last3']],['race_name',['race_name','raceName','title']]])if(fill(target,source,canonical,aliases))filled.push(canonical);
+      return filled;
     };
     const rows=netRows.slice();
     // 騎手相性専用のnetkeiba全履歴を追加。既存5走の値を優先し、同一レースは重複させない。
@@ -142,14 +134,14 @@
       if(!keys.length)continue;
       const match=rows.find(nr=>runKeys(nr).some(key=>keys.includes(key)));
       if(match)mergeMissing(match,lr);
-      else rows.push({...lr});
+      else rows.push({...lr,_jockey_sources:['netkeiba_all'],_jra_filled_fields:[]});
     }
     // まず同一レースのJRA情報でnetkeiba側の空欄だけを補完する。netkeiba値は上書きしない。
     for(const jr of jraRows){
       const keys=runKeys(jr);
       if(!keys.length)continue;
       const match=rows.find(nr=>runKeys(nr).some(key=>keys.includes(key)));
-      if(match)mergeMissing(match,jr);
+      if(match){const filled=mergeMissing(match,jr);if(filled.length)match._jra_filled_fields=[...new Set([...(match._jra_filled_fields||[]),...filled])]}
     }
     // netkeibaの5走に満たない場合だけ、照合可能な別レースをJRAから追加する。
     if(rows.length<5){
@@ -161,7 +153,7 @@
         const keys=runKeys(jr);
         if(!keys.length||keys.some(key=>seen.has(key)))continue;
         keys.forEach(key=>seen.add(key));
-        rows.push({...jr});
+        rows.push({...jr,_jra_added:true,_jockey_sources:['jra'],_jra_filled_fields:[]});
       }
     }
     return rows;
@@ -175,7 +167,7 @@
       const j=jockeyKey(src?.jockey||src?.rider||h?.jockey||h?.rider||'');
       const rows=j?jockeyHistoryRows(h)
         .filter(r=>jockeyKey(r?.jockey||r?.rider||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
-      try{h.jockeyComboSamples=rows.length}catch(_){}
+      try{h.jockeyComboSamples=rows.length;h.jockeyComboDiagnostics=rows.map(r=>({date:r.date||r.race_date||'',venue:r.venue||r.course||'',distance:r.distance||r.dist||'',rank:r.rank||r.pos||'',jockey:r.jockey||r.rider||'',source:r._jra_added?'JRA補完（別レース追加）':(r._jra_filled_fields?.length?'netkeiba履歴＋JRA空欄補完':(r._jockey_sources?.includes('netkeiba_all')?'netkeiba全履歴':'netkeiba過去5走')),jraFields:r._jra_filled_fields||[]}))}catch(_){}
       if(rows.length)return rows.map(r=>clamp(105-(+r.rank-1)*8,20,100)).reduce((a,b)=>a+b,0)/rows.length;
       return null;
     };
