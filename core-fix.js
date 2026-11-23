@@ -137,6 +137,9 @@
    }
   }
 
+  // 外部の履歴取得処理から診断パネルを表示できるようにする。
+  window.__renderJockeyDiagnostics=()=>{try{renderJockeyDiagnostics()}catch(e){console.warn('jockey diagnostics render',e)}};
+
   window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
 
   async function bulkFetch(url){
