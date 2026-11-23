@@ -105,8 +105,37 @@
       targetDiag.push(h.name+'照合（現騎手 '+(jockey||'未設定')+'・一致 '+samples+'件・履歴内騎手 '+(shownNames||'なし')+'）');
      }
     }
+    try{renderJockeyDiagnostics()}catch(_){}
     return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）'+(targetDiag.length?' / '+targetDiag.join(' / '):'');
    }
+
+  function renderJockeyDiagnostics(){
+   const count=document.getElementById('histCount');if(!count)return;
+   let panel=document.getElementById('jockeyDiagPanel');
+   if(!panel){
+    panel=document.createElement('details');panel.id='jockeyDiagPanel';panel.style.cssText='margin-top:10px;padding:9px 11px;border:1px solid #33445f;border-radius:8px;color:#dce7fb;font-size:12px;line-height:1.65';
+    const summary=document.createElement('summary');summary.textContent='騎手相性の照合詳細（全馬）';summary.style.cssText='cursor:pointer;font-weight:600';
+    const body=document.createElement('div');body.className='jockey-diag-body';body.style.cssText='margin-top:9px;display:grid;gap:8px';
+    panel.append(summary,body);(count.parentElement||count).after(panel);
+   }
+   const body=panel.querySelector('.jockey-diag-body');if(!body)return;body.replaceChildren();
+   for(const h of (Array.isArray(horses)?horses:[])){
+    const rows=Array.isArray(h.jockeyComboDiagnostics)?h.jockeyComboDiagnostics:[];
+    const section=document.createElement('section');section.style.cssText='padding:7px 0;border-top:1px solid #26364e';
+    const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 現騎手 '+(h.jockey||'未設定')+' ／ 計算使用 '+rows.length+'件';
+    section.appendChild(heading);
+    if(!rows.length){const empty=document.createElement('div');empty.textContent=h.jockey_history_loaded?'一致する騎乗履歴なし':'騎手相性用の全履歴未取得';section.appendChild(empty)}
+    for(const r of rows){
+     const line=document.createElement('div');line.style.cssText='padding-left:8px;color:#b9c9e3';
+     const where=[r.date,r.venue,r.distance?(r.distance+'m'):''].filter(Boolean).join(' ');
+     const finish=r.rank?(r.rank+'着'):'着順不明';
+     const fill=Array.isArray(r.jraFields)&&r.jraFields.length?' ／ JRA補完項目 '+r.jraFields.join('・'):'';
+     line.textContent=where+' ／ '+finish+' ／ '+(r.jockey||'騎手不明')+' ／ '+r.source+fill;
+     section.appendChild(line);
+    }
+    body.appendChild(section);
+   }
+  }
 
   window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
 
