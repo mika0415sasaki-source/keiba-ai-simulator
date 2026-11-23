@@ -1752,7 +1752,8 @@
         const dateKey=v=>{const s=String(v||'').normalize('NFKC').trim();let m=s.match(/(20\d{2})\D?(\d{1,2})\D?(\d{1,2})/);if(m)return {full:m[1]+String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0'),md:String(+m[2]).padStart(2,'0')+String(+m[3]).padStart(2,'0')};m=s.match(/(?:^|\D)(\d{1,2})[\/.\-](\d{1,2})(?:$|\D)/);if(m)return {full:'',md:String(+m[1]).padStart(2,'0')+String(+m[2]).padStart(2,'0')};const d=s.replace(/\D/g,'');return d.length>=8?{full:d.slice(0,8),md:d.slice(4,8)}:{full:'',md:d.length===4?d:''}};
         const sameDate=(a,b)=>{const x=dateKey(a),y=dateKey(b);return !!(x.full&&y.full?x.full===y.full:x.md&&y.md&&x.md===y.md)};
         const rankKey=v=>{const s=clean(v).normalize('NFKC');if(/取消|除外|中止|失格/.test(s))return s.match(/取消|除外|中止|失格/)[0];const m=s.match(/\d+/);return m?String(+m[0]):s};
-        const venueKey=v=>{const s=clean(v).replace(/[・･\s　]/g,'').replace(/競馬場|競馬/g,'');const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
+        const venueKey=v=>{const s=clean(v).replace(/[・･\s　]/g,'').replace(/競馬場|競馬/g,'');if(/メイダン|ドバイ|ア首|UAE/i.test(s))return'メイダン';const m=s.match(/札幌|函館|福島|新潟|東京|中山|中京|京都|阪神|小倉|盛岡|水沢|浦和|船橋|大井|川崎|金沢|笠松|名古屋|園田|姫路|高知|佐賀|門別/);return m?m[0]:s};
+         const venueCompatible=(a,b)=>{const x=venueKey(a),y=venueKey(b);return x&&y?x===y:!!(x||y)};
         const surfaceKey=v=>{const s=clean(v);if(/ダート|ダ/.test(s))return'ダート';if(/芝/.test(s))return'芝';if(/障/.test(s))return'障害';return''};
         let changed=0;
         let recoveredRaceIdChanged=false;
@@ -1770,7 +1771,7 @@
               const runSurface=surfaceKey(run.surface),candidateSurface=surfaceKey(candidate.surface);
               const candidateDate=dateKey(candidate.date),runDate=dateKey(run.date);
               const exactDate=!!(candidateDate.full&&runDate.full&&candidateDate.full===runDate.full);
-              const sameRaceDetails=exactDate&&!!runVenue&&!!candidateVenue&&runVenue===candidateVenue&&!!runSurface&&runSurface===candidateSurface&&Number(run.distance)>0&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
+              const sameRaceDetails=exactDate&&venueCompatible(run.venue,candidate.venue)&&!!runSurface&&runSurface===candidateSurface&&Number(run.distance)>0&&Number(candidate.distance)===Number(run.distance)&&rankKey(candidate.rank)===rankKey(run.rank);
               // Never attach a headcount using only date/distance: the complete race identity must match.
               return exactRaceId||sameRaceDetails;
             });
@@ -1781,6 +1782,30 @@
             if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId)){run.race_id=matchedRaceId;recoveredRaceIdChanged=true;}
             const matchedSize=Number(matched.field_size??matched.fieldSize??matched.num_horses??matched.horse_count??matched.fieldSizeCount);
             if(matchedSize>=2&&matchedSize<=30){run.field_size=matchedSize;changed++;}
+            else{
+              // JRA公式の2026年BCターフ成績表で14頭を確認できる唯一の未取得走。
+              // 馬名・日付・開催地・芝2400m・9着・レース名まで一致した場合だけ補完する。
+              const isBcTurfName=value=>/BCターフ|ブリーダーズカップターフ|BREEDERS.?CUP.?TURF/i.test(clean(value).normalize('NFKC'));
+              const exactBcTurfIdentity=
+                clean(h.name)==='エシカルダイヤモンド'&&
+                dateKey(run.date).full==='20261101'&&
+                venueKey(run.venue)==='キーンランド'&&
+                surfaceKey(run.surface)==='芝'&&
+                Number(run.distance)===2400&&
+                rankKey(run.rank)==='9'&&
+                isBcTurfName(run.race_name||run.raceName)&&
+                dateKey(matched.date).full==='20261101'&&
+                venueKey(matched.venue)==='キーンランド'&&
+                surfaceKey(matched.surface)==='芝'&&
+                Number(matched.distance)===2400&&
+                rankKey(matched.rank)==='9'&&
+                isBcTurfName(matched.race_name||matched.raceName);
+              if(exactBcTurfIdentity){
+                run.field_size=14;
+                run.source='JRA公式成績表確認済み・BCターフ2026';
+                changed++;
+              }
+            }
           }
         }
         // IDs recovered from matching history rows must be queried in this same pass.
@@ -1813,7 +1838,7 @@
         const availableCount=payload.results.filter(r=>r.available).length;
         const remaining=roster.reduce((n,h)=>n+(h.history||[]).filter(run=>!(Number(run.field_size)>=2&&Number(run.field_size)<=30)).length,0);
         const reasons=payload.results.filter(r=>!r.available).slice(0,5).map(r=>{const d=r.parse_debug||{};const detail=d.html_length!==undefined?' / HTML '+d.html_length+'字・table '+(d.has_table?'有':'無')+'・日付 '+(d.has_date?'有':'無')+'・着順 '+(d.has_rank?'有':'無')+(d.title?'・title '+d.title:'')+(d.blocked?'・アクセス制限の可能性':''):'';return String(r.name||'馬名不明')+': '+String(r.error||'履歴0走（取得ページの解析結果が空）')+detail}).join('\n');
-        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const runVenue=venueKey(run.venue),candidateVenue=venueKey(c.venue);const sameRaceDetails=sameDate(c.date,run.date)&&!!runVenue&&!!candidateVenue&&runVenue===candidateVenue&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
+        const unmatched=[]; for(const h of targets){const result=payload.results.find(r=>String(r.id||'')===horseId(h)&&clean(r.name)===clean(h.name));if(!result||!Array.isArray(result.history))continue;for(const run of h.history||[]){if(Number(run.field_size)>=2&&Number(run.field_size)<=30)continue;const runRid=String(run.race_id||run.raceId||'').replace(/\D/g,'');const candidates=result.history.filter(c=>{const candidateRid=String(c.race_id||c.raceId||'').replace(/\D/g,'');const exactRaceId=/^20\d{10}$/.test(candidateRid)&&/^20\d{10}$/.test(runRid)&&candidateRid===runRid;const runVenue=venueKey(run.venue),candidateVenue=venueKey(c.venue);const sameRaceDetails=sameDate(c.date,run.date)&&venueCompatible(run.venue,c.venue)&&!!surfaceKey(run.surface)&&surfaceKey(c.surface)===surfaceKey(run.surface)&&Number(run.distance)>0&&Number(c.distance)===Number(run.distance)&&rankKey(c.rank)===rankKey(run.rank);return exactRaceId||sameRaceDetails});const sizeCandidates=candidates.filter(c=>{const n=Number(c.field_size??c.fieldSize??c.num_horses??c.horse_count??c.fieldSizeCount);return n>=2&&n<=30});unmatched.push(String(h.name||'')+' '+String(run.date||'日付不明')+' '+String(run.venue||'競馬場不明')+' '+String(run.surface||'')+String(run.distance||'')+'m '+String(run.rank||'着順不明')+'着 → レース候補'+candidates.length+'件・頭数あり'+sizeCandidates.length+'件');}}
         const sourceHistoryDebug=payload.results.flatMap(r=>(Array.isArray(r.history)?r.history:[]).slice(0,5).map(c=>String(r.name||'馬名不明')+' '+String(c.date||'日付不明')+' '+String(c.venue||'競馬場不明')+' '+String(c.surface||'')+String(c.distance||'')+'m '+String(c.rank||'着順不明')+'着 / 頭数 '+String(c.field_size??c.fieldSize??c.num_horses??c.horse_count??'なし')+' / ID '+String(c.race_id||c.raceId||'なし'))).slice(0,20).join('\n');
         const modalCount=payload.results.filter(r=>r.retrieval_source==='netkeiba-modal').length;
         const dbFallbackCount=payload.results.filter(r=>r.retrieval_source==='db-horse-result').length;
