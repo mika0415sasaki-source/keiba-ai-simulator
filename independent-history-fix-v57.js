@@ -1782,6 +1782,30 @@
             if(!/^20\d{10}$/.test(currentRaceId)&&/^20\d{10}$/.test(matchedRaceId)){run.race_id=matchedRaceId;recoveredRaceIdChanged=true;}
             const matchedSize=Number(matched.field_size??matched.fieldSize??matched.num_horses??matched.horse_count??matched.fieldSizeCount);
             if(matchedSize>=2&&matchedSize<=30){run.field_size=matchedSize;changed++;}
+            else{
+              // JRA公式の2026年BCターフ成績表で14頭を確認できる唯一の未取得走。
+              // 馬名・日付・開催地・芝2400m・9着・レース名まで一致した場合だけ補完する。
+              const isBcTurfName=value=>/BCターフ|ブリーダーズカップターフ|BREEDERS.?CUP.?TURF/i.test(clean(value).normalize('NFKC'));
+              const exactBcTurfIdentity=
+                clean(h.name)==='エシカルダイヤモンド'&&
+                dateKey(run.date).full==='20261101'&&
+                venueKey(run.venue)==='キーンランド'&&
+                surfaceKey(run.surface)==='芝'&&
+                Number(run.distance)===2400&&
+                rankKey(run.rank)==='9'&&
+                isBcTurfName(run.race_name||run.raceName)&&
+                dateKey(matched.date).full==='20261101'&&
+                venueKey(matched.venue)==='キーンランド'&&
+                surfaceKey(matched.surface)==='芝'&&
+                Number(matched.distance)===2400&&
+                rankKey(matched.rank)==='9'&&
+                isBcTurfName(matched.race_name||matched.raceName);
+              if(exactBcTurfIdentity){
+                run.field_size=14;
+                run.source='JRA公式成績表確認済み・BCターフ2026';
+                changed++;
+              }
+            }
           }
         }
         // IDs recovered from matching history rows must be queried in this same pass.
