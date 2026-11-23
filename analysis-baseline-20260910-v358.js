@@ -6,7 +6,7 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
   // netkeibaの短縮表記「マーカン」と正式表記「T.マーカンド」を同一騎手として照合する。
-  const jockeyKey=v=>{const s=norm(v).replace(/[.．・]/g,'');return s==='マーカン'||s==='Tマーカン'||s==='Tマーカンド'?'Tマーカンド':s};
+  const jockeyKey=v=>{const s=norm(v).replace(/[.．・]/g,'');if(s==='ビュイッ'||s==='Wビュイッ'||s==='Wビュイック'||s==='ウィリアムビュイック')return'ビュイック';return s==='マーカン'||s==='Tマーカン'||s==='Tマーカンド'?'Tマーカンド':s};
   const REC=[1,.82,.68,.56,.46];
   const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
   const JRA_VENUES=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
