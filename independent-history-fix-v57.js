@@ -1621,6 +1621,7 @@
           // 騎手履歴は出走馬データへ後から追加されるため、取得完了後にカードを再描画する。
           // evalAllや確率計算は呼ばず、表示だけを更新する。
           try{renderHorses()}catch(error){console.warn('jockey history card refresh',error)}
+          try{window.__renderJockeyDiagnostics?.()}catch(error){console.warn('jockey diagnostics refresh',error)}
           let jockeyStatus=document.getElementById('jockeyHistCount');
           if(!jockeyStatus&&count){jockeyStatus=document.createElement('div');jockeyStatus.id='jockeyHistCount';jockeyStatus.style.cssText='margin-top:7px;padding:8px 10px;border:1px solid #33415f;border-radius:9px;font-size:12px;line-height:1.45;color:#b8c4dc;background:rgba(8,15,30,.32)';count.insertAdjacentElement('afterend',jockeyStatus)}
           if(jockeyStatus){
