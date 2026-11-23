@@ -12,8 +12,8 @@
   const clean=v=>String(v??'').trim();
   // 騎手名は照合専用に正規化。既知の略記だけを同一視し、部分一致は使わない。
   const jockeyKey=v=>{
-   const n=clean(v).normalize('NFKC').replace(/[\\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
-   const aliases={'バルザロ':'バルザロー','Cデム':'Cデムーロ','Mデム':'Mデムーロ','鮫島駿':'鮫島克駿'};
+   const n=clean(v).normalize('NFKC').replace(/[\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
+   const aliases={'バルザロ':'バルザロー','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','鮫島駿':'鮫島克駿'};
    return aliases[n]||n;
   };
   const alignJockeyHistory=(h,rows)=>{
@@ -78,32 +78,35 @@
    const reason=missing.length?' / 未取得 '+missing.length+'頭（'+missing.slice(0,4).map(h=>h.name+': '+h.jockey_history_error).join('、')+(missing.length>4?'、ほか'+(missing.length-4)+'頭':'')+'）':'';
    const d=result.diagnostics||{};const stages=d.stage_counts&&typeof d.stage_counts==='object'?Object.entries(d.stage_counts).map(([k,v])=>k+':'+v+'頭').join(' / '):'未返却';const cvDiag=Array.isArray(d.cherwinia_markand_rows)?'・チェルヴィニアのマーカン履歴 '+d.cherwinia_markand_rows.map(x=>x.date+':'+x.rank+'着/'+(x.field_size??'頭数—')+'頭').join('、'):'';
    const fsSamples=Array.isArray(d.field_size_missing_samples)?'・未取得例 '+d.field_size_missing_samples.slice(0,8).map(x=>x.horse+'['+x.examples.slice(0,1).map(r=>r.date+' '+JSON.stringify(r.debug?.rawCells||[])).join('')+']').join(' / '):'';
-   const diag=' / 馬ID確認 '+(d.id_found??'?')+'/'+names.length+'頭・出走表抽出ID '+(d.race_id_matches??'?')+'件・頭数取得 '+(d.field_size_runs??'?')+'/'+((d.field_size_runs??0)+(d.field_size_missing_runs??0))+'走・未取得馬 '+(d.field_size_missing_horses??'?')+'頭'+fsSamples+cvDiag+'・処理 '+(d.request_ms??'?')+'ms・段階 '+stages;
+   const diag=' / 対象日 '+(result.cutoff??'未判定')+' / 馬ID確認 '+(d.id_found??'?')+'/'+names.length+'頭・出走表抽出ID '+(d.race_id_matches??'?')+'件・頭数取得 '+(d.field_size_runs??'?')+'/'+((d.field_size_runs??0)+(d.field_size_missing_runs??0))+'走・未取得馬 '+(d.field_size_missing_horses??'?')+'頭'+fsSamples+cvDiag+'・処理 '+(d.request_ms??'?')+'ms・段階 '+stages;
    return {loaded,runs,reason,diag};
   }
 
   function jockeyCardDisplaySummary(){
-   const roster=Array.isArray(horses)?horses:[];
-   const cards=[...document.querySelectorAll('#horses .card')];
-   let shown=0,matched=0,neutral=0,missing=0,cherwinia='';
-   for(const h of roster){
-    const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
-    const jockey=jockeyKey(h.jockey);
-    const matchedRows=jockey?history.filter(r=>jockeyKey(r.jockey)===jockey&&Number.isFinite(+r.rank)&&+r.rank>0):[];
-    const samples=matchedRows.length;
-    const card=cards.find(el=>(el.querySelector('.rank')?.textContent||'').includes(h.name));
-    const line=card?[...card.querySelectorAll(':scope > .small')].find(el=>el.textContent.includes('騎手相性：')):null;
-    if(line)shown++;
-    if(samples>0)matched++;
-    else if(history.length)neutral++;
-    else missing++;
-    if(h.name==='チェルヴィニア'){
-     const names=[...new Set(history.map(r=>clean(r.jockey)).filter(Boolean))];
-     cherwinia=' / チェルヴィニア照合診断（現騎手 '+(jockey||'未設定')+'・履歴 '+history.length+'走・一致 '+samples+'件・履歴内騎手名 '+(names.join('、')||'なし')+'）';
+    const roster=Array.isArray(horses)?horses:[];
+    const cards=[...document.querySelectorAll('#horses .card')];
+    let shown=0,matched=0,neutral=0,missing=0;
+    const targetDiag=[];
+    const debugTargets=new Set(['チェルヴィニア','クロワデュノール','タガノデュード']);
+    for(const h of roster){
+     const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
+     const jockey=jockeyKey(h.jockey);
+     const matchedRows=jockey?history.filter(r=>jockeyKey(r.jockey)===jockey&&Number.isFinite(+r.rank)&&+r.rank>0):[];
+     const samples=matchedRows.length;
+     const card=cards.find(el=>(el.querySelector('.rank')?.textContent||'').includes(h.name));
+     const line=card?[...card.querySelectorAll(':scope > .small')].find(el=>el.textContent.includes('騎手相性：')):null;
+     if(line)shown++;
+     if(samples>0)matched++;
+     else if(history.length)neutral++;
+     else missing++;
+     if(debugTargets.has(h.name)){
+      const names=[...new Set(history.map(r=>clean(r.jockey)).filter(Boolean))];
+      const shownNames=names.slice(0,8).join('、')+(names.length>8?'、ほか'+(names.length-8)+'名':'');
+      targetDiag.push(h.name+'照合（現騎手 '+(jockey||'未設定')+'・一致 '+samples+'件・履歴内騎手 '+(shownNames||'なし')+'）');
+     }
     }
+    return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）'+(targetDiag.length?' / '+targetDiag.join(' / '):'');
    }
-   return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）'+cherwinia;
-  }
 
   window.__fetchJockeyHistoryForCurrentRace=fetchJockeyHistory;
 
