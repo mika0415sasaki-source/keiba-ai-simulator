@@ -13,7 +13,7 @@
   // 騎手名は照合専用に正規化。既知の略記だけを同一視し、部分一致は使わない。
   const jockeyKey=v=>{
    const n=clean(v).normalize('NFKC').replace(/[\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
-   const aliases={'バルザロ':'バルザロー','Cデム':'Cデムーロ','Mデム':'Mデムーロ','鮫島駿':'鮫島克駿'};
+   const aliases={'バルザロ':'バルザロー','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','鮫島駿':'鮫島克駿'};
    return aliases[n]||n;
   };
   const alignJockeyHistory=(h,rows)=>{
