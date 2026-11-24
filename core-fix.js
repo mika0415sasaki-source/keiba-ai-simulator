@@ -180,6 +180,14 @@
    renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){};fixCards();saveLater(horses);
    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
    const jockey=await fetchJockeyHistory();
+   // 全履歴取得後、確率・分析更新より先に全履歴騎手相性モデルを各馬へ明示適用する。
+   // 出馬表取込直後（全履歴取得前）に作られた古い騎手相性診断値を残さない。
+   try{
+    const combo=window.jockeyComboScore;
+    if(typeof combo==='function'&&combo.__baseline20260910V358===true){
+     for(const h of horses||[])combo(h);
+    }
+   }catch(e){console.warn('jockey full-history refresh',e)}
    try{window.__refreshRankingProbabilityV337?.()}catch(e){console.warn('jockey probability refresh',e)}
    try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn('jockey analysis refresh',e)}
    try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn('jockey card rerender',e)}
