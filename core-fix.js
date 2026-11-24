@@ -124,7 +124,7 @@
     const section=document.createElement('section');section.style.cssText='padding:7px 0;border-top:1px solid #26364e';
     const allRows=Array.isArray(h.jockey_history)?h.jockey_history:[];const firstDate=allRows[0]?.date||allRows[0]?.race_date||'';const lastDate=allRows[allRows.length-1]?.date||allRows[allRows.length-1]?.race_date||'';
     const nameCounts=new Map();let withJockey=0;for(const rr of allRows){const raw=String(rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'').trim();if(raw){withJockey++;nameCounts.set(raw,(nameCounts.get(raw)||0)+1)}}const currentKey=jockeyKey(h.jockey);const matchedRows=allRows.filter(rr=>currentKey&&jockeyKey(rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'')===currentKey);const matched=matchedRows.length;const validRank=matchedRows.filter(rr=>Number.isFinite(+rr?.rank)&&+rr.rank>0).length;const rankSamples=matchedRows.slice(0,8).map(rr=>String(rr?.rank??'空')+'['+typeof rr?.rank+']').join('、')||'なし';const rawNames=[...nameCounts.entries()].sort((x,y)=>y[1]-x[1]).slice(0,12).map(([name,count])=>name+'×'+count).join('・')||'（騎手名なし）';
-    const probe=(window.__jockeySourceProbe||{})[String(h.name||'').normalize('NFKC').replace(/[\\s　]+/g,'').trim()]||{};const sourceProbe=' ／ 計算参照履歴 '+(probe.sourceHistory??'未計測')+'走（診断側 '+(probe.passedHistory??'未計測')+'走・同一オブジェクト '+(probe.sameObject===true?'はい':probe.sameObject===false?'いいえ':'未計測')+'）';const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 全履歴取得 '+allRows.length+'走'+(firstDate?'（'+firstDate+(lastDate&&lastDate!==firstDate?'〜'+lastDate:'')+'）':'')+' ／ 現騎手 '+(h.jockey||'未設定')+'：全履歴一致 '+matched+'件（着順有効 '+validRank+'件）／ 騎手名あり '+withJockey+'件 ／ 計算使用 '+rows.length+'件'+sourceProbe;
+    const probe=(window.__jockeySourceProbe||{})[String(h.name||'').normalize('NFKC').replace(/[\\s　]+/g,'').trim()]||{};const sourceProbe=' ／ 旧騎手軸参照履歴 '+(probe.sourceHistory??'未計測')+'走（診断側 '+(probe.passedHistory??'未計測')+'走・同一オブジェクト '+(probe.sameObject===true?'はい':probe.sameObject===false?'いいえ':'未計測')+'）';const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 全履歴取得 '+allRows.length+'走'+(firstDate?'（'+firstDate+(lastDate&&lastDate!==firstDate?'〜'+lastDate:'')+'）':'')+' ／ 現騎手 '+(h.jockey||'未設定')+'：全履歴一致 '+matched+'件（着順有効 '+validRank+'件）／ 騎手名あり '+withJockey+'件 ／ 旧騎手軸使用 '+rows.length+'件 ／ 全履歴モデル照合 '+(h.jockeyFullHistoryMatchedV1??'未計測')+'件・頭数有効 '+(h.jockeyFullHistorySamplesV1??'未計測')+'件・点数 '+(Number.isFinite(+h.jockeyFullHistoryScoreV1)?Number(h.jockeyFullHistoryScoreV1).toFixed(1):'未計測')+sourceProbe;
     const namesLine=document.createElement('div');namesLine.style.cssText='color:#8fa6c7;font-size:11px';namesLine.textContent='全履歴内の騎手名：'+rawNames+' ／ 現騎手の着順値：'+rankSamples+' ／ データ項目：'+(allRows[0]?Object.keys(allRows[0]).join(', '):'なし');section.appendChild(heading);section.appendChild(namesLine);
     if(!rows.length){const empty=document.createElement('div');empty.textContent=h.jockey_history_loaded?'一致する騎乗履歴なし':'騎手相性用の全履歴未取得';section.appendChild(empty)}
     for(const r of rows){
@@ -180,6 +180,12 @@
    renderHorses();try{evalAll()}catch(_){};try{if(typeof renderPaceReason==='function')renderPaceReason()}catch(_){};fixCards();saveLater(horses);
    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0),jraN=horses.filter(h=>(h.jra_history||[]).length).length;
    const jockey=await fetchJockeyHistory();
+   // 確率モデルが実際に参照する全履歴騎手相性関数を、取得完了後の各馬データへ直接適用する。
+   // 旧jockeyComboScoreとは別系統のため、実モデル側の診断値もここで確定させる。
+   try{
+    const fullCombo=window.jockeyFullHistoryComboScore;
+    if(typeof fullCombo==='function')for(const h of horses||[])fullCombo(h);
+   }catch(e){console.warn('jockey full-history model refresh',e)}
    // 全履歴取得後、確率・分析更新より先に全履歴騎手相性モデルを各馬へ明示適用する。
    // 出馬表取込直後（全履歴取得前）に作られた古い騎手相性診断値を残さない。
    try{
