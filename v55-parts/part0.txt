@@ -791,7 +791,15 @@ function jockeyFullHistoryComboScore(h){
  });
  h.jockeyFullHistoryMatchedV1=matched.length;
  h.jockeyFullHistorySamplesV1=rows.length;
- if(!rows.length){h.jockeyFullHistoryScoreV1=65;return 65;}
+ if(!rows.length){
+  h.jockeyFullHistoryScoreV1=65;
+  h.jockeyFullHistoryRawScoreV1=null;
+  h.jockeyFullHistoryExpectedPodiumRateV1=null;
+  h.jockeyFullHistoryRelativeFinishV1=null;
+  h.jockeyFullHistoryPodiumRateV1=null;
+  h.jockeyFullHistoryConsistencyPenaltyV1=null;
+  return 65;
+ }
  const results=rows.map(r=>{
   const rank=Number(r.rank),field=Number(r.field_size);
   return {relative:(field-rank)/(field-1)*100,podium:rank<=3?1:0,expectedPodium:Math.min(3,field)/field};
@@ -801,10 +809,13 @@ function jockeyFullHistoryComboScore(h){
  const expectedPodium=results.reduce((s,x)=>s+x.expectedPodium,0)/results.length;
  const variance=results.length>1?results.reduce((s,x)=>s+(x.relative-mean)**2,0)/results.length:0;
  const consistencyPenalty=Math.min(8,Math.sqrt(variance)*.08);
- const score=cl(65+(mean-50)*.70+(podiumRate-expectedPodium)*20-consistencyPenalty,20,100);
+ const rawScore=65+(mean-50)*.70+(podiumRate-expectedPodium)*20-consistencyPenalty;
+ const score=cl(rawScore,20,100);
+ h.jockeyFullHistoryRawScoreV1=Number(rawScore.toFixed(1));
  h.jockeyFullHistoryScoreV1=score;
  h.jockeyFullHistoryRelativeFinishV1=Number(mean.toFixed(1));
  h.jockeyFullHistoryPodiumRateV1=Number((podiumRate*100).toFixed(1));
+ h.jockeyFullHistoryExpectedPodiumRateV1=Number((expectedPodium*100).toFixed(1));
  h.jockeyFullHistoryConsistencyPenaltyV1=Number(consistencyPenalty.toFixed(1));
  return score;
 }
