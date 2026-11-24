@@ -108,11 +108,15 @@
       const distance=Number(r?.distance??r?.dist);
       const rank=Number(r?.rank??r?.pos);
       const raceName=norm(r?.race_name||r?.raceName||r?.title||'');
-      if(date&&venue&&Number.isFinite(distance)&&distance>0){
-        // 同一馬の履歴では同日に複数レースへ出走しないため、基本キーでJRAの空欄補完を可能にする。
-        keys.push(['course',date,venue,surface,distance].join('|'));
-        if(raceName)keys.push(['detail',date,venue,surface,distance,raceName].join('|'));
-        if(Number.isFinite(rank)&&rank>0)keys.push(['finish',date,venue,surface,distance,rank].join('|'));
+      if(date){
+        // 同一馬は同日に複数レースへ出走しないため、日付キーを全履歴共通の照合軸にする。
+        // 海外競馬場名が未登録でvenueが空でも、全履歴から漏らさず追加できる。
+        keys.push('date|'+date);
+        if(venue&&Number.isFinite(distance)&&distance>0){
+          keys.push(['course',date,venue,surface,distance].join('|'));
+          if(raceName)keys.push(['detail',date,venue,surface,distance,raceName].join('|'));
+          if(Number.isFinite(rank)&&rank>0)keys.push(['finish',date,venue,surface,distance,rank].join('|'));
+        }
       }
       return keys;
     };
@@ -133,8 +137,10 @@
       const keys=runKeys(lr);
       if(!keys.length)continue;
       const match=rows.find(nr=>runKeys(nr).some(key=>keys.includes(key)));
-      if(match)mergeMissing(match,lr);
-      else rows.push({...lr,_jockey_sources:['netkeiba_all'],_jra_filled_fields:[]});
+      if(match){
+        mergeMissing(match,lr);
+        match._jockey_sources=[...new Set([...(match._jockey_sources||[]),'netkeiba_all'])];
+      }else rows.push({...lr,_jockey_sources:['netkeiba_all'],_jra_filled_fields:[]});
     }
     // まず同一レースのJRA情報でnetkeiba側の空欄だけを補完する。netkeiba値は上書きしない。
     for(const jr of jraRows){
