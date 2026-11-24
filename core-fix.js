@@ -122,7 +122,8 @@
    for(const h of (Array.isArray(horses)?horses:[])){
     const rows=Array.isArray(h.jockeyComboDiagnostics)?h.jockeyComboDiagnostics:[];
     const section=document.createElement('section');section.style.cssText='padding:7px 0;border-top:1px solid #26364e';
-    const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 現騎手 '+(h.jockey||'未設定')+' ／ 計算使用 '+rows.length+'件';
+    const allRows=Array.isArray(h.jockey_history)?h.jockey_history:[];const firstDate=allRows[0]?.date||allRows[0]?.race_date||'';const lastDate=allRows[allRows.length-1]?.date||allRows[allRows.length-1]?.race_date||'';
+    const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 全履歴取得 '+allRows.length+'走'+(firstDate?'（'+firstDate+(lastDate&&lastDate!==firstDate?'〜'+lastDate:'')+'）':'')+' ／ 計算使用 '+rows.length+'件';
     section.appendChild(heading);
     if(!rows.length){const empty=document.createElement('div');empty.textContent=h.jockey_history_loaded?'一致する騎乗履歴なし':'騎手相性用の全履歴未取得';section.appendChild(empty)}
     for(const r of rows){
