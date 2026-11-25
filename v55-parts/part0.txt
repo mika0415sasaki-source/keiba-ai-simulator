@@ -532,10 +532,10 @@ async function savePredictionSnapshot(mode="AI分析"){
     jockey_history_count:history.length,
     jockey_history_valid_headcount_count:history.filter(r=>r.field_size!==null).length,
     jockey_history:history,
-    jockey_full_history_score:Number.isFinite(+h.jockeyFullHistoryScoreV1)?+h.jockeyFullHistoryScoreV1:null,
-    jockey_full_history_samples:Number.isFinite(+h.jockeyFullHistorySamplesV1)?+h.jockeyFullHistorySamplesV1:null,
-    jockey_full_history_matched:Number.isFinite(+h.jockeyFullHistoryMatchedV1)?+h.jockeyFullHistoryMatchedV1:null,
-    jockey_full_history_raw_score:Number.isFinite(+h.jockeyFullHistoryRawScoreV1)?+h.jockeyFullHistoryRawScoreV1:null
+    jockey_full_history_score:h.jockeyFullHistoryScoreV1==null?null:(Number.isFinite(Number(h.jockeyFullHistoryScoreV1))?Number(h.jockeyFullHistoryScoreV1):null),
+    jockey_full_history_samples:h.jockeyFullHistorySamplesV1==null?null:(Number.isFinite(Number(h.jockeyFullHistorySamplesV1))?Number(h.jockeyFullHistorySamplesV1):null),
+    jockey_full_history_matched:h.jockeyFullHistoryMatchedV1==null?null:(Number.isFinite(Number(h.jockeyFullHistoryMatchedV1))?Number(h.jockeyFullHistoryMatchedV1):null),
+    jockey_full_history_raw_score:h.jockeyFullHistoryRawScoreV1==null?null:(Number.isFinite(Number(h.jockeyFullHistoryRawScoreV1))?Number(h.jockeyFullHistoryRawScoreV1):null)
    };
   })
  };
