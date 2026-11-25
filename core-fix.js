@@ -159,7 +159,7 @@
   function trackJockeyHistoryFetch(promise){
    window.__jockeyHistoryCaptureStatus='loading';
    const tracked=Promise.resolve(promise).then(value=>{
-    window.__jockeyHistoryCaptureStatus='complete';
+    window.__jockeyHistoryCaptureStatus=Array.isArray(horses)&&horses.length&&horses.every(h=>h.jockey_history_loaded===true)?'complete':'partial';
     return value;
    },error=>{
     window.__jockeyHistoryCaptureStatus='error';
