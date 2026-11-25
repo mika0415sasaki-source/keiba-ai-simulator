@@ -502,6 +502,7 @@ async function savePredictionSnapshot(mode="AI分析"){
    rank:Number.isInteger(rank)&&rank>=1&&rank<=30?rank:null,
    field_size:Number.isInteger(fs)&&fs>=2&&fs<=30?fs:null,
    jockey:r?.jockey||r?.rider||r?.jockey_name||null,
+   jockey_raw:r?.jockey_raw||r?.jockey||r?.rider||r?.jockey_name||null,
    source:r?.source||null
   };
  });
