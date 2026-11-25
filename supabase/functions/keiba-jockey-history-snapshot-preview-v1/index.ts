@@ -181,7 +181,7 @@ async function raceFieldSizeFor(rid){
   if(!raceFieldSizeCache.has(rid)){
     raceFieldSizeCache.set(rid,(async()=>{
       try{
-        const html=await retry(\`https://db.netkeiba.com/race/\${rid}/\`,6000);
+        const html=await retry("https://db.netkeiba.com/race/"+rid+"/",6000);
         const tables=[...String(html||"").matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)].map(x=>x[0]);
         const preferred=tables.filter(t=>/class=["'][^"']*race_table_01/i.test(t));
         const candidates=[...preferred,...tables.filter(t=>!preferred.includes(t))];
@@ -209,7 +209,7 @@ async function historyFor(id,cutoff){
   let h=dedupe(all);if(cutoff)h=h.filter(r=>{const k=dateKey(r.date);return k?k<cutoff:true});
   // 頭数が欠けた履歴だけ、抽出済みrace_idで当該レース結果ページを照合する。
   // 日付・距離・着順からは推測せず、同一レースの出走馬リンク実数が2〜30頭のときだけ補完。
-  const missingRaceIds=[...new Set(h.filter(r=>!(Number.isInteger(Number(r.field_size))&&Number(r.field_size)>=2&&Number(r.field_size)<=30)&&/^20\\d{10}$/.test(String(r.race_id||""))).map(r=>r.race_id))];
+  const missingRaceIds=[...new Set(h.filter(r=>!(Number.isInteger(Number(r.field_size))&&Number(r.field_size)>=2&&Number(r.field_size)<=30)&&/^20\d{10}$/.test(String(r.race_id||""))).map(r=>r.race_id))];
   const fieldSizes=await mapLimited(missingRaceIds,3,async rid=>({rid,size:await raceFieldSizeFor(rid)}));
   const fieldSizeByRace=new Map(fieldSizes.filter(x=>Number.isInteger(x.size)&&x.size>=2&&x.size<=30).map(x=>[x.rid,x.size]));
   for(const row of h)if(row.field_size==null&&fieldSizeByRace.has(row.race_id))row.field_size=fieldSizeByRace.get(row.race_id);
