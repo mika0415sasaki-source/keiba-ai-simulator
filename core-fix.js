@@ -55,7 +55,7 @@
 
   function saveLater(list){setTimeout(()=>fetch(MEMORY_API_URL,{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save_horses',horses:list})}).catch(()=>{}),0)}
 
-  const JOCKEY_HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-independent-v1';
+  const JOCKEY_HISTORY_API='https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-snapshot-preview-v1';
   async function fetchJockeyHistory(){
    const names=horses.map(h=>h.name);
    const horse_ids=Object.fromEntries(horses.map(h=>[clean(h.name),clean(h.netkeiba_horse_id||h.horse_id||'')]).filter(([name,id])=>name&&/^\d{10}$/.test(id)));
