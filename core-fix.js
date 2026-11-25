@@ -156,6 +156,24 @@
    return j;
   }
 
+  function trackJockeyHistoryFetch(promise){
+   window.__jockeyHistoryCaptureStatus='loading';
+   const tracked=Promise.resolve(promise).then(value=>{
+    window.__jockeyHistoryCaptureStatus='complete';
+    return value;
+   },error=>{
+    window.__jockeyHistoryCaptureStatus='error';
+    throw error;
+   });
+   window.__jockeyHistoryFetchPromise=tracked;
+   tracked.finally(()=>{if(window.__jockeyHistoryFetchPromise===tracked)window.__jockeyHistoryFetchPromise=null}).catch(()=>{});
+   return tracked;
+  }
+  function startJockeyHistoryFetch(factory){
+   if(window.__jockeyHistoryFetchPromise)return window.__jockeyHistoryFetchPromise;
+   return trackJockeyHistoryFetch(factory());
+  }
+
   async function fastHistory({silent=false}={}){
    if(!horses.length)return {ok:0,total:0,totalRuns:0};
    const url=clean(document.getElementById('raceUrl')?.value);
@@ -217,18 +235,19 @@
    let base=await originalJraImport(s);
    if(base&&Array.isArray(base.horses))base.horses=base.horses.map(normalizeHorse);
    // 出馬表表示を先に完了し、その後に競馬新聞1ページだけで全頭を補完。
-   setTimeout(()=>fastHistory({silent:true}).catch(e=>console.warn('newspaper enrichment',e)),120);
+   const scheduled=new Promise((resolve,reject)=>setTimeout(()=>fastHistory({silent:true}).then(resolve,reject),120));
+   startJockeyHistoryFetch(()=>scheduled).catch(e=>console.warn('newspaper enrichment',e));
    return base;
   };
 
   loadNetkeibaHistories=async function({silent=false,force=false}={}){
    if(!horses.length){if(!silent)status('histStatus','先に出馬表を取り込んでください。',true);return {ok:0,total:0,totalRuns:0}}
    if(isNk(document.getElementById('raceUrl')?.value)){
-    try{return await fastHistory({silent})}catch(e){if(!silent)status('histStatus','競馬新聞取得エラー：'+(e.message||String(e)),true);return {ok:0,total:horses.length,totalRuns:0,error:e}}
+    try{return await startJockeyHistoryFetch(()=>fastHistory({silent}))}catch(e){if(!silent)status('histStatus','競馬新聞取得エラー：'+(e.message||String(e)),true);return {ok:0,total:horses.length,totalRuns:0,error:e}}
    }
    horses=horses.map(normalizeHorse);renderHorses();try{evalAll()}catch(_){};fixCards();
    const ok=horses.filter(h=>(h.history||[]).length).length,totalRuns=horses.reduce((n,h)=>n+Math.min(5,(h.history||[]).length),0);
-   const jockey=await fetchJockeyHistory();
+   const jockey=await startJockeyHistoryFetch(()=>fetchJockeyHistory());
    try{window.__refreshRankingProbabilityV337?.()}catch(e){console.warn('jockey probability refresh',e)}
    try{if(typeof evalAll==='function')evalAll()}catch(e){console.warn('jockey analysis refresh',e)}
    try{if(typeof renderHorses==='function')renderHorses()}catch(e){console.warn('jockey card rerender',e)}
