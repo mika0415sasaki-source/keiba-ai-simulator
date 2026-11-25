@@ -175,12 +175,44 @@ function dedupe(a){
   }
   return [...byKey.values()].sort((x,y)=>(dateKey(y.date)||0)-(dateKey(x.date)||0));
 }
+const raceFieldSizeCache=new Map();
+async function raceFieldSizeFor(rid){
+  if(!/^20\d{10}$/.test(String(rid||"")))return null;
+  if(!raceFieldSizeCache.has(rid)){
+    raceFieldSizeCache.set(rid,(async()=>{
+      try{
+        const html=await retry(\`https://db.netkeiba.com/race/\${rid}/\`,6000);
+        const tables=[...String(html||"").matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)].map(x=>x[0]);
+        const preferred=tables.filter(t=>/class=["'][^"']*race_table_01/i.test(t));
+        const candidates=[...preferred,...tables.filter(t=>!preferred.includes(t))];
+        let best=0;
+        for(const table of candidates){
+          const ids=new Set();
+          for(const tr of table.matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)){
+            const m=tr[0].match(/\/horse\/(?:result\/|ped\/)?([0-9a-z]{10})/i);
+            if(m)ids.add(String(m[1]).toLowerCase());
+          }
+          if(ids.size>best)best=ids.size;
+          if(preferred.length&&/class=["'][^"']*race_table_01/i.test(table)&&ids.size>=2&&ids.size<=30)return ids.size;
+        }
+        return best>=2&&best<=30?best:null;
+      }catch{return null}
+    })());
+  }
+  return await raceFieldSizeCache.get(rid);
+}
 async function historyFor(id,cutoff){
   const url=`https://db.netkeiba.com/horse/result/${id}/`,all=[];
   const [jina,direct]=await Promise.allSettled([retry("https://r.jina.ai/"+url,6000),retry(url,6000)]);
   if(jina.status==="fulfilled")all.push(...parseMarkdown(jina.value),...parseLoose(jina.value));
   if(direct.status==="fulfilled")all.push(...parseHtml(direct.value),...parseMarkdown(direct.value),...parseLoose(stripHtml(direct.value)));
   let h=dedupe(all);if(cutoff)h=h.filter(r=>{const k=dateKey(r.date);return k?k<cutoff:true});
+  // 頭数が欠けた履歴だけ、抽出済みrace_idで当該レース結果ページを照合する。
+  // 日付・距離・着順からは推測せず、同一レースの出走馬リンク実数が2〜30頭のときだけ補完。
+  const missingRaceIds=[...new Set(h.filter(r=>!(Number.isInteger(Number(r.field_size))&&Number(r.field_size)>=2&&Number(r.field_size)<=30)&&/^20\\d{10}$/.test(String(r.race_id||""))).map(r=>r.race_id))];
+  const fieldSizes=await mapLimited(missingRaceIds,3,async rid=>({rid,size:await raceFieldSizeFor(rid)}));
+  const fieldSizeByRace=new Map(fieldSizes.filter(x=>Number.isInteger(x.size)&&x.size>=2&&x.size<=30).map(x=>[x.rid,x.size]));
+  for(const row of h)if(row.field_size==null&&fieldSizeByRace.has(row.race_id))row.field_size=fieldSizeByRace.get(row.race_id);
   return{url,history:h};
 }
 function parseRaceIds(html){
