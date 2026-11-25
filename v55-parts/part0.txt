@@ -524,9 +524,11 @@ async function savePredictionSnapshot(mode="AI分析"){
   mode,ticket_count:tickets.length,tickets,
   ranking:evaluated.map((h,i)=>{
    const history=historyRows(h);
+   // evalAll後のh.jockeyは騎手評価点（数値）なので、騎手名は元の出走馬データから取得する。
+   const sourceHorse=horses.find(x=>String(x.no)===String(h.no)&&String(x.name)===String(h.name))||h;
    return {
     rank:i+1,no:h.no,name:h.name,score:+h.score.toFixed(2),
-    current_jockey:h.jockey||null,
+    current_jockey:sourceHorse.jockey||null,
     current_field_size:raceFieldSize,
     jockey_history_loaded:h.jockey_history_loaded===true,
     jockey_history_status:h.jockey_history_loaded===true?"complete":(h.jockey_history_error?"error":"incomplete"),
