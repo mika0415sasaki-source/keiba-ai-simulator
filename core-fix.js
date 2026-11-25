@@ -21,7 +21,7 @@
    if(!current||!Array.isArray(rows))return Array.isArray(rows)?rows:[];
    return rows.map(r=>{
     if(!r||typeof r!=='object')return r;
-    return jockeyKey(r.jockey)===current?{...r,jockey:clean(h.jockey)}:r;
+    return jockeyKey(r.jockey)===current?{...r,jockey:clean(h.jockey),jockey_raw:clean(r.jockey)}:r;
    });
   };
   const first=(...v)=>{for(const x of v){const s=clean(x);if(s&&s!=='-'&&s!=='—')return s}return ''};
