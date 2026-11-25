@@ -83,7 +83,7 @@ function rowObj(c0,headcountIndex=-1,rawRow=""){
   if(wi>=1){jockey=validJockey(c[wi-1]);const r0=toNum(c[wi-2]);if(Number.isInteger(r0)&&r0>=1&&r0<=30)rank=r0;if(!rank){for(let i=wi-2;i>=Math.max(di+1,wi-8);i--){const z=toNum(c[i]);if(Number.isInteger(z)&&z>=1&&z<=30){rank=z;break}}}}
   if(!rank){for(let i=Math.max(di+1,xi-12);i<xi;i++){const z=toNum(c[i]);if(Number.isInteger(z)&&z>=1&&z<=30)rank=z}}
   if(!rank)return null;
-  const race_id=(String(rawRow||"").match(/(?:\\/race\\/|race_id[=:_-]*)(20\\d{10})/i)||[])[1]||"";
+  const race_id=(String(rawRow||"").match(/(?:\/race\/|race_id[=:_-]*)(20\d{10})/i)||[])[1]||"";
   let venue="";
   const raceNameIndex=di+4;
   for(let i=di+1;i<c.length;i++){
