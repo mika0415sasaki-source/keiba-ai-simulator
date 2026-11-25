@@ -122,6 +122,14 @@ async function trackerApi(action,payload={}){
  return j;
 }
 
+async function previewTrackerApi(payload){
+ const url="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-tracker-preview-api";
+ const r=await fetch(url,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_prediction",...payload})});
+ const j=await r.json().catch(()=>({error:"検証用予想保存APIの応答を読めません"}));
+ if(!r.ok)throw new Error(j.error||"検証用予想保存エラー");
+ return j;
+}
+
 const VENUE_CODE={"札幌":"01","函館":"02","福島":"03","新潟":"04","東京":"05","中山":"06","中京":"07","京都":"08","阪神":"09","小倉":"10"};
 function raceIdFromUrl(url){
  let s=String(url||"");
@@ -476,11 +484,65 @@ function generateTickets(){
  return currentTickets();
 }
 async function savePredictionSnapshot(mode="AI分析"){
- if(!horses.length)return null;evalAll();const tickets=currentTickets(),key=raceKey();
+ if(!horses.length)return null;
+ // 出馬表取込後に非同期で開始した全履歴取得があれば、完了してから保存する。
+ const pending=window.__jockeyHistoryFetchPromise;
+ if(pending)await pending;
+ evalAll();
+ const tickets=currentTickets(),key=raceKey(),raceFieldSize=horses.length;
+ const historyRows=h=>(Array.isArray(h.jockey_history)?h.jockey_history:[]).map(r=>{
+  const fs=Number(r?.field_size),rank=Number(r?.rank),distance=Number(r?.distance);
+  const rid=String(r?.race_id||r?.raceId||"").replace(/\D/g,"");
+  return {
+   date:r?.date||r?.race_date||null,
+   race_id:/^20\d{10}$/.test(rid)?rid:null,
+   venue:r?.venue||r?.course||null,
+   surface:r?.surface||null,
+   distance:Number.isFinite(distance)&&distance>=800&&distance<=4000?distance:null,
+   rank:Number.isInteger(rank)&&rank>=1&&rank<=30?rank:null,
+   field_size:Number.isInteger(fs)&&fs>=2&&fs<=30?fs:null,
+   jockey:r?.jockey||r?.rider||r?.jockey_name||null,
+   source:r?.source||null
+  };
+ });
  const a=auditLoad();
- const payload={race_url:document.getElementById("raceUrl").value,race_id:raceIdFromUrl(document.getElementById("raceUrl").value),prediction_key:key,source:"KEIBA_AI_Independent_v55",course:document.getElementById("venue").value,race_no:currentRaceNo(),surface:document.getElementById("surface").value,distance:+document.getElementById("distance").value,mode,ticket_count:tickets.length,tickets,ranking:evaluated.map((h,i)=>({rank:i+1,no:h.no,name:h.name,score:+h.score.toFixed(2)}))};
- // 同じレースでもAI分析をやり直したら最新買い目で上書き保存する。
- const res=await trackerApi("save_prediction",payload);a[key]={...(a[key]||{}),remote_saved:true,remote_saved_at:new Date().toISOString()};auditSave(a);return res;
+ const payload={
+  race_url:document.getElementById("raceUrl").value,
+  race_id:raceIdFromUrl(document.getElementById("raceUrl").value),
+  race_date:raceDateFromUrl(document.getElementById("raceUrl").value),
+  prediction_key:key,
+  source:"KEIBA_AI_Independent_v55",
+  course:document.getElementById("venue").value,
+  race_no:currentRaceNo(),
+  surface:document.getElementById("surface").value,
+  distance:+document.getElementById("distance").value,
+  race_field_size:raceFieldSize,
+  race_field_size_source:"imported_entry_roster",
+  race_field_size_verified:raceFieldSize>=2&&raceFieldSize<=30,
+  jockey_capture_status:window.__jockeyHistoryCaptureStatus||"not_started",
+  mode,ticket_count:tickets.length,tickets,
+  ranking:evaluated.map((h,i)=>{
+   const history=historyRows(h);
+   return {
+    rank:i+1,no:h.no,name:h.name,score:+h.score.toFixed(2),
+    current_jockey:h.jockey||null,
+    current_field_size:raceFieldSize,
+    jockey_history_loaded:h.jockey_history_loaded===true,
+    jockey_history_status:h.jockey_history_loaded===true?"complete":(h.jockey_history_error?"error":"incomplete"),
+    jockey_history_count:history.length,
+    jockey_history_valid_headcount_count:history.filter(r=>r.field_size!==null).length,
+    jockey_history:history,
+    jockey_full_history_score:Number.isFinite(+h.jockeyFullHistoryScoreV1)?+h.jockeyFullHistoryScoreV1:null,
+    jockey_full_history_samples:Number.isFinite(+h.jockeyFullHistorySamplesV1)?+h.jockeyFullHistorySamplesV1:null,
+    jockey_full_history_matched:Number.isFinite(+h.jockeyFullHistoryMatchedV1)?+h.jockeyFullHistoryMatchedV1:null,
+    jockey_full_history_raw_score:Number.isFinite(+h.jockeyFullHistoryRawScoreV1)?+h.jockeyFullHistoryRawScoreV1:null
+   };
+  })
+ };
+ // 検証用app_id専用APIへ保存。本番の予想記録とは分離する。
+ const res=await previewTrackerApi(payload);
+ a[key]={...(a[key]||{}),preview_remote_saved:true,preview_remote_saved_at:new Date().toISOString()};
+ auditSave(a);return res;
 }
 function normalizeActualRows(rows){const byName=new Map(horses.map(h=>[String(h.name).trim(),+h.no]));return (Array.isArray(rows)?rows:[]).map((x,i)=>({rank:+x.rank||i+1,no:byName.get(String(x.name||"").trim())||+x.no||0,name:String(x.name||"").trim()})).filter(x=>x.name).sort((a,b)=>a.rank-b.rank)}
 function renderAllResult(){const box=document.getElementById("resultAll");if(!box)return;if(!actual.length){box.classList.add("hidden");box.innerHTML="";return}box.classList.remove("hidden");box.innerHTML=`<div class="rank">全頭結果 ${actual.length}頭</div><div class="hist">${actual.map(x=>`<div class="hist-row" style="grid-template-columns:52px 52px 1fr"><b>${x.rank}着</b><span>${x.no}番</span><span>${x.name}</span></div>`).join("")}</div>`}
