@@ -121,7 +121,7 @@ function rowObj(c0,headcountIndex=-1,rawRow=""){
     }
   }
   let body_weight=null,body_weight_change=null;for(let i=xi+1;i<c.length;i++){const m=String(c[i]).match(/^(\d{3})(?:\(([+\-]?\d+)\))?$/);if(m){const w=+m[1];if(w>=300&&w<=700){body_weight=w;body_weight_change=m[2]!=null?+m[2]:null;break}}}
-  return{date:String(c[di]).replace(/[.]/g,"/").replace(/-/g,"/"),race_id:/^20\\d{10}$/.test(race_id)?race_id:null,venue,race_name:plain(c[di+4]||""),surface,distance,going,rank,last3f,jockey,passage,field_size,body_weight,body_weight_change,source:"netkeiba-horse-db-v13",_field_debug:{di,xi,domesticRow:!!domesticRow,overseasRow:!!overseasRow,overseasAltRow:!!overseasAltRow,cell5:String(c[di+5]??""),fieldIndex:domesticRow?di+((String(c[di+5]??"")===""||/^(?:Image|画像)$/i.test(String(c[di+5]??"")))?6:5):overseasAltRow?di+6:null,rawCells:c.slice(di,Math.min(c.length,di+10))}};
+  return{date:String(c[di]).replace(/[.]/g,"/").replace(/-/g,"/"),race_id:/^20\d{10}$/.test(race_id)?race_id:null,venue,race_name:plain(c[di+4]||""),surface,distance,going,rank,last3f,jockey,passage,field_size,body_weight,body_weight_change,source:"netkeiba-horse-db-v13",_field_debug:{di,xi,domesticRow:!!domesticRow,overseasRow:!!overseasRow,overseasAltRow:!!overseasAltRow,cell5:String(c[di+5]??""),fieldIndex:domesticRow?di+((String(c[di+5]??"")===""||/^(?:Image|画像)$/i.test(String(c[di+5]??"")))?6:5):overseasAltRow?di+6:null,rawCells:c.slice(di,Math.min(c.length,di+10))}};
 }
 function parseMarkdown(text){
   const out=[];let headcountIndex=-1;
@@ -155,7 +155,7 @@ function parseHtml(text){
   }
   return out;
 }
-function parseLoose(text){const out=[];for(const line of String(text||"").normalize("NFKC").replace(/\r/g,"").split("\n")){if(!/20\d{2}[\/.\-]\d{1,2}[\/.\-]\d{1,2}/.test(line))continue;const r=rowObj(line.split(/\s{2,}|\t+/).map(plain).filter(Boolean));if(r)out.push(r)}return out}
+function parseLoose(text){const out=[];for(const line of String(text||"").normalize("NFKC").replace(/\r/g,"").split("\n")){if(!/20\d{2}[\/.\-]\d{1,2}[\/.\-]\d{1,2}/.test(line))continue;const r=rowObj(line.split(/\s{2,}|\t+/).map(plain).filter(Boolean),-1,line);if(r)out.push(r)}return out}
 function dedupe(a){
   const byKey=new Map();
   for(const row of a){
