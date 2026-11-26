@@ -1317,7 +1317,6 @@
         last3f:Number.isFinite(+configured.last3f)?+configured.last3f:.18,
         course:Number.isFinite(+configured.course)?+configured.course:.14,
         distance:Number.isFinite(+configured.distance)?+configured.distance:.14,
-        jockey:Number.isFinite(+configured.jockey)?+configured.jockey:.10,
         blood:Number.isFinite(+configured.blood)?+configured.blood:.08,
         trainer:Number.isFinite(+configured.trainer)?+configured.trainer:.06,
         condition:Number.isFinite(+configured.condition)?+configured.condition:.08
@@ -1333,7 +1332,8 @@
       const fullCore=fullN/fullD;
       const quality=Number.isFinite(+h?.quality)?+h.quality:100;
       const qualityFactor=Math.max(.55,Math.min(1,quality/100));
-      // originalEvalAll は欠損率を全軸へ掛けるため、そこで失われた他軸の点を戻す。
+      // AI順位は能力・適性軸のみ。騎手相性はここへ混ぜず、確率モデル側で別評価する。
+      // 上がり欠損時は、利用可能な能力・適性軸の重みだけを再正規化する。
       // 学習メモリ加点は rawBase と元の構成点との差としてそのまま保持する。
       const memoryAdjustment=rawBase-fullCore*qualityFactor;
       const redistributedBase=usableN/usableD+memoryAdjustment;
