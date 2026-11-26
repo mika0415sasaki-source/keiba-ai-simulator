@@ -94,13 +94,6 @@
 
   function jockeyHistoryRows(h){
     const src=horseSource(h);
-    // 診断パネル側の馬データと、騎手相性計算が実際に参照する馬データの履歴数を比較する。
-    try{
-      const key=norm(h?.name||src?.name||'');
-      const probe={passedHistory:Array.isArray(h?.jockey_history)?h.jockey_history.length:0,sourceHistory:Array.isArray(src?.jockey_history)?src.jockey_history.length:0,sameObject:src===h,sourceName:String(src?.name||''),sourceNo:String(src?.no??'')};
-      window.__jockeySourceProbe=window.__jockeySourceProbe||{};
-      if(key)window.__jockeySourceProbe[key]=probe;
-    }catch(_){}
     const cancelled=r=>!r||/取消|除外|中止|失格/.test(String(r?.status||r?.result_status||r?.rank_text||''));
     const netRows=(Array.isArray(src?.history)?src.history:[]).filter(r=>!cancelled(r)).slice(0,5).map(r=>({...r,_jockey_sources:['netkeiba_5'],_jra_filled_fields:[]}));
     const longRows=(Array.isArray(src?.jockey_history)?src.jockey_history:[]).filter(r=>!cancelled(r)).map(r=>({...r,_jockey_sources:['netkeiba_all'],_jra_filled_fields:[]}));
