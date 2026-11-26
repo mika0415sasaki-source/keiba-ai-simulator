@@ -850,11 +850,14 @@ function jockeyComboScore(h){
  const name=String(h.jockey||"").trim();if(!name){h.jockeyComboSamples=0;return 55;}const rows=(h.jra_history||[]).filter(r=>String(r.jockey||"").replace(/\s+/g,"").includes(name.replace(/\s+/g,""))&&r.rank);h.jockeyComboSamples=rows.length;if(!rows.length)return 62;const vals=rows.map(r=>cl(105-(+r.rank-1)*8,20,100));return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
 function jockeyFullHistoryComboScore(h){
- const name=String(h.jockey||"").replace(/\s+/g,"").trim();
+ const jockeyKey=v=>{
+  const n=String(v??"").normalize("NFKC").replace(/[\\s　.．・･]/g,"").replace(/^[△▲☆★◇]/,"");
+  const aliases={'Cルメール':'ルメール','Jモレイラ':'モレイラ','Lトーレス':'トーレス','Aプーシャ':'プーシャ','プーシャン':'プーシャ','バルザロ':'バルザロー','Mバルザロ':'バルザロー','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','Wビュイッ':'ビュイック','Wビュイック':'ビュイック','ウィリアムビュイック':'ビュイック','Rムーア':'ムーア','Cスミヨン':'スミヨン','マーカン':'Tマーカンド','Tマーカン':'Tマーカンド','マーカンド':'Tマーカンド','Tマーカンド':'Tマーカンド','Jマクドナルド':'マクドナルド','Zパートン':'パートン','Mディー':'ディー','Dレーン':'レーン','Pギュイヨ':'ギュイヨ','Mパスキエ':'パスキエ','Mムルザバ':'ムルザバ','ムルザバエフ':'ムルザバ','Aルクーヴ':'ルクーヴ','ルクーヴル':'ルクーヴ','Oオシェア':'オシェア','Oマーフィ':'マーフィ','Oマーフィー':'マーフィ','マーフィー':'マーフィ','Dマクモナグル':'マクモナグル','マクモナ':'マクモナグル','鮫島駿':'鮫島克駿','横山典':'横山典弘','坂井':'坂井瑠星','丹内':'丹内祐次','古川吉':'古川吉洋','戸崎圭':'戸崎圭太','岩田望':'岩田望来','吉田隼':'吉田隼人'};
+  return aliases[n]||n;
+ };
+ const name=jockeyKey(h.jockey);
  const matched=name&&Array.isArray(h.jockey_history)?h.jockey_history.filter(r=>{
-  const past=String(r.jockey||"").replace(/\s+/g,"").trim();
-  const same=name==="マーカンド"?(past==="マーカンド"||past==="マーカン"):past.includes(name);
-  return same&&Number.isFinite(+r.rank)&&+r.rank>0;
+  return jockeyKey(r.jockey)===name&&Number.isFinite(+r.rank)&&+r.rank>0;
  }):[];
  const rows=matched.filter(r=>{
   const rank=Number(r.rank),field=Number(r.field_size);
