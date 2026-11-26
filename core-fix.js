@@ -86,8 +86,6 @@
     const roster=Array.isArray(horses)?horses:[];
     const cards=[...document.querySelectorAll('#horses .card')];
     let shown=0,matched=0,neutral=0,missing=0;
-    const targetDiag=[];
-    const debugTargets=new Set(['チェルヴィニア','クロワデュノール','タガノデュード']);
     for(const h of roster){
      const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
      const jockey=jockeyKey(h.jockey);
@@ -99,14 +97,9 @@
      if(samples>0)matched++;
      else if(history.length)neutral++;
      else missing++;
-     if(debugTargets.has(h.name)){
-      const names=[...new Set(history.map(r=>clean(r.jockey)).filter(Boolean))];
-      const shownNames=names.slice(0,8).join('、')+(names.length>8?'、ほか'+(names.length-8)+'名':'');
-      targetDiag.push(h.name+'照合（現騎手 '+(jockey||'未設定')+'・一致 '+samples+'件・履歴内騎手 '+(shownNames||'なし')+'）');
-     }
     }
     try{renderJockeyDiagnostics()}catch(_){}
-    return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）'+(targetDiag.length?' / '+targetDiag.join(' / '):'');
+    return ' / カード相性表示 '+shown+'/'+roster.length+'頭（照合あり '+matched+'頭・該当騎乗なし '+neutral+'頭・履歴未取得 '+missing+'頭）';
    }
 
   function renderJockeyDiagnostics(){
