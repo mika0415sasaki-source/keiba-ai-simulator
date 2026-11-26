@@ -868,6 +868,8 @@ function jockeyFullHistoryComboScore(h){
  if(!rows.length){
   h.jockeyFullHistoryScoreV1=65;
   h.jockeyFullHistoryRawScoreV1=null;
+  h.jockeyFullHistoryReliabilityV1=0;
+  h.jockeyFullHistoryAdjustedScoreV1=65;
   h.jockeyFullHistoryExpectedPodiumRateV1=null;
   h.jockeyFullHistoryRelativeFinishV1=null;
   h.jockeyFullHistoryPodiumRateV1=null;
@@ -884,7 +886,13 @@ function jockeyFullHistoryComboScore(h){
  const variance=results.length>1?results.reduce((s,x)=>s+(x.relative-mean)**2,0)/results.length:0;
  const consistencyPenalty=Math.min(8,Math.sqrt(variance)*.08);
  const rawScore=65+(mean-50)*.70+(podiumRate-expectedPodium)*20-consistencyPenalty;
- const score=cl(rawScore,20,100);
+ // 少数サンプルの過大評価を抑える信頼度補正。n/(n+5)で中立値65へ縮約する。
+ // 元の実績点は診断用に保持し、騎手相性として使う点数だけを補正する。
+ const reliability=rows.length/(rows.length+5);
+ const adjustedScore=65+(rawScore-65)*reliability;
+ const score=cl(adjustedScore,20,100);
+ h.jockeyFullHistoryReliabilityV1=Number(reliability.toFixed(3));
+ h.jockeyFullHistoryAdjustedScoreV1=Number(adjustedScore.toFixed(1));
  h.jockeyFullHistoryRawScoreV1=Number(rawScore.toFixed(1));
  h.jockeyFullHistoryScoreV1=score;
  h.jockeyFullHistoryRelativeFinishV1=Number(mean.toFixed(1));
