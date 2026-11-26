@@ -210,7 +210,7 @@
               :clamp((Number(e.baseScore)||raw)*.90+gf.score*.10,0,100);
             const newQ=historicalQuality(src),oldQ=Number.isFinite(+e.quality)?+e.quality:newQ;
             if(Number.isFinite(newQ)&&oldQ!==newQ){
-              const rawAxes=(+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08);
+              const rawAxesWeight=(weights?.speed??.22)+(weights?.last3f??.18)+(weights?.course??.14)+(weights?.distance??.14)+(weights?.blood??.08)+(weights?.trainer??.06)+(weights?.condition??.08);const rawAxes=((+e.speed||0)*(weights?.speed??.22)+(+e.last3f||0)*(weights?.last3f??.18)+(+e.course||0)*(weights?.course??.14)+(+e.distance||0)*(weights?.distance??.14)+(+e.blood||0)*(weights?.blood??.08)+(+e.trainer||0)*(weights?.trainer??.06)+(+e.condition||0)*(weights?.condition??.08))/Math.max(.01,rawAxesWeight);
               const oldF=clamp(oldQ/100,.55,1),newF=clamp(newQ/100,.55,1),mix=gradeKnown(src)?.90:1,delta=rawAxes*(newF-oldF)*mix;
               score=clamp(score+delta,0,100);baseScore=clamp(baseScore+delta,0,100);
             }
