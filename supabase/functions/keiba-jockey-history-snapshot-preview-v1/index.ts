@@ -5,7 +5,7 @@ const json=(d,s=200)=>new Response(JSON.stringify(d),{status:s,headers:{...cors,
 const clean=s=>String(s||"").replace(/\s+/g," ").trim();
 const plain=x=>clean(String(x||"").replace(/!\[[^\]]*\]\([^)]+\)/g,"").replace(/\[([^\]]+)\]\([^)]+\)/g,"$1").replace(/\*\*/g,"").replace(/^\s*[-*#]+\s*/,""));
 const stripHtml=x=>clean(String(x||"").replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<br\s*\/?>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;|&#160;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;/gi,"'"));
-const normalizeName=x=>clean(String(x||"")).replace(/[\\"]+$/g,"").replaceAll("\\)","").normalize("NFKC").replace(/[\s　]+/g,"");
+const normalizeName=x=>clean(String(x||"")).replace(/\\["']\)$/g,")").replace(/[\\"]+$/g,"").replaceAll("\\)","").normalize("NFKC").replace(/[\s　]+/g,"");
 
 function decodeBuf(buf){
   let t=new TextDecoder("utf-8").decode(buf);
