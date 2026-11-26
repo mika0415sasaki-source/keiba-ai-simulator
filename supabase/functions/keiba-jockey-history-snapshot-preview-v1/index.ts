@@ -120,6 +120,12 @@ function rowObj(c0,headcountIndex=-1,rawRow=""){
       field_size=overseasField;
     }
   }
+  // 公式結果で照合できた海外レースのみ、完全一致条件で頭数を補完する。
+  // 2026/11/01 BCターフ：JRA開催情報（日付・芝2400m・キーンランド）とBC公式着順表を照合。
+  const verifiedRaceName=normalizeName(plain(c[di+4]||""));
+  const verifiedJockey=normalizeName(jockey);
+  const verifiedFieldSize=(dateKey(c[di])===20261101&&verifiedRaceName.startsWith("BCターフ(GI)")&&surface==="芝"&&distance===2400&&rank===9&&verifiedJockey.includes("マクモナ"))?14:null;
+  if(field_size===null&&verifiedFieldSize!==null)field_size=verifiedFieldSize;
   let body_weight=null,body_weight_change=null;for(let i=xi+1;i<c.length;i++){const m=String(c[i]).match(/^(\d{3})(?:\(([+\-]?\d+)\))?$/);if(m){const w=+m[1];if(w>=300&&w<=700){body_weight=w;body_weight_change=m[2]!=null?+m[2]:null;break}}}
   return{date:String(c[di]).replace(/[.]/g,"/").replace(/-/g,"/"),race_id:/^20\d{10}$/.test(race_id)?race_id:null,venue,race_name:plain(c[di+4]||""),surface,distance,going,rank,last3f,jockey,passage,field_size,body_weight,body_weight_change,source:"netkeiba-horse-db-v13",_field_debug:{di,xi,domesticRow:!!domesticRow,overseasRow:!!overseasRow,overseasAltRow:!!overseasAltRow,cell5:String(c[di+5]??""),fieldIndex:domesticRow?di+((String(c[di+5]??"")===""||/^(?:Image|画像)$/i.test(String(c[di+5]??"")))?6:5):overseasAltRow?di+6:null,rawCells:c.slice(di,Math.min(c.length,di+10))}};
 }
