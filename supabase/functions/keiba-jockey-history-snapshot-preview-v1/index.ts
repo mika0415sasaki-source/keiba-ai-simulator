@@ -165,7 +165,7 @@ function parseLoose(text){const out=[];for(const line of String(text||"").normal
 function dedupe(a){
   const byKey=new Map();
   for(const row of a){
-    const key=row.race_id?[row.race_id,row.rank].join("|"):[row.date,row.venue,row.surface,row.distance,row.rank].join("|");
+    const key=row.race_id?[row.race_id,row.rank].join("|"):[row.date,row.venue,row.surface,row.distance,row.rank,normalizeName(row.race_name||"")].join("|");
     const current=byKey.get(key);
     if(!current){byKey.set(key,{...row});continue}
     for(const field of ["field_size","jockey","going","last3f","passage","body_weight","body_weight_change","race_name","race_id"]){
