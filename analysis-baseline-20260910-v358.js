@@ -6,7 +6,8 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
   // カード表示側と同じ略記ルールで正規化し、計算側だけ一致しない状態を防ぐ。
-  const jockeyKey=v=>{const s=norm(v).replace(/[\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');const aliases={'Cルメール':'ルメール','Jモレイラ':'モレイラ','Lトーレス':'トーレス','Aプーシャ':'プーシャ','Aプーシャン':'プーシャ','プーシャン':'プーシャ','Mバルザロ':'バルザロ','Mバルザローナ':'バルザロ','バルザローナ':'バルザロ','バルザロー':'バルザロ','バルザロ':'バルザロ','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','Wビュイッ':'ビュイック','Wビュイック':'ビュイック','ウィリアムビュイック':'ビュイック','Rムーア':'ムーア','Cスミヨン':'スミヨン','マーカン':'Tマーカンド','Tマーカン':'Tマーカンド','マーカンド':'Tマーカンド','Tマーカンド':'Tマーカンド','Jマクドナルド':'マクドナルド','Zパートン':'パートン','Mディー':'ディー','Dレーン':'レーン','Pギュイヨ':'ギュイヨ','Mパスキエ':'パスキエ','Mムルザバ':'ムルザバ','ムルザバエフ':'ムルザバ','Aルクーヴ':'ルクーヴ','ルクーヴル':'ルクーヴ','Oオシェア':'オシェア','Oマーフィ':'マーフィ','Oマーフィー':'マーフィ','マーフィー':'マーフィ','Dマクモナグル':'マクモナグル','マクモナ':'マクモナグル','鮫島駿':'鮫島克駿','横山典':'横山典弘','坂井':'坂井瑠星','丹内':'丹内祐次','古川吉':'古川吉洋','戸崎圭':'戸崎圭太','岩田望':'岩田望来','吉田隼':'吉田隼人'};return aliases[s]||s};
+  const jockeyKey=v=>typeof window.__keibaJockeyKey==='function'?window.__keibaJockeyKey(v):String(v||'').normalize('NFKC').replace(/[\\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
+  const jockeySame=(a,b,names=[])=>typeof window.__keibaJockeySame==='function'?window.__keibaJockeySame(a,b,names):jockeyKey(a)===jockeyKey(b);
   const REC=[1,.82,.68,.56,.46];
   const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
   const JRA_VENUES=new Set(['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉']);
@@ -170,9 +171,11 @@
     if(typeof old!=='function'||old.__baseline20260910V358)return false;
     const fn=function(h){
       const src=horseSource(h);
-      const j=jockeyKey(src?.jockey||src?.rider||h?.jockey||h?.rider||'');
-      const rows=j?jockeyHistoryRows(h)
-        .filter(r=>jockeyKey(r?.jockey||r?.rider||'')===j&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
+      const current=src?.jockey||src?.rider||h?.jockey||h?.rider||'';
+      const j=jockeyKey(current);
+      const allRows=j?jockeyHistoryRows(h):[];
+      const historyNames=allRows.map(r=>r?.jockey||r?.rider||'');
+      const rows=j?allRows.filter(r=>jockeySame(current,r?.jockey||r?.rider||'',historyNames)&&Number.isFinite(+r?.rank)&&+r.rank>0):[];
       if(rows.length)return rows.map(r=>clamp(105-(+r.rank-1)*8,20,100)).reduce((a,b)=>a+b,0)/rows.length;
       return null;
     };
