@@ -92,7 +92,7 @@ const JRA_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-import"
 const JRA_META_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-race-meta";
 const RESULT_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/jra-result-import";
 const NK_FALLBACK_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-netkeiba-fallback";
-const JOCKEY_HISTORY_TEST_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-test-v1";
+const JOCKEY_HISTORY_TEST_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-jockey-history-test-v2";
 const MEMORY_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-memory-v55";
 const TRACKER_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-tracker-api";
 const ODDS_API="https://qhzccahbevnqaoxdfnbx.supabase.co/functions/v1/keiba-odds";
@@ -104,8 +104,8 @@ async function nkFallback(names,race_url){
  const r=await fetch(NK_FALLBACK_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url})});
  const j=await r.json(); if(!r.ok)throw new Error(j.error||"netkeiba再検索エラー"); return j;
 }
-async function jockeyHistoryApi(names,race_url,race_date){
- const r=await fetch(JOCKEY_HISTORY_TEST_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url,race_date})});
+async function jockeyHistoryApi(names,race_url,race_date,jockeys={}){
+ const r=await fetch(JOCKEY_HISTORY_TEST_API,{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({names,race_url,race_date,jockeys})});
  const j=await r.json();if(!r.ok)throw new Error(j.error||"騎手相性用履歴の取得エラー");return j;
 }
 async function memoryApi(action,payload={}){
@@ -982,7 +982,7 @@ async function loadNetkeibaHistories({silent=false,force=false}={}){
   const names=horses.map(h=>h.name);
   const [j,jockeyResult]=await Promise.all([
     nkFallback(names,raceUrl),
-    jockeyHistoryApi(names,raceUrl,raceMeta?.race_date||"").catch(e=>({rows:[],error:String(e?.message||e)}))
+    jockeyHistoryApi(names,raceUrl,raceMeta?.race_date||"",Object.fromEntries(horses.map(h=>[h.name,h.jockey||h.rider||""]))).catch(e=>({rows:[],error:String(e?.message||e)}))
   ]);
   const map=new Map((j.rows||[]).map(x=>[String(x.name||x.horse_name||"").trim(),x]));
   const jockeyMap=new Map((jockeyResult.rows||[]).map(x=>[String(x.name||x.horse_name||"").trim(),x]));
