@@ -844,15 +844,15 @@ function jockeyComboScore(h){
  const name=String(h.jockey||"").trim();if(!name){h.jockeyComboSamples=0;return 55;}const rows=(h.jra_history||[]).filter(r=>String(r.jockey||"").replace(/\s+/g,"").includes(name.replace(/\s+/g,""))&&r.rank);h.jockeyComboSamples=rows.length;if(!rows.length)return 62;const vals=rows.map(r=>cl(105-(+r.rank-1)*8,20,100));return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
 function jockeyFullHistoryComboScore(h){
- const jockeyKey=v=>{
-  const n=String(v??"").normalize("NFKC").replace(/[\s　.．・･]/g,"").replace(/^[△▲☆★◇]/,"");
-  const aliases={'Cルメール':'ルメール','Jモレイラ':'モレイラ','Lトーレス':'トーレス','Aプーシャ':'プーシャ','Aプーシャン':'プーシャ','プーシャン':'プーシャ','Mバルザロ':'バルザロ','Mバルザローナ':'バルザロ','バルザローナ':'バルザロ','バルザロー':'バルザロ','バルザロ':'バルザロ','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','Wビュイッ':'ビュイック','Wビュイック':'ビュイック','ウィリアムビュイック':'ビュイック','Rムーア':'ムーア','Cスミヨン':'スミヨン','マーカン':'Tマーカンド','Tマーカン':'Tマーカンド','マーカンド':'Tマーカンド','Tマーカンド':'Tマーカンド','Jマクドナルド':'マクドナルド','Zパートン':'パートン','Mディー':'ディー','Dレーン':'レーン','Pギュイヨ':'ギュイヨ','Mパスキエ':'パスキエ','Mムルザバ':'ムルザバ','ムルザバエフ':'ムルザバ','Aルクーヴ':'ルクーヴ','ルクーヴル':'ルクーヴ','Oオシェア':'オシェア','Oマーフィ':'マーフィ','Oマーフィー':'マーフィ','マーフィー':'マーフィ','Dマクモナグル':'マクモナグル','マクモナ':'マクモナグル','鮫島駿':'鮫島克駿','横山典':'横山典弘','坂井':'坂井瑠星','丹内':'丹内祐次','古川吉':'古川吉洋','戸崎圭':'戸崎圭太','岩田望':'岩田望来','吉田隼':'吉田隼人','三浦':'三浦皇成','北村友':'北村友一','川田':'川田将雅','幸':'幸英明','田口':'田口貫太','松山':'松山弘平','藤懸':'藤懸貴志','菅原明':'菅原明良','浜中':'浜中俊','西村淳':'西村淳也'};
-  return aliases[n]||n;
- };
+ const jockeyKey=typeof window.__keibaJockeyKey==='function'
+  ?window.__keibaJockeyKey
+  :v=>String(v??"").normalize("NFKC").replace(/[\\s　.．・･]/g,"").replace(/^[△▲☆★◇]/,"");
+ const same=typeof window.__keibaJockeySame==='function'
+  ?window.__keibaJockeySame
+  :(a,b)=>jockeyKey(a)===jockeyKey(b);
  const name=jockeyKey(h.jockey);
  const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
  const historyNames=history.map(r=>r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'');
- const same=typeof window.__keibaJockeySame==='function'?window.__keibaJockeySame:(a,b)=>jockeyKey(a)===jockeyKey(b);
  const matched=name?history.filter(r=>same(h.jockey,r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'',historyNames)&&Number.isFinite(+r.rank)&&+r.rank>0):[];
  const rows=matched.filter(r=>{
   const rank=Number(r.rank),field=Number(r.field_size);
