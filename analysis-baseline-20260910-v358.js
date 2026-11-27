@@ -6,7 +6,7 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const norm=s=>String(s||'').normalize('NFKC').replace(/[\s　]+/g,'').trim();
   // カード表示側と同じ略記ルールで正規化し、計算側だけ一致しない状態を防ぐ。
-  const jockeyKey=v=>typeof window.__keibaJockeyKey==='function'?window.__keibaJockeyKey(v):String(v||'').normalize('NFKC').replace(/[\\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
+  const jockeyKey=v=>typeof window.__keibaJockeyKey==='function'?window.__keibaJockeyKey(v):String(v||'').normalize('NFKC').replace(/[\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
   const jockeySame=(a,b,names=[])=>typeof window.__keibaJockeySame==='function'?window.__keibaJockeySame(a,b,names):jockeyKey(a)===jockeyKey(b);
   const REC=[1,.82,.68,.56,.46];
   const CONF={0:0,1:48,2:61,3:74,4:87,5:100};
