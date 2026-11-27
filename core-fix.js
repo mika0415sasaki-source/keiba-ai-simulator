@@ -12,16 +12,30 @@
   const clean=v=>String(v??'').trim();
   // 騎手名は照合専用に正規化。既知の略記だけを同一視し、部分一致は使わない。
   const jockeyKey=v=>{
-   const n=clean(v).normalize('NFKC').replace(/[\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
-   const aliases={'Cルメール':'ルメール','Jモレイラ':'モレイラ','Lトーレス':'トーレス','Aプーシャ':'プーシャ','Aプーシャン':'プーシャ','プーシャン':'プーシャ','Mバルザロ':'バルザロ','Mバルザローナ':'バルザロ','バルザローナ':'バルザロ','バルザロー':'バルザロ','バルザロ':'バルザロ','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','Wビュイッ':'ビュイック','Wビュイック':'ビュイック','ウィリアムビュイック':'ビュイック','Rムーア':'ムーア','Cスミヨン':'スミヨン','マーカン':'Tマーカンド','Tマーカン':'Tマーカンド','マーカンド':'Tマーカンド','Tマーカンド':'Tマーカンド','Jマクドナルド':'マクドナルド','Zパートン':'パートン','Mディー':'ディー','Dレーン':'レーン','Pギュイヨ':'ギュイヨ','Mパスキエ':'パスキエ','Mムルザバ':'ムルザバ','ムルザバエフ':'ムルザバ','Aルクーヴ':'ルクーヴ','ルクーヴル':'ルクーヴ','Oオシェア':'オシェア','Oマーフィ':'マーフィ','Oマーフィー':'マーフィ','マーフィー':'マーフィ','Dマクモナグル':'マクモナグル','マクモナ':'マクモナグル','鮫島駿':'鮫島克駿','横山典':'横山典弘','坂井':'坂井瑠星','丹内':'丹内祐次','古川吉':'古川吉洋','戸崎圭':'戸崎圭太','岩田望':'岩田望来','吉田隼':'吉田隼人'};
+   const n=clean(v).normalize('NFKC').replace(/[\\s　.．・･]/g,'').replace(/^[△▲☆★◇]/,'');
+   const aliases={'Cルメール':'ルメール','Jモレイラ':'モレイラ','Lトーレス':'トーレス','Aプーシャ':'プーシャ','Aプーシャン':'プーシャ','プーシャン':'プーシャ','Mバルザロ':'バルザロ','Mバルザローナ':'バルザロ','バルザローナ':'バルザロ','バルザロー':'バルザロ','バルザロ':'バルザロ','Cデム':'Cデムーロ','Cデムー':'Cデムーロ','Mデム':'Mデムーロ','Mデムー':'Mデムーロ','ビュイッ':'ビュイック','Wビュイッ':'ビュイック','Wビュイック':'ビュイック','ウィリアムビュイック':'ビュイック','Rムーア':'ムーア','Cスミヨン':'スミヨン','マーカン':'Tマーカンド','Tマーカン':'Tマーカンド','マーカンド':'Tマーカンド','Tマーカンド':'Tマーカンド','Jマクドナルド':'マクドナルド','Zパートン':'パートン','Mディー':'ディー','Dレーン':'レーン','Pギュイヨ':'ギュイヨ','Mパスキエ':'パスキエ','Mムルザバ':'ムルザバ','ムルザバエフ':'ムルザバ','Aルクーヴ':'ルクーヴ','ルクーヴル':'ルクーヴ','Oオシェア':'オシェア','Oマーフィ':'マーフィ','Oマーフィー':'マーフィ','マーフィー':'マーフィ','Dマクモナグル':'マクモナグル','マクモナ':'マクモナグル','鮫島駿':'鮫島克駿','横山典':'横山典弘','坂井':'坂井瑠星','丹内':'丹内祐次','古川吉':'古川吉洋','戸崎圭':'戸崎圭太','岩田望':'岩田望来','吉田隼':'吉田隼人','三浦':'三浦皇成','北村友':'北村友一','川田':'川田将雅','幸':'幸英明','田口':'田口貫太','松山':'松山弘平','藤懸':'藤懸貴志','菅原明':'菅原明良','浜中':'浜中俊','西村淳':'西村淳也'};
    return aliases[n]||n;
   };
+  // 短縮名は履歴内で候補が1名に確定できる場合だけ一致させる。横山など曖昧な姓だけでは結合しない。
+  const jockeySame=(a,b,names=[])=>{
+   const ka=jockeyKey(a),kb=jockeyKey(b);
+   if(!ka||!kb)return false;
+   if(ka===kb)return true;
+   const isJapanese=s=>/^[\\u3040-\\u30ff\\u3400-\\u9fffー]+$/u.test(s);
+   if(!isJapanese(ka)||!isJapanese(kb))return false;
+   const short=ka.length<kb.length?ka:kb,long=ka.length<kb.length?kb:ka;
+   if(short.length<2||!long.startsWith(short))return false;
+   const candidates=new Set([ka,kb,...(Array.isArray(names)?names:[])].map(jockeyKey).filter(x=>x&&x!==short&&x.length>short.length&&x.startsWith(short)));
+   return candidates.size===1&&candidates.has(long);
+  };
+  window.__keibaJockeyKey=jockeyKey;
+  window.__keibaJockeySame=jockeySame;
   const alignJockeyHistory=(h,rows)=>{
-   const current=jockeyKey(h?.jockey);
-   if(!current||!Array.isArray(rows))return Array.isArray(rows)?rows:[];
+   if(!Array.isArray(rows))return [];
+   const names=rows.map(r=>r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'');
    return rows.map(r=>{
     if(!r||typeof r!=='object')return r;
-    return jockeyKey(r.jockey)===current?{...r,jockey:clean(h.jockey),jockey_raw:clean(r.jockey)}:r;
+    return jockeySame(h?.jockey,r.jockey||r.rider||r.jockey_name||r.rider_name||'',names)?{...r,jockey:clean(h.jockey),jockey_raw:clean(r.jockey_raw||r.jockey||r.rider||r.jockey_name||r.rider_name)}:r;
    });
   };
   const first=(...v)=>{for(const x of v){const s=clean(x);if(s&&s!=='-'&&s!=='—')return s}return ''};
@@ -89,7 +103,7 @@
     for(const h of roster){
      const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
      const jockey=jockeyKey(h.jockey);
-     const matchedRows=jockey?history.filter(r=>jockeyKey(r.jockey)===jockey&&Number.isFinite(+r.rank)&&+r.rank>0):[];
+     const jockeyNames=history.map(r=>r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'');const matchedRows=jockey?history.filter(r=>jockeySame(h.jockey,r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'',jockeyNames)&&Number.isFinite(+r.rank)&&+r.rank>0):[];
      const samples=matchedRows.length;
      const card=cards.find(el=>(el.querySelector('.rank')?.textContent||'').includes(h.name));
      const line=card?[...card.querySelectorAll(':scope > .small')].find(el=>el.textContent.includes('騎手相性：')):null;
@@ -115,7 +129,7 @@
    for(const h of (Array.isArray(horses)?horses:[])){
     const section=document.createElement('section');section.style.cssText='padding:7px 0;border-top:1px solid #26364e';
     const allRows=Array.isArray(h.jockey_history)?h.jockey_history:[];const firstDate=allRows[0]?.date||allRows[0]?.race_date||'';const lastDate=allRows[allRows.length-1]?.date||allRows[allRows.length-1]?.race_date||'';
-    const nameCounts=new Map();let withJockey=0;for(const rr of allRows){const raw=String(rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'').trim();if(raw){withJockey++;nameCounts.set(raw,(nameCounts.get(raw)||0)+1)}}const currentKey=jockeyKey(h.jockey);const matchedRows=allRows.filter(rr=>currentKey&&jockeyKey(rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'')===currentKey);const matched=matchedRows.length;const validRank=matchedRows.filter(rr=>Number.isFinite(+rr?.rank)&&+rr.rank>0).length;const rankSamples=matchedRows.slice(0,8).map(rr=>String(rr?.rank??'空')+'['+typeof rr?.rank+']').join('、')||'なし';const rawNames=[...nameCounts.entries()].sort((x,y)=>y[1]-x[1]).slice(0,12).map(([name,count])=>name+'×'+count).join('・')||'（騎手名なし）';
+    const nameCounts=new Map();let withJockey=0;for(const rr of allRows){const raw=String(rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'').trim();if(raw){withJockey++;nameCounts.set(raw,(nameCounts.get(raw)||0)+1)}}const currentKey=jockeyKey(h.jockey);const historyNames=allRows.map(rr=>rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'');const matchedRows=allRows.filter(rr=>currentKey&&jockeySame(h.jockey,rr?.jockey||rr?.rider||rr?.jockey_name||rr?.rider_name||'',historyNames));const matched=matchedRows.length;const validRank=matchedRows.filter(rr=>Number.isFinite(+rr?.rank)&&+rr.rank>0).length;const rankSamples=matchedRows.slice(0,8).map(rr=>String(rr?.rank??'空')+'['+typeof rr?.rank+']').join('、')||'なし';const rawNames=[...nameCounts.entries()].sort((x,y)=>y[1]-x[1]).slice(0,12).map(([name,count])=>name+'×'+count).join('・')||'（騎手名なし）';
     const heading=document.createElement('div');heading.style.fontWeight='600';heading.textContent=(h.no||'')+' '+(h.name||'馬名不明')+' ／ 全履歴取得 '+allRows.length+'走'+(firstDate?'（'+firstDate+(lastDate&&lastDate!==firstDate?'〜'+lastDate:'')+'）':'')+' ／ 現騎手 '+(h.jockey||'未設定')+'：全履歴一致 '+matched+'件（着順有効 '+validRank+'件）／ 騎手名あり '+withJockey+'件 ／ 全履歴モデル照合 '+(h.jockeyFullHistoryMatchedV1??'未計測')+'件・頭数有効 '+(h.jockeyFullHistorySamplesV1??'未計測')+'件・点数 '+(Number.isFinite(+h.jockeyFullHistoryScoreV1)?Number(h.jockeyFullHistoryScoreV1).toFixed(1):'未計測');
     const modelDiag=document.createElement('div');modelDiag.style.cssText='color:#b9c9e3;font-size:11px';
     const fmt=v=>v==null||v===''?'—':Number.isFinite(Number(v))?Number(v).toFixed(1):'—';
