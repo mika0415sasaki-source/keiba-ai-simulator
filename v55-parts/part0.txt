@@ -658,7 +658,7 @@ async function saveCurrentResult({learnModel=false}={}){
    const mem=await memoryApi("save_result",payload);
    let sample=null;
    if(learnModel && !mem.already_saved){
-     const j=await api("learn_result",payload);
+     const j=await api("learn_result_independent",payload);
      weights=j.weights||weights;
      sample=j.sample_count;
   }
