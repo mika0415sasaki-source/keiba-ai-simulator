@@ -638,7 +638,7 @@ async function jraResultImport(url){
    if(!r.ok)throw new Error(j.error||"JRA結果取込エラー");
    return j;
 }
-async function saveCurrentResult({learnModel=false}={}){
+async function saveCurrentResult(){
    if(!actual.length)throw new Error("先に結果を取り込んでください。");
    evalAll();
    const payload={
@@ -656,15 +656,9 @@ async function saveCurrentResult({learnModel=false}={}){
      actual_result:actual
   };
    const mem=await memoryApi("save_result",payload);
-   let sample=null;
-   if(learnModel && !mem.already_saved){
-     const j=await api("learn_result_independent",payload);
-     weights=j.weights||weights;
-     sample=j.sample_count;
-  }
    try{localStorage.setItem("keiba_last_result_saved_v1",JSON.stringify({race_name:payload.race_name,result_url:payload.result_url,actual,saved_at:new Date().toISOString()}))}catch{}
    await refreshMemoryStats(false);
-   return {memory:mem,sample_count:sample};
+   return {memory:mem};
 }
 const n=(v,d=75)=>Number.isFinite(+v)?+v:d,cl=(x,a,b)=>Math.max(a,Math.min(b,x));
 function status(id,msg,err=false){document.getElementById(id).innerHTML=`<div class="status ${err?"err":"ok"}">${msg}</div>`}
@@ -1034,7 +1028,7 @@ document.getElementById("resultImport").onclick=async()=>{
     if(!actual.length)throw new Error("結果データを取得できませんでした。");
     renderAllResult();
     status("resultStatus",`結果 ${actual.length}頭を取得。全頭を学習メモリへ自動保存中…`);
-    const saved=await saveCurrentResult({learnModel:false});
+    const saved=await saveCurrentResult();
     const localHit=recordResultAudit();
     // 古いサーバー側買い目が残っていても、直前のAI買い目を再保存してから照合する。
     try{await savePredictionSnapshot("結果照合前・最新買い目同期")}catch(_){ }
@@ -1054,7 +1048,7 @@ document.getElementById("resultImport").onclick=async()=>{
 }
 document.getElementById("learnBtn").onclick=async()=>{
   try{
-    const saved=await saveCurrentResult({learnModel:false});
+    const saved=await saveCurrentResult();
     await loadMemoryForHorses();await refreshMemoryStats(false);renderAllResult();status("resultStatus",saved.memory?.already_saved?"この結果は保存済みです。内容を再確認しました。":"結果を再保存しました。");
   }catch(e){
     status("resultStatus",e.message||String(e),true);
