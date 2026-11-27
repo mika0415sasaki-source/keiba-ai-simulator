@@ -850,9 +850,10 @@ function jockeyFullHistoryComboScore(h){
   return aliases[n]||n;
  };
  const name=jockeyKey(h.jockey);
- const matched=name&&Array.isArray(h.jockey_history)?h.jockey_history.filter(r=>{
-  return jockeyKey(r.jockey)===name&&Number.isFinite(+r.rank)&&+r.rank>0;
- }):[];
+ const history=Array.isArray(h.jockey_history)?h.jockey_history:[];
+ const historyNames=history.map(r=>r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'');
+ const same=typeof window.__keibaJockeySame==='function'?window.__keibaJockeySame:(a,b)=>jockeyKey(a)===jockeyKey(b);
+ const matched=name?history.filter(r=>same(h.jockey,r?.jockey||r?.rider||r?.jockey_name||r?.rider_name||'',historyNames)&&Number.isFinite(+r.rank)&&+r.rank>0):[];
  const rows=matched.filter(r=>{
   const rank=Number(r.rank),field=Number(r.field_size);
   return Number.isInteger(rank)&&Number.isInteger(field)&&field>=2&&field<=30&&rank<=field;
