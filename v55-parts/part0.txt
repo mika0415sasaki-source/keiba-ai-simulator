@@ -846,7 +846,7 @@ function jockeyComboScore(h){
 function jockeyFullHistoryComboScore(h){
  const jockeyKey=typeof window.__keibaJockeyKey==='function'
   ?window.__keibaJockeyKey
-  :v=>String(v??"").normalize("NFKC").replace(/[\\s　.．・･]/g,"").replace(/^[△▲☆★◇]/,"");
+  :v=>String(v??"").normalize("NFKC").replace(/[\s　.．・･]/g,"").replace(/^[△▲☆★◇]/,"");
  const same=typeof window.__keibaJockeySame==='function'
   ?window.__keibaJockeySame
   :(a,b)=>jockeyKey(a)===jockeyKey(b);
