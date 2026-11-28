@@ -68,7 +68,7 @@ table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px}th,td{p
 </section>
 
 <section id="learn" class="hidden">
-<div class="panel"><h2 style="margin-top:0">結果学習</h2><div class="row"><input id="resultUrl" class="url" placeholder="JRAのレース結果URL"><button class="secondary" type="button" data-clear="resultUrl">クリア</button><button class="secondary" id="resultImport">結果取込</button></div><div id="resultStatus"></div><div id="resultAll" class="card hidden" style="margin-top:12px"></div><div style="margin-top:10px"><button class="primary" id="learnBtn">この結果を再保存</button></div></div>
+<div class="panel"><h2 style="margin-top:0">結果学習</h2><div class="row"><input id="resultUrl" class="url" placeholder="JRA / netkeiba のレース結果URL"><button class="secondary" type="button" data-clear="resultUrl">クリア</button><button class="secondary" id="resultImport">結果取込</button></div><div id="resultStatus"></div><div id="resultAll" class="card hidden" style="margin-top:12px"></div><div style="margin-top:10px"><button class="primary" id="learnBtn">この結果を再保存</button></div></div>
 </section>
 
 <section id="memory" class="hidden">
@@ -1020,15 +1020,17 @@ document.getElementById("make").onclick=async()=>{
 document.getElementById("resultImport").onclick=async()=>{
   try{
     const url=document.getElementById("resultUrl").value.trim();
-    if(!url)return status("resultStatus","JRAのレース結果URLを入れてください。",true);
+    const source=/netkeiba\\.com/i.test(url)?"netkeiba":"JRA";
+    if(!url)return status("resultStatus","JRAまたはnetkeibaのレース結果URLを入れてください。",true);
     const entryId=raceIdFromUrl(document.getElementById("raceUrl").value), resultId=raceIdFromUrl(url);
     if(entryId&&resultId&&entryId!==resultId)throw new Error("出馬表と結果URLが別レースです。結果は保存しません。");
-    status("resultStatus","JRA結果を取得中…");
+    status("resultStatus",`${source}結果を取得中…`);
     const j=await jraResultImport(url);
+    if(j?.ok===false)throw new Error(j.error||`${source}結果を取得できませんでした。`);
     actual=normalizeActualRows(j.result||[]);
-    if(!actual.length)throw new Error("結果データを取得できませんでした。");
+    if(!actual.length)throw new Error(`${source}の結果データを取得できませんでした。URLとレースIDを確認してください。`);
     renderAllResult();
-    status("resultStatus",`結果 ${actual.length}頭を取得。全頭を学習メモリへ自動保存中…`);
+    status("resultStatus",`${j.source||source}結果 ${actual.length}頭を取得。全頭を学習メモリへ自動保存中…`);
     const saved=await saveCurrentResult();
     const localHit=recordResultAudit();
     // 古いサーバー側買い目が残っていても、直前のAI買い目を再保存してから照合する。
@@ -1042,7 +1044,7 @@ document.getElementById("resultImport").onclick=async()=>{
     const hit=!!localHit || !!(settled?.settled && settled.hit);
     const combo=actual.slice(0,3).map(x=>+x.no).sort((a,b)=>a-b).join("-");
     const chk=analyzed?`AI分析照合済み・${hit?"的中":"不的中"}`:"AI分析記録なし";
-    status("resultStatus",`結果取得・全頭自動保存完了<br>${top3}<br>${chk}`);
+    status("resultStatus",`${j.source||source}結果取得・全頭自動保存完了<br>${top3}<br>${chk}`);
   }catch(e){
     status("resultStatus",e.message||String(e),true);
   }
